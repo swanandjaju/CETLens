@@ -27,30 +27,17 @@ let _pendingQs       = null;
 let _pendingFile     = '';
 
 /* ═══════════════════════════════════════════════════════
-   THEME MANAGEMENT
+   THEME MANAGEMENT (dark mode removed — always light)
 ═══════════════════════════════════════════════════════ */
-function toggleTheme() {
-  const current = document.documentElement.getAttribute('data-theme') || 'dark';
-  const next    = current === 'dark' ? 'light' : 'dark';
-  applyTheme(next);
-  localStorage.setItem('examTheme', next);
-  if (questions.length) renderDashboard(questions);
+function toggleTheme() { /* removed — light only */ }
+
+function applyTheme() {
+  document.documentElement.setAttribute('data-theme', 'light');
 }
 
-function applyTheme(theme) {
-  document.documentElement.setAttribute('data-theme', theme);
-  const icon  = theme === 'dark' ? '◈ MTX' : '◈ GHO';
-  const title = theme === 'dark' ? 'Switch to Ghost Mode' : 'Switch to Matrix Mode';
-  ['uploadThemeBtn', 'dashThemeBtn'].forEach(id => {
-    const el = document.getElementById(id);
-    if (el) { el.textContent = icon; el.title = title; }
-  });
-}
-
-// Init theme from localStorage immediately
+// Init theme immediately — always light
 (function initTheme() {
-  const saved = localStorage.getItem('examTheme') || 'dark';
-  applyTheme(saved);
+  applyTheme();
 })();
 
 /* ═══════════════════════════════════════════════════════
@@ -91,7 +78,7 @@ function fireConfetti() {
 }
 
 /* ═══════════════════════════════════════════════════════
-   LOCAL STORAGE — session persistence
+   LOCAL STORAGE — session persistence (restore removed)
 ═══════════════════════════════════════════════════════ */
 function saveSession(filename, qs) {
   try {
@@ -101,39 +88,9 @@ function saveSession(filename, qs) {
   } catch (e) { /* quota exceeded — silently ignore */ }
 }
 
-function checkStoredSession() {
-  try {
-    const raw = localStorage.getItem('examSession');
-    if (!raw) return;
-    const data = JSON.parse(raw);
-    // Expire after 7 days
-    if (Date.now() - data.timestamp > 7 * 24 * 3600 * 1000) {
-      localStorage.removeItem('examSession');
-      return;
-    }
-    window._storedSession = data;
-    const d    = new Date(data.timestamp);
-    const info = `${data.filename}  ·  ${d.toLocaleDateString('en-IN')}  ·  ${data.examMode}  ·  ${data.questions.length} questions`;
-    document.getElementById('restoreBannerInfo').textContent = info;
-    document.getElementById('restoreBanner').style.display  = 'flex';
-  } catch (e) {
-    localStorage.removeItem('examSession');
-  }
-}
-
-function restoreStoredSession() {
-  if (!window._storedSession) return;
-  const { questions: qs, examMode: em, filename } = window._storedSession;
-  setMode(em);
-  document.getElementById('restoreBanner').style.display = 'none';
-  loadDash(filename, qs);
-}
-
-function dismissRestoreBanner() {
-  document.getElementById('restoreBanner').style.display = 'none';
-  localStorage.removeItem('examSession');
-  window._storedSession = null;
-}
+function checkStoredSession() { /* restore session removed */ }
+function restoreStoredSession() { /* removed */ }
+function dismissRestoreBanner() { /* removed */ }
 
 /* ═══════════════════════════════════════════════════════
    CSV EXPORT
@@ -167,12 +124,12 @@ function exportPDF() {
   const date  = new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'long', year: 'numeric' });
 
   const W = 210;
-  const G = [0,255,136], D = [10,10,15], C = [224,224,224], P = [107,114,128];
+  const G = [255,71,87], D = [224,229,236], C = [45,52,54], P = [74,85,104];
 
-  // Background
+  // Background — light neumorphic
   doc.setFillColor(...D); doc.rect(0, 0, W, 297, 'F');
 
-  // Top neon rule
+  // Top accent rule
   doc.setFillColor(...G); doc.rect(0, 0, W, 2.5, 'F');
 
   // Corner brackets
@@ -201,28 +158,28 @@ function exportPDF() {
   doc.text(`Questions:  ${questions.length}`, 120, 48);
 
   // Score box
-  doc.setFillColor(28, 28, 28); doc.rect(20, 70, 170, 38, 'F');
+  doc.setFillColor(240, 242, 245); doc.rect(20, 70, 170, 38, 'F');
   doc.setDrawColor(...G); doc.setLineWidth(0.3); doc.rect(20, 70, 170, 38, 'S');
 
   // Big score number
   doc.setTextColor(...G); doc.setFontSize(30); doc.setFont('times', 'normal');
   doc.text(`${st.earned}`, W / 2 - 10, 94, { align: 'center' });
-  doc.setFontSize(15); doc.setTextColor(120, 110, 80);
+  doc.setFontSize(15); doc.setTextColor(...P);
   doc.text(`/ ${st.maxM}`, W / 2 + 14, 94);
   doc.setFontSize(7); doc.setTextColor(...P); doc.setFont('helvetica', 'normal');
   doc.text('TOTAL SCORE', W / 2, 103, { align: 'center' });
 
   // Stats row
   const stats = [
-    { lbl: 'CORRECT',     val: `${st.correct}`,     col: [0,255,136]   },
-    { lbl: 'INCORRECT',   val: `${st.incorrect}`,   col: [255,51,102]  },
-    { lbl: 'UNATTEMPTED', val: `${st.unattempted}`, col: [107,114,128] },
+    { lbl: 'CORRECT',     val: `${st.correct}`,     col: [34,197,94]   },
+    { lbl: 'INCORRECT',   val: `${st.incorrect}`,   col: [220,38,38]   },
+    { lbl: 'UNATTEMPTED', val: `${st.unattempted}`, col: [100,116,139] },
     { lbl: 'ACCURACY',    val: `${st.accuracy}%`,   col: [...G]        },
   ];
   stats.forEach((s, i) => {
     const x = 20 + i * 42.5;
-    doc.setFillColor(28, 28, 28); doc.rect(x, 118, 40, 20, 'F');
-    doc.setDrawColor(55, 50, 35); doc.setLineWidth(0.15); doc.rect(x, 118, 40, 20, 'S');
+    doc.setFillColor(240, 242, 245); doc.rect(x, 118, 40, 20, 'F');
+    doc.setDrawColor(186, 190, 204); doc.setLineWidth(0.15); doc.rect(x, 118, 40, 20, 'S');
     doc.setTextColor(...s.col); doc.setFontSize(13); doc.setFont('times', 'normal');
     doc.text(s.val, x + 20, 128, { align: 'center' });
     doc.setFontSize(6.5); doc.setTextColor(...P); doc.setFont('helvetica', 'normal');
@@ -239,9 +196,9 @@ function exportPDF() {
   doc.setTextColor(...P); doc.setFontSize(7.5); doc.setFont('helvetica', 'normal');
   doc.text('SUBJECT',   22, 169); doc.text('TOTAL',     90, 169);
   doc.text('CORRECT',  115, 169); doc.text('INCORRECT', 142, 169); doc.text('SCORE', 178, 169);
-  doc.setDrawColor(50, 46, 35); doc.setLineWidth(0.2); doc.line(20, 172, 190, 172);
+  doc.setDrawColor(186, 190, 204); doc.setLineWidth(0.2); doc.line(20, 172, 190, 172);
 
-  const SC = { Physics: [0,212,255], Chemistry: [255,0,255], Mathematics: [...G], Biology: [0,212,255] };
+  const SC = { Physics: [0,180,230], Chemistry: [180,0,200], Mathematics: [...G], Biology: [0,180,230] };
   let ry = 180;
   st.subStats.forEach(s => {
     const total = questions.filter(q => q.section === s.s).length;
@@ -250,17 +207,17 @@ function exportPDF() {
     doc.setTextColor(...col); doc.setFontSize(9); doc.setFont('helvetica', 'bold');
     doc.text(s.s, 22, ry);
     doc.setFont('helvetica', 'normal');
-    doc.setTextColor(...C);    doc.text(String(total), 93, ry);
-    doc.setTextColor(0,255,136);   doc.text(String(s.c),  120, ry);
-    doc.setTextColor(255,51,102);  doc.text(String(wrong), 148, ry);
-    doc.setTextColor(...G);    doc.text(`${s.e}/${s.mx}`, 178, ry);
+    doc.setTextColor(...C);        doc.text(String(total), 93, ry);
+    doc.setTextColor(34,197,94);   doc.text(String(s.c),  120, ry);
+    doc.setTextColor(220,38,38);   doc.text(String(wrong), 148, ry);
+    doc.setTextColor(...G);        doc.text(`${s.e}/${s.mx}`, 178, ry);
     ry += 9;
-    doc.setDrawColor(38, 35, 26); doc.setLineWidth(0.12); doc.line(20, ry - 3, 190, ry - 3);
+    doc.setDrawColor(209, 217, 230); doc.setLineWidth(0.12); doc.line(20, ry - 3, 190, ry - 3);
   });
 
   // Footer
   doc.setDrawColor(...G); doc.setLineWidth(0.25); doc.line(20, 276, 190, 276);
-  doc.setTextColor(80, 72, 55); doc.setFontSize(7);
+  doc.setTextColor(...P); doc.setFontSize(7);
   doc.text('Generated by ExamAnalyzer Pro · Built by Swanand Jaju · WCE Sangli', W / 2, 282, { align: 'center' });
   doc.text('All processing is done locally. No personal data is uploaded or stored.',   W / 2, 287, { align: 'center' });
 
@@ -290,7 +247,7 @@ async function generateShareCard() {
   try {
     const canvas = await html2canvas(card, {
       scale: 2, width: 600, height: 330,
-      backgroundColor: '#0a0a0f', logging: false, useCORS: true, allowTaint: true
+      backgroundColor: '#e0e5ec', logging: false, useCORS: true, allowTaint: true
     });
     const link = document.createElement('a');
     link.download = `score_card_${examMode}_${st.earned}_${Date.now()}.png`;
@@ -1009,6 +966,8 @@ function showLoading() {
   document.getElementById('uploadScreen').style.display  = 'none';
   document.getElementById('loadingScreen').style.display = 'flex';
   document.getElementById('dashboard').style.display     = 'none';
+  const lp = document.getElementById('landingPage');
+  if (lp) lp.style.display = 'none';
 }
 
 function setStep(label, sub) {
@@ -1032,8 +991,10 @@ function resetApp() {
   if (donutChartInst) { donutChartInst.destroy(); donutChartInst = null; }
   const subGrid = document.getElementById('subjectChartsGrid');
   if (subGrid) { subGrid.innerHTML = ''; subGrid.style.display = 'none'; }
-  document.getElementById('dashboard').style.display    = 'none';
-  document.getElementById('uploadScreen').style.display = 'flex';
+  document.getElementById('dashboard').style.display     = 'none';
+  document.getElementById('uploadScreen').style.display  = 'flex';
+  const lp = document.getElementById('landingPage');
+  if (lp) lp.style.display = 'block';
   document.getElementById('fileInput').value = '';
   localStorage.removeItem('examSession');
   window._storedSession = null;
