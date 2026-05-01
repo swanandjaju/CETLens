@@ -17,8 +17,19 @@
 </head>
 
 <body>
-
-  <!-- Restore session & theme toggle removed -->
+  <!-- Theme toggle on upload/landing screen -->
+  <button class="theme-toggle-btn" id="uploadThemeBtn" onclick="toggleTheme()" title="Toggle dark mode">
+    <svg class="theme-icon-sun" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <circle cx="12" cy="12" r="5"/>
+      <line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/>
+      <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/>
+      <line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/>
+      <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
+    </svg>
+    <svg class="theme-icon-moon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/>
+    </svg>
+  </button>
 
   <!-- ═══════════════════════════════════════════════════════
      UPLOAD SCREEN
@@ -136,9 +147,8 @@
     <!-- Topbar -->
     <div class="topbar">
       <div class="topbar-left">
-        <!-- Hamburger: mobile only -->
-        <button class="hamburger-btn" id="hamburgerBtn" onclick="toggleSidebar()" aria-label="Toggle sidebar"
-          style="display:none">
+        <!-- UI CHANGE: hamburger hidden — sidebar removed -->
+        <button class="hamburger-btn" id="hamburgerBtn" onclick="toggleSidebar()" aria-label="Toggle sidebar" style="display:none">
           <span></span><span></span><span></span>
         </button>
         <div class="topbar-brand">ExamAnalyzer Pro</div>
@@ -146,6 +156,18 @@
         <span class="topbar-mode" id="topbarMode"></span>
       </div>
       <div class="topbar-actions">
+        <button class="theme-toggle-btn" id="dashThemeBtn" onclick="toggleTheme()" title="Toggle dark mode">
+          <svg class="theme-icon-sun" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="5"/>
+            <line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/>
+            <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/>
+            <line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/>
+            <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
+          </svg>
+          <svg class="theme-icon-moon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/>
+          </svg>
+        </button>
         <button class="btn-icon export-btn" onclick="exportCSV()" title="Export CSV" id="csvBtn">
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
             <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3" />
@@ -178,8 +200,8 @@
     <!-- Main layout: sidebar + content -->
     <div class="main-layout">
 
-      <!-- Sidebar: question grid -->
-      <div class="sidebar" id="mainSidebar">
+      <!-- UI CHANGE: sidebar hidden — question table replaces it -->
+      <div class="sidebar" id="mainSidebar" style="display:none">
         <div class="sidebar-inner" id="gridContainer"></div>
       </div>
 
@@ -187,49 +209,84 @@
       <div class="content">
         <div class="content-inner">
 
-          <!-- Metric cards -->
-          <div class="metrics-grid" id="metricsGrid"></div>
-
-          <!-- Main chart grid: donut + bar -->
-          <div class="chart-grid">
-            <div class="chart-card">
-              <div class="chart-title">Accuracy Breakdown</div>
-              <div class="donut-wrap">
-                <canvas id="donutChart"></canvas>
-                <div class="donut-center">
-                  <div class="donut-pct" id="donutPct">—</div>
-                  <div class="donut-sub">accuracy</div>
+          <!-- UI CHANGE: Tabbed score card replaces metrics-grid, chart-grid, subject-charts-grid -->
+          <div class="score-tabs-card" id="scoreTabsCard">
+            <!-- Tab header -->
+            <div class="score-tabs-header">
+              <button class="score-tab active" data-tab="overall" onclick="switchScoreTab('overall',this)">Overall Score</button>
+              <button class="score-tab" data-tab="subjects" onclick="switchScoreTab('subjects',this)">Subject-wise Score</button>
+            </div>
+            <!-- Tab 1: Overall Score with arc gauge -->
+            <div class="score-tab-panel active" id="panelOverall">
+              <div class="arc-gauge-wrap">
+                <svg class="arc-gauge" viewBox="0 0 200 120">
+                  <!-- UI CHANGE: track arc (background) -->
+                  <path class="arc-track" d="" />
+                  <!-- UI CHANGE: filled arc (score) -->
+                  <path class="arc-fill" d="" />
+                  <!-- UI CHANGE: tick labels rendered by JS -->
+                  <text class="arc-tick" x="18" y="112">0</text>
+                  <text class="arc-tick arc-tick-mid" x="100" y="16"></text>
+                  <text class="arc-tick" x="182" y="112"></text>
+                </svg>
+                <!-- UI CHANGE: big score number centered over arc -->
+                <div class="arc-score-center">
+                  <span class="arc-score-val" id="arcScoreVal">—</span>
+                  <span class="arc-score-max" id="arcScoreMax"></span>
                 </div>
               </div>
-              <div id="donutLegend"
-                style="display:flex;gap:1.25rem;justify-content:center;margin-top:1.1rem;font-size:11px;color:var(--text2);font-weight:500;letter-spacing:.06em">
-              </div>
+              <!-- UI CHANGE: 3 stat pills below gauge -->
+              <div class="arc-stat-pills" id="arcStatPills"></div>
             </div>
-            <div class="chart-card">
-              <div class="chart-title">Sectional Performance</div>
-              <div id="subjectBars" style="padding-top:.5rem"></div>
+            <!-- Tab 2: Subject-wise Score rows -->
+            <div class="score-tab-panel" id="panelSubjects">
+              <div class="subject-score-rows" id="subjectScoreRows"></div>
             </div>
           </div>
 
-          <!-- Subject-wise accuracy pie charts (one per subject) -->
-          <div class="subject-charts-grid" id="subjectChartsGrid"></div>
+          <!-- UI CHANGE: hidden containers for old chart/metrics JS to write into (keeps renderDashboard working) -->
+          <div id="metricsGrid" style="display:none"></div>
+          <div style="display:none">
+            <canvas id="donutChart"></canvas>
+            <div id="donutPct"></div>
+            <div id="donutLegend"></div>
+            <div id="subjectBars"></div>
+          </div>
+          <div class="subject-charts-grid" id="subjectChartsGrid" style="display:none"></div>
 
           <!-- Filter bar -->
           <div class="filter-bar" id="filterBar">
-            <button class="btn-ghost active" data-filter="all" onclick="setFilter('all',this)">All (0)</button>
-            <button class="btn-ghost" data-filter="correct" onclick="setFilter('correct',this)">Correct</button>
-            <button class="btn-ghost" data-filter="incorrect" onclick="setFilter('incorrect',this)">Incorrect</button>
-            <button class="btn-ghost" data-filter="unattempted"
+            <button class="filter-chip active" data-filter="all" onclick="setFilter('all',this)">All (0)</button>
+            <button class="filter-chip" data-filter="correct" onclick="setFilter('correct',this)">Correct</button>
+            <button class="filter-chip" data-filter="incorrect" onclick="setFilter('incorrect',this)">Incorrect</button>
+            <button class="filter-chip" data-filter="unattempted"
               onclick="setFilter('unattempted',this)">Unattempted</button>
           </div>
 
-          <!-- Question viewer -->
-          <div class="q-viewer" id="qViewer">
+          <!-- UI CHANGE: Question table inserted between filter-bar and q-viewer -->
+          <div class="q-table-card" id="qTableCard">
+            <table class="q-table" id="qTable">
+              <thead>
+                <tr>
+                  <th>#</th>
+                  <th>Question</th>
+                  <th class="q-table-preview-col">Preview</th>
+                  <th>Status</th>
+                  <th>Marks</th>
+                </tr>
+              </thead>
+              <tbody id="qTableBody"></tbody>
+            </table>
+          </div>
+
+          <!-- UI CHANGE: q-viewer hidden — replaced by question detail modal -->
+          <div class="q-viewer" id="qViewer" style="display:none">
             <div class="q-header">
               <span class="q-num" id="qNum">—</span>
               <span class="q-badge badge-unattempted" id="qBadge"></span>
               <span class="marks-pill marks-zero" id="marksPill"></span>
             </div>
+            <div class="q-body">
             <div class="q-img-area" id="qImgArea">
               <div class="q-img-placeholder">Upload a response sheet to see question previews</div>
             </div>
@@ -249,6 +306,7 @@
                 </div>
               </div>
             </div>
+            </div>
             <div class="q-footer">
               <div class="nav-btns">
                 <button class="btn-ghost" onclick="prevQ()">← Prev</button>
@@ -262,6 +320,52 @@
       </div>
     </div>
   </div>
+
+  <!-- UI CHANGE: Question detail modal — opens when clicking a table row -->
+  <div class="q-detail-overlay" id="qDetailOverlay" onclick="if(event.target===this)closeQDetail()">
+    <div class="q-detail-wrapper" onclick="if(event.target===this)closeQDetail()">
+      <button class="modal-side-btn modal-side-prev" onclick="prevQDetail()" aria-label="Previous">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+      </button>
+      <button class="modal-side-btn modal-side-next" onclick="nextQDetail()" aria-label="Next">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+      </button>
+      <div class="q-detail-modal">
+      <div class="q-detail-header">
+        <div class="q-detail-title">
+          <span class="q-num" id="qdNum">—</span>
+          <span class="q-badge badge-unattempted" id="qdBadge"></span>
+          <span class="marks-pill marks-zero" id="qdMarks"></span>
+        </div>
+        <button class="q-detail-close" onclick="closeQDetail()" aria-label="Close">✕</button>
+      </div>
+      <div class="q-detail-body">
+        <div class="q-detail-img" id="qdImgArea">
+          <div class="q-img-placeholder">No preview available</div>
+        </div>
+        <div class="q-detail-answers">
+          <div class="q-detail-ans">
+            <div class="ans-icon is" id="qdSelIcon"><span>—</span></div>
+            <div class="ans-detail">
+              <span class="ans-lbl">Candidate's Answer</span>
+              <span class="ans-val vs" id="qdSelected">Not Answered</span>
+            </div>
+          </div>
+          <div class="q-detail-ans">
+            <div class="ans-icon ia" id="qdCorIcon"><span>✓</span></div>
+            <div class="ans-detail">
+              <span class="ans-lbl">Correct Answer</span>
+              <span class="ans-val va" id="qdCorrect">—</span>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="q-detail-footer">
+        <span class="q-detail-counter" id="qdCounter"></span>
+      </div>
+    </div>
+  </div>
+</div>
 
   <!-- ═══════════════════════════════════════════════════════
      SIDEBAR OVERLAY (mobile drawer backdrop)
@@ -511,4 +615,5 @@
     function toggleLanding() { /* noop */ }
   </script>
 
+</body> <!-- BUG FIX: missing closing body tag -->
 </html>

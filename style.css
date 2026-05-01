@@ -6,6 +6,10 @@
 /* ─── Reset ─── */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
+/* BUG 1 FIX: Lock page scroll when dashboard is active */
+html, body { height: 100%; overflow: hidden; }
+body.upload-active { overflow: auto; } /* Allow scroll on upload/landing screen */
+
 /* ─── Design Tokens — Industrial Skeuomorphism ─── */
 :root {
   /* ── Core palette ── */
@@ -82,8 +86,6 @@
 
 /* ─── LIGHT THEME — kept as pass-through (base IS light now) ─── */
 [data-theme="light"] {
-  /* The base palette is already light-neumorphic,
-     so "light" theme simply matches :root. */
   --obsidian:     var(--background);
   --charcoal:     var(--foreground);
   --charcoal-mid: #e8ecf1;
@@ -112,6 +114,79 @@ html[data-theme="light"] body {
 [data-theme="light"] .cmd-box,
 [data-theme="light"] .mismatch-box { box-shadow: var(--shadow-floating); }
 
+/* ─── DARK THEME — industrial dark neumorphism ─── */
+[data-theme="dark"] {
+  --background:    #1a1d23;
+  --foreground:    #22262e;
+  --muted:         #2a2f38;
+  --text:          #e2e8f0;
+  --text-muted:    #94a3b8;
+
+  --border-shadow: #111318;
+  --border-light:  #2e3340;
+  --border-dark:   #111318;
+
+  --shadow-card:     6px 6px 14px #111318, -6px -6px 14px #2e3340;
+  --shadow-floating: 10px 10px 20px #111318, -10px -10px 20px #2e3340, inset 1px 1px 0 rgba(255,255,255,0.04);
+  --shadow-pressed:  inset 5px 5px 10px #111318, inset -5px -5px 10px #2e3340;
+  --shadow-recessed: inset 3px 3px 6px #111318, inset -3px -3px 6px #2e3340;
+
+  --obsidian:      #1a1d23;
+  --charcoal:      #22262e;
+  --charcoal-mid:  #2a2f38;
+  --midnight:      #1e2128;
+  --cream:         #e2e8f0;
+  --pewter:        #94a3b8;
+
+  --bg:    #1a1d23;
+  --bg2:   #22262e;
+  --bg3:   #2a2f38;
+  --border:  rgba(255, 255, 255, 0.08);
+  --border2: rgba(255, 255, 255, 0.14);
+  --text2: #94a3b8;
+  --text3: #64748b;
+
+  --correct:       #4ade80;
+  --incorrect:     #f87171;
+  --unattempted:   #64748b;
+  --unat-chart:    #2a2f38;
+
+  --accent-dim:    rgba(255, 71, 87, 0.28);
+  --accent-faint:  rgba(255, 71, 87, 0.10);
+  --gold-dim:      rgba(255, 71, 87, 0.28);
+  --gold-faint:    rgba(255, 71, 87, 0.10);
+}
+
+html[data-theme="dark"] body {
+  background: #1a1d23;
+}
+
+[data-theme="dark"] .q-img-placeholder { background: #1a1d23; color: var(--pewter); }
+[data-theme="dark"] .cmd-box,
+[data-theme="dark"] .mismatch-box { box-shadow: var(--shadow-floating); }
+[data-theme="dark"] .upload-zone { background: #22262e; }
+[data-theme="dark"] .upload-zone:hover { background: #2a2f38; }
+[data-theme="dark"] .about-avatar { background: #2a2f38; }
+[data-theme="dark"] .mode-btn { background: #22262e; }
+[data-theme="dark"] .mode-btn.active { background: var(--accent-faint); }
+[data-theme="dark"] .device__bezel { background: #0e1015; border-color: #1a1d23; }
+[data-theme="dark"] .device__screen { background: #0a0c10; }
+[data-theme="dark"] .neu-testimonial { background: #22262e; }
+[data-theme="dark"] .step__node { background: #22262e; }
+[data-theme="dark"] .score-tab { color: #94a3b8; }
+[data-theme="dark"] .score-tab.active { color: var(--accent); }
+[data-theme="dark"] .q-table th { background: #2a2f38; }
+[data-theme="dark"] .q-table tbody tr:nth-child(even) { background: #252930; }
+[data-theme="dark"] .modal-side-btn { background: #22262e; }
+[data-theme="dark"] .modal-side-btn:hover { background: #2a2f38; }
+[data-theme="dark"] .q-detail-close:hover { background: #2a2f38; }
+[data-theme="dark"] .filter-chip { border-color: rgba(255,255,255,0.1); }
+[data-theme="dark"] .filter-chip:hover { background: #2a2f38; border-color: rgba(255,255,255,0.18); }
+[data-theme="dark"] .mismatch-overlay .mismatch-box { background: #22262e; }
+[data-theme="dark"] .loading-overlay { background: rgba(26,29,35,.95); }
+[data-theme="dark"] ::-webkit-scrollbar-track { background: #1a1d23; }
+[data-theme="dark"] ::-webkit-scrollbar-thumb { background: rgba(255,71,87,0.35); }
+
 /* ═══════════════════════════════════════════════════════
    ANIMATIONS
 ═══════════════════════════════════════════════════════ */
@@ -129,7 +204,7 @@ body {
   font-family: var(--font-body);
   background: var(--background);
   color: var(--text);
-  min-height: 100vh;
+  /* BUG FIX: removed min-height:100vh — conflicts with height:100% on html,body above */
   transition: background .35s, color .35s;
   position: relative;
 }
@@ -142,7 +217,8 @@ body::before {
   z-index: 0;
   pointer-events: none;
   opacity: 0.25;
-  mix-blend-mode: overlay;
+  mix-blend-mode: soft-light; /* BUG 2 FIX: soft-light avoids Chromium compositing seam */
+  will-change: opacity;       /* BUG 2 FIX: promote to own layer to avoid repaint artifacts */
   background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
   background-repeat: repeat;
   background-size: 256px 256px;
@@ -183,6 +259,15 @@ input, button, select { font-family: var(--font-body); }
   color: var(--text);
 }
 #uploadThemeBtn { position: fixed; top: 1rem; right: 1rem; z-index: 110; }
+
+/* Sun/moon icon visibility — light mode: show moon (to switch to dark), dark mode: show sun (to switch to light) */
+.theme-icon-sun  { display: none; }
+.theme-icon-moon { display: block; }
+[data-theme="dark"] .theme-icon-sun  { display: block; }
+[data-theme="dark"] .theme-icon-moon { display: none; }
+
+.theme-toggle-btn svg { transition: transform .3s ease; }
+.theme-toggle-btn:hover svg { transform: rotate(20deg); }
 
 /* ═══════════════════════════════════════════════════════
    UPLOAD SCREEN
@@ -410,6 +495,42 @@ input, button, select { font-family: var(--font-body); }
   box-shadow: var(--shadow-recessed);
 }
 
+/* ── FILTER CHIP — compact pill for filter bar ── */
+.filter-chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: .4rem;
+  min-height: 32px;
+  padding: .3rem .95rem;
+  font-family: var(--font-body);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: .07em;
+  text-transform: uppercase;
+  cursor: pointer;
+  border-radius: 20px;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text-muted);
+  transition: all 150ms ease;
+  white-space: nowrap;
+  outline: none;
+  -webkit-tap-highlight-color: transparent;
+}
+.filter-chip:hover {
+  background: var(--muted);
+  color: var(--text);
+  border-color: var(--border2);
+}
+.filter-chip:active { transform: scale(.97); }
+.filter-chip.active {
+  background: var(--accent-faint);
+  border-color: var(--accent-dim);
+  color: var(--accent-light);
+  box-shadow: var(--shadow-recessed);
+}
+
 /* ── ICON BUTTON (inherits ghost base) ── */
 .btn-icon {
   background: var(--background);
@@ -501,7 +622,7 @@ input, button, select { font-family: var(--font-body); }
 /* ═══════════════════════════════════════════════════════
    DASHBOARD
 ═══════════════════════════════════════════════════════ */
-.dashboard { display: none; flex-direction: column; }
+.dashboard { display: none; flex-direction: column; height: 100vh; overflow: hidden; } /* BUG 1 FIX: constrain dashboard to viewport */
 
 /* Topbar */
 .topbar {
@@ -511,12 +632,12 @@ input, button, select { font-family: var(--font-body); }
   padding: .75rem 1.5rem;
   border-bottom: 1px solid var(--border);
   background: var(--charcoal);
-  position: sticky;
-  top: 0;
+  position: relative; /* BUG FIX: sticky doesn't work inside overflow:hidden parent (.dashboard) */
   z-index: 100;
   gap: 1rem;
   transition: background .35s, border-color .35s;
   box-shadow: 0 2px 8px rgba(0, 0, 0, .2);
+  flex-shrink: 0; /* BUG FIX: prevent topbar from shrinking in flex column */
 }
 .topbar-left { display: flex; align-items: center; gap: .85rem; min-width: 0; overflow: hidden; }
 .topbar-brand {
@@ -565,17 +686,16 @@ input, button, select { font-family: var(--font-body); }
 .hamburger-btn:hover { background: var(--charcoal-mid); }
 .hamburger-btn span  { display: block; width: 18px; height: 1.5px; background: var(--text2); transition: all .3s; }
 
-/* Main layout */
-.main-layout { display: grid; grid-template-columns: 265px 1fr; min-height: calc(100vh - 53px); }
+/* Main layout — UI CHANGE: single column, sidebar removed */
+.main-layout { display: grid; grid-template-columns: 1fr; height: calc(100vh - 53px); overflow: hidden; }
 
 /* Sidebar */
 .sidebar {
   border-right: 1px solid var(--border);
   background: var(--charcoal);
   overflow-y: auto;
-  max-height: calc(100vh - 53px);
-  position: sticky;
-  top: 53px;
+  /* BUG FIX: removed max-height — parent .main-layout already constrains height */
+  /* BUG FIX: removed position:sticky — doesn't work inside overflow:hidden parent */
   transition: background .35s, border-color .35s;
 }
 .sidebar-inner  { padding: 1.25rem 1rem; }
@@ -610,8 +730,13 @@ input, button, select { font-family: var(--font-body); }
 .q-btn.active { border-color: var(--accent) !important; background: var(--accent-faint) !important; color: var(--accent-light) !important; }
 
 /* Content area */
-.content        { overflow-y: auto; max-height: calc(100vh - 53px); }
-.content-inner  { padding: 1.5rem; max-width: 900px; margin: 0 auto; }
+.content        { overflow-y: auto; overflow-x: hidden; } /* BUG FIX: removed max-height — parent .main-layout constrains; prevent horizontal overflow */
+.content-inner  { padding: 1.5rem; max-width: 1000px; margin: 0 auto; overflow-x: hidden; } /* UI CHANGE: wider since sidebar removed */
+
+/* BUG 2 FIX: grid children must not overflow their track */
+.metrics-grid > *,
+.chart-grid > *,
+.subject-charts-grid > * { min-width: 0; }
 
 /* ═══════════════════════════════════════════════════════
    METRIC CARDS + TOOLTIPS
@@ -700,7 +825,303 @@ input, button, select { font-family: var(--font-body); }
 .subject-charts-grid .donut-pct  { font-size: 18px; }
 
 /* Filter bar */
-.filter-bar { display: flex; gap: .5rem; margin-bottom: 1.5rem; flex-wrap: wrap; }
+.filter-bar { display: flex; flex-direction: column; gap: 1rem; margin-bottom: 1.5rem; }
+.filter-group { display: flex; gap: .5rem; flex-wrap: wrap; }
+
+/* ═══════════════════════════════════════════════════════
+   UI CHANGE: TABBED SCORE CARD
+═══════════════════════════════════════════════════════ */
+.score-tabs-card {
+  background: var(--charcoal); /* UI CHANGE: neumorphic card surface */
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+  margin-bottom: 1.5rem;
+}
+
+/* Tab header row */
+.score-tabs-header {
+  display: flex; /* UI CHANGE: side-by-side tabs */
+  border-bottom: 1px solid var(--border);
+  background: var(--charcoal-mid);
+}
+.score-tab {
+  flex: 1; /* UI CHANGE: equal-width tabs */
+  padding: .875rem 1rem;
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid transparent;
+  font-family: var(--font-body);
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .1em;
+  color: var(--pewter);
+  cursor: pointer;
+  transition: color .2s, border-color .2s, background .2s;
+}
+.score-tab:hover { color: var(--text); }
+.score-tab.active {
+  color: var(--accent-light); /* UI CHANGE: accent underline for active tab */
+  border-bottom-color: var(--accent);
+  background: var(--charcoal);
+}
+
+/* Tab panels */
+.score-tab-panel {
+  display: none; /* UI CHANGE: hidden by default */
+  padding: 1.5rem;
+}
+.score-tab-panel.active {
+  display: block; /* UI CHANGE: show active panel */
+}
+
+/* ── Arc Gauge (semicircular speedometer) ── */
+.arc-gauge-wrap {
+  position: relative; /* UI CHANGE: position context for centered score */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto;
+  max-width: 260px;
+  aspect-ratio: 200 / 120;
+}
+.arc-gauge {
+  width: 100%; /* UI CHANGE: responsive SVG gauge */
+  height: auto;
+  overflow: visible;
+}
+.arc-track {
+  fill: none;
+  stroke: var(--border); /* UI CHANGE: track color from design system */
+  stroke-width: 12;
+  stroke-linecap: round;
+}
+.arc-fill {
+  fill: none;
+  stroke: var(--accent); /* UI CHANGE: filled arc uses accent color */
+  stroke-width: 12;
+  stroke-linecap: round;
+  /* BUG 12 FIX: removed transition: d — SVG 'd' is not CSS-animatable */
+}
+.arc-tick {
+  fill: var(--pewter); /* UI CHANGE: muted tick labels */
+  font-size: 10px;
+  font-family: var(--font-mono);
+  font-weight: 500;
+  text-anchor: middle;
+}
+.arc-tick-mid {
+  font-weight: 700;
+  fill: var(--text2);
+}
+
+/* Score centered inside the arc */
+.arc-score-center {
+  position: absolute; /* UI CHANGE: overlay on the arc */
+  bottom: 8%;
+  left: 50%;
+  transform: translateX(-50%);
+  text-align: center;
+  pointer-events: none;
+}
+.arc-score-val {
+  display: block;
+  font-size: 38px; /* UI CHANGE: large prominent score */
+  font-weight: 800;
+  color: var(--accent-light);
+  line-height: 1;
+  font-family: var(--font-display);
+}
+.arc-score-max {
+  display: block;
+  font-size: 13px; /* UI CHANGE: muted max label */
+  color: var(--pewter);
+  font-weight: 600;
+  margin-top: 2px;
+}
+
+/* 3 stat pills below gauge */
+.arc-stat-pills {
+  display: flex; /* UI CHANGE: inline pill row */
+  justify-content: center;
+  gap: 12px;
+  margin-top: 1rem;
+  flex-wrap: wrap;
+}
+.arc-pill {
+  display: inline-flex; /* UI CHANGE: individual pill */
+  align-items: center;
+  gap: 6px;
+  padding: .4rem .9rem;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 700;
+  font-family: var(--font-body);
+  border: 1px solid;
+}
+.arc-pill--correct {
+  color: var(--correct); /* UI CHANGE: green correct pill */
+  background: rgba(34,197,94,.08);
+  border-color: rgba(34,197,94,.25);
+}
+.arc-pill--incorrect {
+  color: var(--incorrect); /* UI CHANGE: red incorrect pill */
+  background: rgba(239,68,68,.08);
+  border-color: rgba(239,68,68,.25);
+}
+.arc-pill--accuracy {
+  color: var(--accent-light); /* UI CHANGE: accent accuracy pill */
+  background: var(--accent-faint);
+  border-color: var(--accent-dim);
+}
+.arc-pill-dot {
+  width: 7px; height: 7px; /* UI CHANGE: colored dot inside pill */
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+/* ── Subject-wise Score Rows (Tab 2) ── */
+.subject-score-rows {
+  display: flex; /* UI CHANGE: vertical stack */
+  flex-direction: column;
+  gap: 0;
+}
+.subject-score-row {
+  display: flex; /* UI CHANGE: row layout */
+  align-items: center;
+  gap: 1rem;
+  padding: 1rem 1.25rem;
+  border-bottom: 1px solid var(--border);
+  border-left: 3px solid transparent; /* UI CHANGE: left accent border */
+  transition: background .15s;
+}
+.subject-score-row:last-child { border-bottom: none; }
+.subject-score-row:hover { background: var(--charcoal-mid); }
+
+/* Subject color borders — CSS variables only */
+.subject-score-row[data-subject="Physics"]     { border-left-color: var(--correct); }
+.subject-score-row[data-subject="Chemistry"]   { border-left-color: #c084fc; } /* UI CHANGE: purple tint for Chemistry */
+.subject-score-row[data-subject="Mathematics"] { border-left-color: var(--accent); }
+.subject-score-row[data-subject="Biology"]     { border-left-color: var(--accent); }
+
+.subject-score-name {
+  font-size: 13px; /* UI CHANGE: subject name */
+  font-weight: 600;
+  color: var(--text);
+  flex: 1;
+  min-width: 0;
+}
+.subject-score-earned {
+  font-size: 24px; /* UI CHANGE: large bold earned score */
+  font-weight: 800;
+  color: var(--text);
+  font-family: var(--font-display);
+  line-height: 1;
+}
+.subject-score-max {
+  font-size: 14px; /* UI CHANGE: muted max */
+  color: var(--pewter);
+  font-weight: 500;
+}
+
+/* ═══════════════════════════════════════════════════════
+   UI CHANGE: QUESTION TABLE
+═══════════════════════════════════════════════════════ */
+.q-table-card {
+  background: var(--charcoal); /* UI CHANGE: neumorphic card wrapper */
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+  margin-bottom: 1.5rem;
+  max-height: 50vh; /* UI CHANGE: taller since q-viewer is removed */
+  overflow-y: auto;
+}
+.q-table {
+  width: 100%; /* UI CHANGE: full-width table */
+  border-collapse: collapse;
+  font-size: 12px;
+}
+.q-table thead {
+  position: sticky; /* UI CHANGE: sticky header inside scroll */
+  top: 0;
+  z-index: 5;
+}
+.q-table th {
+  background: var(--charcoal-mid); /* UI CHANGE: header surface */
+  padding: .65rem .75rem;
+  text-align: left;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .1em;
+  color: var(--text2);
+  border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+}
+.q-table td {
+  padding: .6rem .75rem;
+  border-bottom: 1px solid var(--border);
+  color: var(--text);
+  vertical-align: middle;
+}
+.q-table tbody tr {
+  cursor: pointer; /* UI CHANGE: clickable rows */
+  transition: background .12s;
+}
+.q-table tbody tr:nth-child(even) {
+  background: var(--bg3); /* UI CHANGE: alternating row bg */
+}
+.q-table tbody tr:nth-child(odd) {
+  background: var(--bg); /* UI CHANGE: alternating row bg */
+}
+.q-table tbody tr:hover {
+  background: var(--accent-faint); /* UI CHANGE: hover highlight */
+}
+.q-table tbody tr.q-table-active {
+  background: var(--accent-faint); /* UI CHANGE: active row highlight */
+  outline: 1px solid var(--accent-dim);
+  outline-offset: -1px;
+}
+
+/* Table status icons */
+.q-table-status {
+  font-weight: 700; /* UI CHANGE: colored status cell */
+  font-size: 14px;
+}
+.q-table-status--correct    { color: var(--correct); }
+.q-table-status--incorrect  { color: var(--incorrect); }
+.q-table-status--unattempted{ color: var(--pewter); }
+
+/* Table marks cell */
+.q-table-marks {
+  font-weight: 700;
+  font-family: var(--font-mono);
+  font-size: 12px;
+}
+.q-table-marks--pos  { color: var(--correct); }
+.q-table-marks--zero { color: var(--pewter); }
+
+/* Table preview thumbnail */
+.q-table-thumb {
+  width: 40px; height: 28px; /* UI CHANGE: small thumbnail */
+  object-fit: cover;
+  border-radius: 3px;
+  border: 1px solid var(--border);
+  background: var(--obsidian);
+  display: block;
+}
+.q-table-no-thumb {
+  width: 40px; height: 28px; /* UI CHANGE: placeholder when no image */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 3px;
+  border: 1px solid var(--border);
+  background: var(--obsidian);
+  color: var(--pewter);
+  font-size: 10px;
+}
 
 /* ═══════════════════════════════════════════════════════
    QUESTION VIEWER
@@ -712,8 +1133,11 @@ input, button, select { font-family: var(--font-body); }
   position: relative;
   transition: background .35s, border-color .35s;
   border-radius: var(--radius);
+  display: flex;
+  flex-direction: column;
+  max-height: calc(100vh - 100px);
 }
-.q-header { display: flex; align-items: center; gap: .75rem; padding: .875rem 1.25rem; border-bottom: 1px solid var(--border); background: var(--charcoal-mid); }
+.q-header { display: flex; align-items: center; gap: .75rem; padding: .875rem 1.25rem; border-bottom: 1px solid var(--border); background: var(--charcoal-mid); flex-shrink: 0; } /* BUG FIX: prevent header from shrinking in flex column */
 .q-num { font-size: 13px; font-weight: 600; color: var(--text); }
 .q-badge { font-size: 10px; padding: 2px 8px; font-weight: 600; text-transform: uppercase; letter-spacing: .08em; border-radius: 4px; }
 .badge-correct     { background: rgba(34,197,94,.1);  color: #4ade80; border: 1px solid rgba(34,197,94,.3); }
@@ -723,8 +1147,10 @@ input, button, select { font-family: var(--font-body); }
 .marks-pos  { background: rgba(34,197,94,.1);  color: #4ade80;      border: 1px solid rgba(34,197,94,.25); }
 .marks-zero { background: var(--charcoal-mid); color: var(--pewter); border: 1px solid var(--border); }
 
-.q-img-area { background: var(--obsidian); display: flex; align-items: flex-start; justify-content: center; border-bottom: 1px solid var(--border); min-height: 120px; overflow: hidden; }
+.q-body { flex: 1; overflow-y: auto; min-height: 0; }
+.q-img-area { background: var(--obsidian); display: flex; align-items: flex-start; justify-content: center; border-bottom: 1px solid var(--border); overflow: hidden; }
 .q-img-area img { max-width: 100%; display: block; cursor: zoom-in; transition: opacity .2s; }
+.q-img-area > * { max-width: 100%; } /* BUG FIX: constrain direct children only — wildcard (*) was too aggressive */
 .q-img-area img:hover { opacity: .9; }
 .q-img-placeholder { display: flex; align-items: center; justify-content: center; min-height: 180px; width: 100%; color: var(--pewter); font-size: 13px; background: var(--obsidian); flex-direction: column; gap: .75rem; text-align: center; padding: 1.5rem; }
 
@@ -745,8 +1171,191 @@ input, button, select { font-family: var(--font-body); }
 .vs { color: var(--pewter); }
 .va { color: var(--accent-light); }
 
-.q-footer { display: flex; justify-content: space-between; align-items: center; padding: .875rem 1.25rem; }
+.q-footer { display: flex; justify-content: space-between; align-items: center; padding: .875rem 1.25rem; margin-top: auto; flex-shrink: 0; } /* BUG FIX: prevent footer from shrinking in flex column */
 .nav-btns  { display: flex; gap: .5rem; }
+
+/* ═══════════════════════════════════════════════════════
+   UI CHANGE: QUESTION DETAIL MODAL
+   Opens when clicking a row in the question table
+═══════════════════════════════════════════════════════ */
+/* BUG 4+5 FIX: use opacity+visibility for fade transition instead of display:none */
+.q-detail-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, .6);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  z-index: 400;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.5rem 3rem; /* BUG 4 FIX: wider horizontal padding for side buttons */
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition: opacity 180ms ease, visibility 180ms ease;
+}
+.q-detail-overlay.open {
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+}
+
+/* BUG 4 FIX: Wrapper sized wider than modal to hold side buttons */
+.q-detail-wrapper {
+  position: relative;
+  width: 100%;
+  max-width: calc(680px + 10rem);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  overflow: visible;
+}
+
+.q-detail-modal {
+  width: 100%;
+  max-width: 680px;
+  background: var(--charcoal);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  box-shadow: var(--shadow-floating);
+}
+
+.q-detail-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: .875rem 1.25rem;
+  border-bottom: 1px solid var(--border);
+  background: var(--charcoal-mid);
+  flex-shrink: 0;
+}
+.q-detail-title {
+  display: flex;
+  align-items: center;
+  gap: .75rem;
+}
+.q-detail-close {
+  background: none;
+  border: 1px solid var(--border);
+  color: var(--text2);
+  width: 32px; height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  cursor: pointer;
+  border-radius: 50%;
+  transition: all .2s;
+  flex-shrink: 0;
+}
+.q-detail-close:hover {
+  background: var(--charcoal);
+  border-color: var(--border2);
+  color: var(--text);
+}
+
+.q-detail-body {
+  flex: 1;
+  overflow-y: auto;
+  min-height: 0;
+}
+
+/* BUG 7 FIX: removed conflicting overflow:hidden, kept overflow-x:hidden + overflow-y:auto */
+/* BUG 9 FIX: max-height changed from 55vh to 40vh */
+.q-detail-img {
+  background: var(--obsidian);
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  border-bottom: 1px solid var(--border);
+  overflow-x: hidden;
+  overflow-y: auto;
+  max-height: 40vh;
+}
+.q-detail-img img {
+  max-width: 100%;
+  display: block;
+}
+
+.q-detail-answers {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  border-bottom: 1px solid var(--border);
+}
+.q-detail-ans {
+  display: flex;
+  align-items: center;
+  gap: .875rem;
+  padding: 1rem 1.25rem;
+}
+.q-detail-ans + .q-detail-ans {
+  border-left: 1px solid var(--border);
+}
+
+/* BUG 8 FIX: justify-content changed from space-between to center */
+.q-detail-footer {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: .875rem 1.25rem;
+  flex-shrink: 0;
+  border-top: 1px solid var(--border);
+  background: var(--charcoal-mid);
+}
+.q-detail-counter {
+  font-size: 11px;
+  color: var(--pewter);
+  font-weight: 600;
+  letter-spacing: .1em;
+}
+
+/* BUG 1 FIX: Side nav buttons — font-family + hover preserves translateY */
+.modal-side-btn {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  background: var(--charcoal);
+  color: var(--text);
+  border: 1px solid var(--border);
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  font-size: 20px;
+  font-family: var(--font-body);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  box-shadow: var(--shadow-floating);
+  z-index: 410;
+  transition: all .2s;
+}
+.modal-side-btn:hover {
+  transform: translateY(-50%) scale(1.08); /* BUG 1 FIX: preserve translateY on hover */
+  background: var(--charcoal-mid);
+  color: var(--accent);
+  border-color: var(--border2);
+}
+/* BUG 4 FIX: buttons positioned relative to wrapper, not screen edges */
+.modal-side-prev { left: -3rem; }
+.modal-side-next { right: -3rem; }
+
+/* Mobile responsive for modal */
+@media (max-width: 800px) {
+  .q-detail-overlay { padding: .75rem; }
+  .q-detail-modal { max-width: 100%; max-height: 95vh; }
+  .q-detail-answers { grid-template-columns: 1fr; }
+  .q-detail-ans + .q-detail-ans { border-left: none; border-top: 1px solid var(--border); }
+  .q-detail-img { max-height: 30vh; }
+  .modal-side-btn { width: 36px; height: 36px; font-size: 14px; }
+  .modal-side-prev { left: 0.5rem; }
+  .modal-side-next { right: 0.5rem; }
+}
 
 /* ═══════════════════════════════════════════════════════
    LIGHTBOX
@@ -1108,7 +1717,8 @@ textarea.neu-input {
   z-index: 0;
   pointer-events: none;
   opacity: 0.25;
-  mix-blend-mode: overlay;
+  mix-blend-mode: soft-light; /* BUG 3 FIX: soft-light avoids Chromium compositing seam */
+  will-change: opacity;       /* BUG 3 FIX: promote to own layer */
   background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
   background-repeat: repeat;
   background-size: 256px 256px;
@@ -1208,16 +1818,31 @@ textarea.neu-input {
   box-shadow: var(--shadow-floating);
 }
 
-/* Carbon fiber texture */
+/* BUG 10 FIX: CSS-only carbon fiber — no external URL */
 .device__bezel::before {
   content: '';
   position: absolute;
   inset: 0;
-  background-image: url("https://www.transparenttextures.com/patterns/carbon-fibre.png");
-  opacity: 0.15;
+  opacity: 0.12;
   mix-blend-mode: overlay;
   pointer-events: none;
   z-index: 1;
+  background-image:
+    repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 2px,
+      rgba(0,0,0,0.3) 2px,
+      rgba(0,0,0,0.3) 4px
+    ),
+    repeating-linear-gradient(
+      90deg,
+      transparent,
+      transparent 2px,
+      rgba(0,0,0,0.15) 2px,
+      rgba(0,0,0,0.15) 4px
+    );
+  background-size: 4px 4px;
 }
 
 /* Side hardware buttons */
@@ -1482,9 +2107,9 @@ textarea.neu-input {
   .upload-container { grid-template-columns: 1fr; }
   .upload-left, .upload-right { padding: 1.75rem 1.5rem; }
 
-  .main-layout { grid-template-columns: 1fr; }
+  .main-layout { grid-template-columns: 1fr; } /* BUG FIX: single-column layout on mobile */
 
-  /* Mobile sidebar: slide-out drawer */
+  /* BUG FIX: mobile sidebar — fixed overlay drawer instead of pushing layout */
   .sidebar {
     display: block !important;
     position: fixed;
@@ -1498,15 +2123,21 @@ textarea.neu-input {
   }
   .sidebar.open { transform: translateX(0); }
 
-  .hamburger-btn { display: flex !important; }
-  .export-btn    { display: none !important; }
+  .hamburger-btn { display: flex !important; } /* BUG FIX: show hamburger on mobile */
+  .export-btn    { display: none !important; } /* BUG FIX: hide export buttons on narrow screens */
 
+  /* BUG FIX: collapse grids for narrow screens */
   .metrics-grid       { grid-template-columns: repeat(2, 1fr); }
   .chart-grid         { grid-template-columns: 1fr; }
   .subject-charts-grid{ grid-template-columns: repeat(2, 1fr) !important; }
   .q-ans-row          { grid-template-columns: 1fr; }
   .ans-cell + .ans-cell { border-left: none; border-top: 1px solid var(--border); }
-  .topbar-file        { max-width: 90px; }
+
+  /* BUG FIX: topbar actions overflow on narrow screens */
+  .topbar-file        { display: none; }
+  .topbar-actions     { gap: .25rem; }
+  .topbar-actions .btn-ghost,
+  .topbar-actions .btn-icon { padding: .3rem .5rem; font-size: 10px; }
 
   /* ── New component responsive ── */
   .section-spacing { gap: 4rem; }
@@ -1537,6 +2168,18 @@ textarea.neu-input {
   }
   .step { width: 100%; max-width: 280px; }
   .step__pipe { display: none; }
+
+  /* UI CHANGE: mobile responsive for score tabs */
+  .score-tab { font-size: 10px; padding: .7rem .5rem; }
+  .arc-score-val { font-size: 28px; }
+  .arc-stat-pills { gap: 8px; }
+  .arc-pill { font-size: 11px; padding: .3rem .7rem; }
+  .subject-score-earned { font-size: 20px; }
+
+  /* UI CHANGE: hide preview column on mobile */
+  .q-table-preview-col { display: none; }
+  .q-table td:nth-child(3) { display: none; }
+  .q-table-card { max-height: 240px; }
 }
 
 /* Desktop container padding */
@@ -2082,6 +2725,7 @@ textarea.neu-input {
    RESPONSIVE ADDITIONS — Testimonials + Pricing
 ═══════════════════════════════════════════════════════ */
 @media (max-width: 700px) {
+  /* BUG FIX: duplicate mobile block removed — rules consolidated into main @media(max-width:700px) above */
   /* Testimonials: single column on mobile */
   .testimonials-grid {
     grid-template-columns: 1fr;

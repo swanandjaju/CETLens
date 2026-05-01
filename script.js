@@ -25,17 +25,29 @@ let questionImages   = {};
 let questionPageMap  = {};
 let _pendingQs       = null;
 let _pendingFile     = '';
+let _isProcessing    = false; // BUG 14 FIX: processing lock
 
 /* ═══════════════════════════════════════════════════════
-   THEME MANAGEMENT (dark mode removed — always light)
+   THEME MANAGEMENT — light / dark toggle
 ═══════════════════════════════════════════════════════ */
-function toggleTheme() { /* removed — light only */ }
-
-function applyTheme() {
-  document.documentElement.setAttribute('data-theme', 'light');
+function toggleTheme() {
+  const current = document.documentElement.getAttribute('data-theme');
+  const next = current === 'dark' ? 'light' : 'dark';
+  document.documentElement.setAttribute('data-theme', next);
+  try { localStorage.setItem('examAnalyzerTheme', next); } catch (e) {}
 }
 
-// Init theme immediately — always light
+function applyTheme() {
+  let theme = 'light';
+  try { theme = localStorage.getItem('examAnalyzerTheme') || 'light'; } catch (e) {}
+  // If no saved preference, respect system dark mode
+  if (!localStorage.getItem('examAnalyzerTheme') && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+    theme = 'dark';
+  }
+  document.documentElement.setAttribute('data-theme', theme);
+}
+
+// Init theme immediately
 (function initTheme() {
   applyTheme();
 })();
@@ -104,7 +116,9 @@ function exportCSV() {
     q.candidateOptId || '',
     q.marks
   ]);
-  const csv   = [header, ...rows].map(r => r.map(v => `"${v}"`).join(',')).join('\n');
+  const csv   = [header, ...rows]
+    .map(r => r.map(v => `"${String(v).replace(/"/g, '""')}"`).join(',')) // BUG 13 FIX: escape internal quotes
+    .join('\n');
   const fname = document.getElementById('topbarFile').textContent.replace(/\.[^.]+$/, '') || 'exam';
   triggerDownload(`${fname}_analysis.csv`, 'text/csv;charset=utf-8;', '\uFEFF' + csv);
 }
@@ -313,8 +327,16 @@ document.addEventListener('DOMContentLoaded', function () {
     if (e.target.tagName === 'IMG') openLightbox(e.target.src);
   });
 
+  // BUG 11 FIX: modal image area click → lightbox
+  document.getElementById('qdImgArea').addEventListener('click', function (e) {
+    if (e.target.tagName === 'IMG') openLightbox(e.target.src);
+  });
+
   // Check for a stored session
   checkStoredSession();
+
+  // BUG 1 FIX: allow body scroll on upload/landing screen
+  document.body.classList.add('upload-active');
 });
 
 function handleFile(inp) {
@@ -474,8 +496,11 @@ function classifyUploadError(file, err) {
    PROCESS FILE
 ═══════════════════════════════════════════════════════ */
 async function processFile(file) {
+  if (_isProcessing) return;   // BUG 14 FIX: prevent concurrent processing
+  _isProcessing = true;        // BUG 14 FIX: acquire lock
   showLoading();
   pdfPageImages   = {};
+  questionImages  = {}; // BUG FIX: reset question images when processing new file
   questionPageMap = {};
 
   const isPDF = file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf');
@@ -506,6 +531,8 @@ async function processFile(file) {
     console.error(err);
     alert(classifyUploadError(file, err));
     resetApp();
+  } finally {
+    _isProcessing = false;    // BUG 14 FIX: release lock
   }
 }
 
@@ -711,7 +738,7 @@ function computeStats(qs) {
   const unattempted = qs.filter(q => q.status === 'unattempted').length;
   const earned      = qs.reduce((s, q) => s + q.marks, 0);
   const maxM        = qs.reduce((s, q) => s + (q.section === 'Mathematics' ? 2 : 1), 0) || 200;
-  const accuracy    = Math.round(correct / (correct + incorrect || 1) * 100);
+  const accuracy    = Math.round(correct / ((correct + incorrect) || 1) * 100); // BUG FIX: added parens — || binds tighter than / causing wrong precedence
   const secs        = [...new Set(qs.map(q => q.section))];
   const subStats    = secs.map(s => {
     const sq = qs.filter(q => q.section === s);
@@ -780,8 +807,10 @@ function renderDashboard(qs) {
     </div>`).join('');
 
   renderSubjectCharts(qs, unatColor);
+  renderScoreCard(st); // UI CHANGE: render tabbed score card with arc gauge
   renderGrid(qs);
   updateFilterCounts(qs);
+  renderQuestionTable(); // UI CHANGE: render question table
   showQuestion(0);
 }
 
@@ -869,6 +898,7 @@ function renderGrid(qs) {
 ═══════════════════════════════════════════════════════ */
 function showQuestion(idx, scroll) {
   if (idx < 0 || idx >= filteredQs.length) return;
+  if (!filteredQs.length) return; // BUG FIX: guard against empty filter result
   currentQ = idx;
   const q  = filteredQs[idx];
 
@@ -892,6 +922,9 @@ function showQuestion(idx, scroll) {
     ? `<img src="${img}" alt="Q${q.id}" class="zoomable-img" title="Click to zoom">`
     : `<div class="q-img-placeholder">Question image not available<br><small style="font-size:11px;margin-top:4px;display:block">Upload the PDF version for image previews</small></div>`;
 
+  const qBody = document.querySelector('.q-body');
+  if (qBody) qBody.scrollTop = 0;
+
   const si = document.getElementById('selIcon'), sv = document.getElementById('badgeSelected');
   const ci = document.getElementById('corIcon'), cv = document.getElementById('badgeCorrect');
 
@@ -911,12 +944,12 @@ function showQuestion(idx, scroll) {
   }
 
   document.getElementById('qOf').textContent = `${idx + 1} / ${filteredQs.length}`;
+  highlightQTableRow(q.id); // UI CHANGE: highlight active row in question table
 
   if (scroll) {
+    // SCROLL BUG 3 FIX: qViewer is hidden, just scroll content to top
     const contentEl = document.querySelector('.content');
-    const qViewerEl = document.getElementById('qViewer');
-    const targetTop = qViewerEl.getBoundingClientRect().top - contentEl.getBoundingClientRect().top + contentEl.scrollTop;
-    contentEl.scrollTo({ top: targetTop, behavior: 'smooth' });
+    if (contentEl) contentEl.scrollTo({ top: 0, behavior: 'smooth' });
   }
 }
 
@@ -936,25 +969,298 @@ function updateFilterCounts(qs) {
   const c = qs.filter(q => q.status === 'correct').length;
   const i = qs.filter(q => q.status === 'incorrect').length;
   const u = qs.filter(q => q.status === 'unattempted').length;
-  document.querySelector('[data-filter="all"]').textContent         = `All (${qs.length})`;
-  document.querySelector('[data-filter="correct"]').textContent     = `Correct (${c})`;
-  document.querySelector('[data-filter="incorrect"]').textContent   = `Incorrect (${i})`;
-  document.querySelector('[data-filter="unattempted"]').textContent = `Unattempted (${u})`;
+  
+  // UI CHANGE: get subjects and create buttons for them
+  const secs = [...new Set(qs.map(q => q.section))];
+  const ordered = ['Physics', 'Chemistry', 'Mathematics', 'Biology'].filter(s => secs.includes(s));
+  
+  const fBar = document.getElementById('filterBar');
+  let activeFilter = 'all';
+  const activeBtn = fBar.querySelector('.active');
+  if (activeBtn) activeFilter = activeBtn.dataset.filter;
+
+  let html = `
+    <div class="filter-group">
+      <button class="filter-chip ${activeFilter === 'all' ? 'active' : ''}" data-filter="all" onclick="setFilter('all',this)">All (${qs.length})</button>
+      <button class="filter-chip ${activeFilter === 'correct' ? 'active' : ''}" data-filter="correct" onclick="setFilter('correct',this)">Correct (${c})</button>
+      <button class="filter-chip ${activeFilter === 'incorrect' ? 'active' : ''}" data-filter="incorrect" onclick="setFilter('incorrect',this)">Incorrect (${i})</button>
+      <button class="filter-chip ${activeFilter === 'unattempted' ? 'active' : ''}" data-filter="unattempted" onclick="setFilter('unattempted',this)">Unattempted (${u})</button>
+    </div>
+  `;
+  
+  if (ordered.length > 0) {
+    html += `<div class="filter-group">`;
+    ordered.forEach(sub => {
+      const subCount = qs.filter(q => q.section === sub).length;
+      html += `<button class="filter-chip ${activeFilter === sub ? 'active' : ''}" data-filter="${sub}" onclick="setFilter('${sub}',this)">${sub} (${subCount})</button>`;
+    });
+    html += `</div>`;
+  }
+  
+  fBar.innerHTML = html;
 }
 
 function setFilter(f, btn) {
-  document.querySelectorAll('.filter-bar .btn-ghost').forEach(b => b.classList.remove('active'));
+  // Reset only the table scroll, not the outer page scroll
+  const tableCard = document.getElementById('qTableCard');
+  if (tableCard) tableCard.scrollTop = 0;
+
+  // Clear active state on both class names (supports chip rename)
+  document.querySelectorAll('.filter-bar .btn-ghost, .filter-bar .filter-chip')
+    .forEach(b => b.classList.remove('active'));
   btn.classList.add('active');
-  filteredQs = f === 'all' ? [...questions] : questions.filter(q => q.status === f);
-  showQuestion(0);
+
+  if (['all', 'correct', 'incorrect', 'unattempted'].includes(f)) {
+    filteredQs = f === 'all' ? [...questions] : questions.filter(q => q.status === f);
+  } else {
+    filteredQs = questions.filter(q => q.section === f);
+  }
+
+  renderQuestionTable();
+  if (filteredQs.length > 0) showQuestion(0);
+}
+
+/* ═══════════════════════════════════════════════════════
+   UI CHANGE: TABBED SCORE CARD — Tab switcher + Arc gauge + Subject rows
+═══════════════════════════════════════════════════════ */
+
+// UI CHANGE: switch between "Overall Score" and "Subject-wise Score" tabs
+function switchScoreTab(tabName, btn) {
+  // Deactivate all tabs and panels
+  document.querySelectorAll('.score-tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.score-tab-panel').forEach(p => p.classList.remove('active'));
+  // Activate clicked tab
+  btn.classList.add('active');
+  // Show corresponding panel
+  const panelId = tabName === 'overall' ? 'panelOverall' : 'panelSubjects';
+  const panel = document.getElementById(panelId);
+  if (panel) panel.classList.add('active');
+}
+
+// UI CHANGE: render the score card (arc gauge + subject rows)
+function renderScoreCard(st) {
+  // ── Arc gauge SVG paths ──
+  const cx = 100, cy = 110, r = 80; // UI CHANGE: arc center and radius
+  const startAngle = Math.PI;       // UI CHANGE: left end (180°)
+  const endAngle = 0;               // UI CHANGE: right end (0°)
+
+  // Helper: angle to SVG point
+  const ptAt = (angle) => ({
+    x: cx + r * Math.cos(angle),
+    y: cy - r * Math.sin(angle)
+  });
+
+  // Full track arc (semicircle from 180° to 0°)
+  const trackStart = ptAt(startAngle);
+  const trackEnd   = ptAt(endAngle);
+  const trackD = `M ${trackStart.x} ${trackStart.y} A ${r} ${r} 0 0 1 ${trackEnd.x} ${trackEnd.y}`;
+  document.querySelector('.arc-track').setAttribute('d', trackD);
+
+  // Filled arc proportional to earned/maxM
+  const ratio = st.maxM > 0 ? Math.min(st.earned / st.maxM, 1) : 0; // UI CHANGE: clamp ratio
+  const fillAngle = startAngle - ratio * Math.PI; // UI CHANGE: sweep from left
+  const fillEnd = ptAt(fillAngle);
+  const largeArc = 0; // UI CHANGE: SVG large-arc flag must always be 0 for an arc <= 180 degrees
+  const fillD = ratio > 0
+    ? `M ${trackStart.x} ${trackStart.y} A ${r} ${r} 0 ${largeArc} 1 ${fillEnd.x} ${fillEnd.y}`
+    : '';
+  document.querySelector('.arc-fill').setAttribute('d', fillD);
+
+  // Tick labels: 0 (left), midpoint (top), maxM (right)
+  const ticks = document.querySelectorAll('.arc-tick');
+  ticks[0].textContent = '0';                                // UI CHANGE: left tick
+  ticks[1].textContent = String(Math.round(st.maxM / 2));    // UI CHANGE: midpoint tick
+  ticks[2].textContent = String(st.maxM);                    // UI CHANGE: right tick
+
+  // Center score
+  document.getElementById('arcScoreVal').textContent = String(st.earned); // UI CHANGE: big score
+  document.getElementById('arcScoreMax').textContent = `/ ${st.maxM}`;    // UI CHANGE: max label
+
+  // 3 stat pills
+  document.getElementById('arcStatPills').innerHTML = `
+    <span class="arc-pill arc-pill--correct">
+      <span class="arc-pill-dot" style="background:var(--correct)"></span>
+      ${st.correct} Correct
+    </span>
+    <span class="arc-pill arc-pill--incorrect">
+      <span class="arc-pill-dot" style="background:var(--incorrect)"></span>
+      ${st.incorrect} Incorrect
+    </span>
+    <span class="arc-pill arc-pill--accuracy">
+      <span class="arc-pill-dot" style="background:var(--accent)"></span>
+      ${st.accuracy}% Accuracy
+    </span>`;
+
+  // ── Subject-wise rows (Tab 2) ──
+  document.getElementById('subjectScoreRows').innerHTML = st.subStats.map(s => `
+    <div class="subject-score-row" data-subject="${s.s}">
+      <span class="subject-score-name">${s.s}</span>
+      <span class="subject-score-earned">${s.e}</span>
+      <span class="subject-score-max">/ ${s.mx}</span>
+    </div>`).join(''); // UI CHANGE: render subject rows from subStats
+}
+
+/* ═══════════════════════════════════════════════════════
+   UI CHANGE: QUESTION TABLE — Filterable table above q-viewer
+═══════════════════════════════════════════════════════ */
+
+// SCROLL BUG 1 FIX: render question table with deferred highlight
+function renderQuestionTable() {
+  const tbody = document.getElementById('qTableBody');
+  if (!tbody) return;
+
+  tbody.innerHTML = filteredQs.map((q, idx) => {
+    const statusIcon  = q.status === 'correct' ? '✓' : q.status === 'incorrect' ? '✗' : '—';
+    const statusClass = `q-table-status q-table-status--${q.status}`;
+    const marksText   = q.marks > 0 ? `+${q.marks}` : String(q.marks);
+    const marksClass  = `q-table-marks ${q.marks > 0 ? 'q-table-marks--pos' : 'q-table-marks--zero'}`;
+    const img         = questionImages[q.id];
+    const previewHtml = img
+      ? `<img class="q-table-thumb" src="${img}" alt="Q${q.id}" loading="lazy">`
+      : `<div class="q-table-no-thumb">—</div>`;
+    return `<tr data-qid="${q.id}" onclick="onQTableRowClick(${q.id - 1})">
+      <td>${q.id}</td>
+      <td style="font-family:var(--font-mono);font-size:11px;color:var(--text2)">${q.section.substring(0,3).toUpperCase()}-${q.sectionNum}</td>
+      <td class="q-table-preview-col">${previewHtml}</td>
+      <td><span class="${statusClass}">${statusIcon}</span></td>
+      <td><span class="${marksClass}">${marksText}</span></td>
+    </tr>`;
+  }).join('');
+
+  // Defer highlight until after paint to avoid layout-not-committed jitter
+  requestAnimationFrame(() => {
+    if (filteredQs.length > 0 && currentQ < filteredQs.length) {
+      highlightQTableRow(filteredQs[currentQ].id);
+    }
+  });
+}
+
+// UI CHANGE: click handler for question table rows — opens detail modal
+function onQTableRowClick(globalIdx) {
+  // Find this question in filteredQs
+  const q = questions[globalIdx];
+  const fi = filteredQs.findIndex(fq => fq.id === q.id);
+  if (fi >= 0) {
+    currentQ = fi; // UI CHANGE: track which filtered question is active
+    highlightQTableRow(q.id);
+    openQDetail(fi); // UI CHANGE: open modal instead of scrolling
+  }
+}
+
+// UI CHANGE: highlight the active row in question table
+function highlightQTableRow(qId) {
+  const tbody = document.getElementById('qTableBody');
+  if (!tbody) return;
+  tbody.querySelectorAll('tr.q-table-active').forEach(r => r.classList.remove('q-table-active'));
+  const row = tbody.querySelector(`tr[data-qid="${qId}"]`);
+  if (row) {
+    row.classList.add('q-table-active');
+    // FIX: scroll only inside .q-table-card, NOT the outer .content container
+    const card = document.getElementById('qTableCard');
+    if (card) {
+      const rowTop = row.offsetTop - card.offsetTop;
+      const rowBot = rowTop + row.offsetHeight;
+      if (rowTop < card.scrollTop) {
+        card.scrollTop = rowTop;
+      } else if (rowBot > card.scrollTop + card.clientHeight) {
+        card.scrollTop = rowBot - card.clientHeight;
+      }
+    }
+  }
+}
+
+/* ═══════════════════════════════════════════════════════
+   UI CHANGE: QUESTION DETAIL MODAL — full question view
+═══════════════════════════════════════════════════════ */
+
+// UI CHANGE: open the question detail modal for a specific filtered index
+function openQDetail(filteredIdx) {
+  if (filteredIdx < 0 || filteredIdx >= filteredQs.length) return;
+  currentQ = filteredIdx;
+  populateQDetail(filteredQs[filteredIdx]);
+  document.getElementById('qDetailOverlay').classList.add('open');
+  // UI CHANGE: update counter
+  document.getElementById('qdCounter').textContent = `${filteredIdx + 1} / ${filteredQs.length}`;
+}
+
+// UI CHANGE: close the question detail modal
+function closeQDetail() {
+  document.getElementById('qDetailOverlay').classList.remove('open');
+}
+
+// UI CHANGE: populate the modal with question data
+function populateQDetail(q) {
+  // SCROLL BUG 2 FIX: Always reset modal scroll to top when navigating
+  const detailBody = document.querySelector('.q-detail-body');
+  if (detailBody) detailBody.scrollTop = 0;
+
+  // Header
+  document.getElementById('qdNum').textContent = `Q${q.id} · ${q.section} ${q.sectionNum}`;
+
+  const badge = document.getElementById('qdBadge');
+  badge.className = 'q-badge ' + (q.status === 'correct' ? 'badge-correct' : q.status === 'incorrect' ? 'badge-incorrect' : 'badge-unattempted');
+  badge.textContent = q.status.charAt(0).toUpperCase() + q.status.slice(1);
+
+  const pill = document.getElementById('qdMarks');
+  pill.textContent = q.marks > 0 ? `+${q.marks}` : String(q.marks);
+  pill.className = 'marks-pill ' + (q.marks > 0 ? 'marks-pos' : 'marks-zero');
+
+  // Image — BUG 11 FIX: add zoomable-img class, title, and cursor
+  const imgArea = document.getElementById('qdImgArea');
+  const img = questionImages[q.id] || null;
+  imgArea.innerHTML = img
+    ? `<img src="${img}" alt="Q${q.id}" class="zoomable-img" title="Click to zoom" style="cursor:zoom-in">`
+    : `<div class="q-img-placeholder">Question image not available<br><small style="font-size:11px;margin-top:4px;display:block">Upload the PDF version for image previews</small></div>`;
+
+  // Answers
+  const si = document.getElementById('qdSelIcon'), sv = document.getElementById('qdSelected');
+  const ci = document.getElementById('qdCorIcon'), cv = document.getElementById('qdCorrect');
+
+  ci.className = 'ans-icon ia'; ci.innerHTML = '<span>✓</span>';
+  cv.className = 'ans-val va';  cv.textContent = q.correctOptId || '—';
+
+  if (q.status === 'correct') {
+    si.className = 'ans-icon ic'; si.innerHTML = '<span>✓</span>';
+    sv.className = 'ans-val vc'; sv.textContent = q.candidateOptId || '—';
+    ci.className = 'ans-icon ic'; cv.className = 'ans-val vc';
+  } else if (q.status === 'incorrect') {
+    si.className = 'ans-icon iw'; si.innerHTML = '<span>✗</span>';
+    sv.className = 'ans-val vw'; sv.textContent = q.candidateOptId || '—';
+  } else {
+    si.className = 'ans-icon is'; si.innerHTML = '<span>—</span>';
+    sv.className = 'ans-val vs'; sv.textContent = 'Not Answered';
+  }
+
+  // Highlight table row
+  highlightQTableRow(q.id);
+
+  // Also call showQuestion to keep hidden q-viewer in sync (for exports)
+  showQuestion(currentQ);
+}
+
+// UI CHANGE: navigate to previous question in modal
+function prevQDetail() {
+  if (currentQ > 0) openQDetail(currentQ - 1);
+}
+
+// UI CHANGE: navigate to next question in modal
+function nextQDetail() {
+  if (currentQ < filteredQs.length - 1) openQDetail(currentQ + 1);
 }
 
 /* ═══════════════════════════════════════════════════════
    KEYBOARD SHORTCUTS
 ═══════════════════════════════════════════════════════ */
 document.addEventListener('keydown', e => {
-  if (e.key === 'Escape') { closeLightbox(); closeSidebar(); }
+  if (e.key === 'Escape') { closeQDetail(); closeLightbox(); closeSidebar(); } // UI CHANGE: also close modal
   if (document.getElementById('lightbox').classList.contains('open')) return;
+  // UI CHANGE: arrow keys navigate in modal if open
+  const modalOpen = document.getElementById('qDetailOverlay').classList.contains('open');
+  if (modalOpen) {
+    if (e.key === 'ArrowLeft')  prevQDetail();
+    if (e.key === 'ArrowRight') nextQDetail();
+    return;
+  }
   if (e.key === 'ArrowLeft')  prevQ();
   if (e.key === 'ArrowRight') nextQ();
 });
@@ -963,6 +1269,7 @@ document.addEventListener('keydown', e => {
    SCREEN STATE MANAGEMENT
 ═══════════════════════════════════════════════════════ */
 function showLoading() {
+  document.body.classList.remove('upload-active'); // BUG FIX: lock body scroll during loading too
   document.getElementById('uploadScreen').style.display  = 'none';
   document.getElementById('loadingScreen').style.display = 'flex';
   document.getElementById('dashboard').style.display     = 'none';
@@ -978,6 +1285,11 @@ function setStep(label, sub) {
 function showDash(qs) {
   document.getElementById('loadingScreen').style.display = 'none';
   document.getElementById('dashboard').style.display     = 'flex';
+  // BUG 1 FIX: lock body scroll when dashboard is active
+  document.body.classList.remove('upload-active');
+  document.getElementById('uploadThemeBtn').style.display = 'none'; // hide upload screen toggle
+  const lp = document.getElementById('landingPage');
+  if (lp) lp.style.display = 'none'; /* BUG 1 FIX: hide landing page behind dashboard */
   renderDashboard(qs);
   saveSession(document.getElementById('topbarFile').textContent, qs);
   const st = computeStats(qs);
@@ -985,7 +1297,9 @@ function showDash(qs) {
 }
 
 function resetApp() {
+  _isProcessing = false;      // BUG 14 FIX: release processing lock
   questions = []; filteredQs = []; currentQ = 0;
+  _pendingQs = null; _pendingFile = ''; // BUG FIX: reset pending mismatch state
   pdfPageImages = {}; questionImages = {}; questionPageMap = {};
   subjectChartInsts.forEach(c => c.destroy()); subjectChartInsts = [];
   if (donutChartInst) { donutChartInst.destroy(); donutChartInst = null; }
@@ -993,9 +1307,11 @@ function resetApp() {
   if (subGrid) { subGrid.innerHTML = ''; subGrid.style.display = 'none'; }
   document.getElementById('dashboard').style.display     = 'none';
   document.getElementById('uploadScreen').style.display  = 'flex';
+  document.getElementById('uploadThemeBtn').style.display = ''; // restore upload screen toggle
   const lp = document.getElementById('landingPage');
-  if (lp) lp.style.display = 'block';
+  if (lp) lp.style.display = ''; // BUG FIX: restore landing page
+  document.body.classList.add('upload-active'); // BUG FIX: re-enable body scroll
   document.getElementById('fileInput').value = '';
-  localStorage.removeItem('examSession');
+  try { localStorage.removeItem('examSession'); } catch (e) { /* BUG FIX: localStorage may throw in private browsing */ }
   window._storedSession = null;
 }
