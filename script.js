@@ -776,7 +776,7 @@ function renderDashboard(qs) {
     <span style="display:flex;align-items:center;gap:5px"><span style="width:7px;height:7px;background:${unatColor};border:1px solid rgba(0,255,136,0.15);display:inline-block"></span>${st.unattempted} skipped</span>`;
 
   // Sectional bar chart
-  const SC = { Physics: '#00d4ff', Chemistry: '#ff00ff', Mathematics: '#00ff88', Biology: '#00d4ff' };
+  const SC = { Physics: '#60a5fa', Chemistry: '#c084fc', Mathematics: '#34d399', Biology: '#fb923c' };
   document.getElementById('subjectBars').innerHTML = st.subStats.map(s => `
     <div class="bar-row">
       <div class="bar-rowlbl">${s.s.substring(0, 5)}</div>
@@ -800,7 +800,7 @@ function renderSubjectCharts(qs, unatColor) {
 
   const secs    = [...new Set(qs.map(q => q.section))];
   const ordered = ['Physics', 'Chemistry', 'Mathematics', 'Biology'].filter(s => secs.includes(s));
-  const SC      = { Physics: '#00d4ff', Chemistry: '#ff00ff', Mathematics: '#00ff88', Biology: '#00d4ff' };
+  const SC      = { Physics: '#60a5fa', Chemistry: '#c084fc', Mathematics: '#34d399', Biology: '#fb923c' };
   const grid    = document.getElementById('subjectChartsGrid');
 
   grid.style.display             = 'grid';
@@ -825,7 +825,7 @@ function renderSubjectCharts(qs, unatColor) {
       <div class="donut-wrap">
         <canvas id="${cid}"></canvas>
         <div class="donut-center">
-          <div class="donut-pct" style="color:${color};font-size:22px">${pct}%</div>
+          <div class="donut-pct" style="color:${color}">${pct}%</div>
           <div class="donut-sub">${earned}/${max} marks</div>
         </div>
       </div>
