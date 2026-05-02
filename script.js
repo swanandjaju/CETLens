@@ -776,7 +776,7 @@ function renderDashboard(qs) {
     <span style="display:flex;align-items:center;gap:5px"><span style="width:7px;height:7px;background:${unatColor};border:1px solid rgba(0,255,136,0.15);display:inline-block"></span>${st.unattempted} skipped</span>`;
 
   // Sectional bar chart
-  const SC = { Physics: '#60a5fa', Chemistry: '#c084fc', Mathematics: '#34d399', Biology: '#fb923c' };
+  const SC = { Physics: '#00d4ff', Chemistry: '#ff00ff', Mathematics: '#00ff88', Biology: '#00d4ff' };
   document.getElementById('subjectBars').innerHTML = st.subStats.map(s => `
     <div class="bar-row">
       <div class="bar-rowlbl">${s.s.substring(0, 5)}</div>
@@ -800,7 +800,7 @@ function renderSubjectCharts(qs, unatColor) {
 
   const secs    = [...new Set(qs.map(q => q.section))];
   const ordered = ['Physics', 'Chemistry', 'Mathematics', 'Biology'].filter(s => secs.includes(s));
-  const SC      = { Physics: '#60a5fa', Chemistry: '#c084fc', Mathematics: '#34d399', Biology: '#fb923c' };
+  const SC      = { Physics: '#00d4ff', Chemistry: '#ff00ff', Mathematics: '#00ff88', Biology: '#00d4ff' };
   const grid    = document.getElementById('subjectChartsGrid');
 
   grid.style.display             = 'grid';
@@ -825,7 +825,7 @@ function renderSubjectCharts(qs, unatColor) {
       <div class="donut-wrap">
         <canvas id="${cid}"></canvas>
         <div class="donut-center">
-          <div class="donut-pct" style="color:${color}">${pct}%</div>
+          <div class="donut-pct" style="color:${color};font-size:22px">${pct}%</div>
           <div class="donut-sub">${earned}/${max} marks</div>
         </div>
       </div>
@@ -904,15 +904,15 @@ function showQuestion(idx, scroll) {
   const ci = document.getElementById('corIcon'), cv = document.getElementById('badgeCorrect');
 
   ci.className = 'ans-icon ia'; ci.innerHTML = '<span>✓</span>';
-  cv.className = 'ans-val va';  cv.textContent = q.correctOptId || '—';
+  cv.className = 'ans-val va';  cv.textContent = q.correctLabel ? 'Option ' + q.correctLabel : (q.correctOptId || '—');
 
   if (q.status === 'correct') {
     si.className = 'ans-icon ic'; si.innerHTML = '<span>✓</span>';
-    sv.className = 'ans-val vc'; sv.textContent = q.candidateOptId || '—';
+    sv.className = 'ans-val vc'; sv.textContent = q.candidateLabel ? 'Option ' + q.candidateLabel : (q.candidateOptId || '—');
     ci.className = 'ans-icon ic'; cv.className = 'ans-val vc';
   } else if (q.status === 'incorrect') {
     si.className = 'ans-icon iw'; si.innerHTML = '<span>✗</span>';
-    sv.className = 'ans-val vw'; sv.textContent = q.candidateOptId || '—';
+    sv.className = 'ans-val vw'; sv.textContent = q.candidateLabel ? 'Option ' + q.candidateLabel : (q.candidateOptId || '—');
   } else {
     si.className = 'ans-icon is'; si.innerHTML = '<span>—</span>';
     sv.className = 'ans-val vs'; sv.textContent = 'Not Answered';
@@ -1171,6 +1171,7 @@ function populateQDetail(q) {
 
   // image area
   const imgArea = document.getElementById('qdImgArea');
+  imgArea.scrollTop = 0;
   const img = questionImages[q.id] || null;
   imgArea.innerHTML = img
     ? `<img src="${img}" alt="Q${q.id}" class="zoomable-img" title="Click to zoom" style="cursor:zoom-in">`
@@ -1181,15 +1182,15 @@ function populateQDetail(q) {
   const ci = document.getElementById('qdCorIcon'), cv = document.getElementById('qdCorrect');
 
   ci.className = 'ans-icon ia'; ci.innerHTML = '<span>✓</span>';
-  cv.className = 'ans-val va';  cv.textContent = q.correctOptId || '—';
+  cv.className = 'ans-val va';  cv.textContent = q.correctLabel ? 'Option ' + q.correctLabel : (q.correctOptId || '—');
 
   if (q.status === 'correct') {
     si.className = 'ans-icon ic'; si.innerHTML = '<span>✓</span>';
-    sv.className = 'ans-val vc'; sv.textContent = q.candidateOptId || '—';
+    sv.className = 'ans-val vc'; sv.textContent = q.candidateLabel ? 'Option ' + q.candidateLabel : (q.candidateOptId || '—');
     ci.className = 'ans-icon ic'; cv.className = 'ans-val vc';
   } else if (q.status === 'incorrect') {
     si.className = 'ans-icon iw'; si.innerHTML = '<span>✗</span>';
-    sv.className = 'ans-val vw'; sv.textContent = q.candidateOptId || '—';
+    sv.className = 'ans-val vw'; sv.textContent = q.candidateLabel ? 'Option ' + q.candidateLabel : (q.candidateOptId || '—');
   } else {
     si.className = 'ans-icon is'; si.innerHTML = '<span>—</span>';
     sv.className = 'ans-val vs'; sv.textContent = 'Not Answered';
