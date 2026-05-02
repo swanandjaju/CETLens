@@ -2,7 +2,7 @@
 
 A fully client-side MHT-CET response sheet analyzer. Upload your response sheet from the MHT-CET Objection Tracker Portal and get an instant, detailed performance dashboard — score breakdown, subject-wise accuracy charts, per-question review, and multiple export formats. No data ever leaves your device.
 
-**Live deployment:** https://cetlens.onrender.com/
+**Live deployment:** https://mhtcetmarkscalculator.onrender.com
 
 ---
 
