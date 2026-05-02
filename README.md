@@ -25,6 +25,7 @@ A fully client-side MHT-CET response sheet analyzer. Upload your response sheet 
 - [Privacy](#privacy)
 - [Known Limitations](#known-limitations)
 - [Author](#author)
+- [License](#license)
 
 ---
 
@@ -315,4 +316,10 @@ First Year, AI & ML — Walchand College of Engineering, Sangli
 - GitHub: [github.com/swanandjaju](https://github.com/swanandjaju)
 - LinkedIn: [linkedin.com/in/swanand-jaju](https://www.linkedin.com/in/swanand-jaju/)
 
-© 2026 Swanand Jaju. All rights reserved.
+---
+
+## License
+
+This project is licensed under the [MIT License](./LICENSE).
+
+© 2026 Swanand Jaju
