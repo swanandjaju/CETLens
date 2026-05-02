@@ -31,10 +31,7 @@
     </svg>
   </button>
 
-  <!-- ═══════════════════════════════════════════════════════
-     UPLOAD SCREEN
-═══════════════════════════════════════════════════════ -->
-  <div id="uploadScreen" class="upload-screen">
+<div id="uploadScreen" class="upload-screen">
     <div class="upload-container">
 
       <!-- LEFT: brand + mode selector + upload zone -->
@@ -112,10 +109,7 @@
     </div>
   </div>
 
-  <!-- ═══════════════════════════════════════════════════════
-     MISMATCH POPUP
-═══════════════════════════════════════════════════════ -->
-  <div class="mismatch-overlay" id="mismatchOverlay">
+<div class="mismatch-overlay" id="mismatchOverlay">
     <div class="mismatch-box">
       <span class="mismatch-icon">⚠</span>
       <div class="mismatch-title">Stream Mismatch Detected</div>
@@ -129,10 +123,7 @@
     </div>
   </div>
 
-  <!-- ═══════════════════════════════════════════════════════
-     LOADING SCREEN
-═══════════════════════════════════════════════════════ -->
-  <div class="loading-overlay" id="loadingScreen" style="display:none">
+<div class="loading-overlay" id="loadingScreen" style="display:none">
     <div class="spinner"></div>
     <div style="text-align:center">
       <div class="step-label" id="stepLabel">Initializing</div>
@@ -140,15 +131,11 @@
     </div>
   </div>
 
-  <!-- ═══════════════════════════════════════════════════════
-     DASHBOARD
-═══════════════════════════════════════════════════════ -->
-  <div class="dashboard" id="dashboard">
+<div class="dashboard" id="dashboard">
 
     <!-- Topbar -->
     <div class="topbar">
       <div class="topbar-left">
-        <!-- UI CHANGE: hamburger hidden — sidebar removed -->
         <button class="hamburger-btn" id="hamburgerBtn" onclick="toggleSidebar()" aria-label="Toggle sidebar" style="display:none">
           <span></span><span></span><span></span>
         </button>
@@ -201,7 +188,6 @@
     <!-- Main layout: sidebar + content -->
     <div class="main-layout">
 
-      <!-- UI CHANGE: sidebar hidden — question table replaces it -->
       <div class="sidebar" id="mainSidebar" style="display:none">
         <div class="sidebar-inner" id="gridContainer"></div>
       </div>
@@ -210,7 +196,6 @@
       <div class="content">
         <div class="content-inner">
 
-          <!-- UI CHANGE: Tabbed score card replaces metrics-grid, chart-grid, subject-charts-grid -->
           <div class="score-tabs-card" id="scoreTabsCard">
             <!-- Tab header -->
             <div class="score-tabs-header">
@@ -221,22 +206,17 @@
             <div class="score-tab-panel active" id="panelOverall">
               <div class="arc-gauge-wrap">
                 <svg class="arc-gauge" viewBox="0 0 200 120">
-                  <!-- UI CHANGE: track arc (background) -->
                   <path class="arc-track" d="" />
-                  <!-- UI CHANGE: filled arc (score) -->
                   <path class="arc-fill" d="" />
-                  <!-- UI CHANGE: tick labels rendered by JS -->
                   <text class="arc-tick" x="18" y="112">0</text>
                   <text class="arc-tick arc-tick-mid" x="100" y="16"></text>
                   <text class="arc-tick" x="182" y="112"></text>
                 </svg>
-                <!-- UI CHANGE: big score number centered over arc -->
                 <div class="arc-score-center">
                   <span class="arc-score-val" id="arcScoreVal">—</span>
                   <span class="arc-score-max" id="arcScoreMax"></span>
                 </div>
               </div>
-              <!-- UI CHANGE: 3 stat pills below gauge -->
               <div class="arc-stat-pills" id="arcStatPills"></div>
             </div>
             <!-- Tab 2: Subject-wise Score rows -->
@@ -245,7 +225,6 @@
             </div>
           </div>
 
-          <!-- UI CHANGE: hidden containers for old chart/metrics JS to write into (keeps renderDashboard working) -->
           <div id="metricsGrid" style="display:none"></div>
           <div style="display:none">
             <canvas id="donutChart"></canvas>
@@ -264,7 +243,6 @@
               onclick="setFilter('unattempted',this)">Unattempted</button>
           </div>
 
-          <!-- UI CHANGE: Question table inserted between filter-bar and q-viewer -->
           <div class="q-table-card" id="qTableCard">
             <table class="q-table" id="qTable">
               <thead>
@@ -280,7 +258,6 @@
             </table>
           </div>
 
-          <!-- UI CHANGE: q-viewer hidden — replaced by question detail modal -->
           <div class="q-viewer" id="qViewer" style="display:none">
             <div class="q-header">
               <span class="q-num" id="qNum">—</span>
@@ -322,7 +299,6 @@
     </div>
   </div>
 
-  <!-- UI CHANGE: Question detail modal — opens when clicking a table row -->
   <div class="q-detail-overlay" id="qDetailOverlay" onclick="if(event.target===this)closeQDetail()">
     <div class="q-detail-wrapper" onclick="if(event.target===this)closeQDetail()">
       <button class="modal-side-btn modal-side-prev" onclick="prevQDetail()" aria-label="Previous">
@@ -370,24 +346,15 @@
   </div>
 </div>
 
-  <!-- ═══════════════════════════════════════════════════════
-     SIDEBAR OVERLAY (mobile drawer backdrop)
-═══════════════════════════════════════════════════════ -->
-  <div id="sidebarOverlay" onclick="closeSidebar()"></div>
+<div id="sidebarOverlay" onclick="closeSidebar()"></div>
 
-  <!-- ═══════════════════════════════════════════════════════
-     LIGHTBOX
-═══════════════════════════════════════════════════════ -->
-  <div id="lightbox" onclick="if(event.target===this)closeLightbox()">
+<div id="lightbox" onclick="if(event.target===this)closeLightbox()">
     <button class="lightbox-close" onclick="closeLightbox()" aria-label="Close lightbox">✕</button>
     <img id="lightboxImg" src="" alt="Question preview">
     <div class="lightbox-hint">Click anywhere or press Esc to close</div>
   </div>
 
-  <!-- ═══════════════════════════════════════════════════════
-     SHARE CARD (off-screen, captured by html2canvas)
-═══════════════════════════════════════════════════════ -->
-  <div id="shareCardEl">
+<div id="shareCardEl">
     <!-- Top accent bar -->
     <div
       style="position:absolute;top:0;left:0;right:0;height:3px;background:linear-gradient(90deg,#ff4757,#ff6b81,#ff4757)">
@@ -425,12 +392,7 @@
       cetlens · by swanand jaju · wce sangli</div>
   </div>
 
-  <!-- ════════════════════════════════════════════════════════
-     LANDING PAGE — Design System Demo
-     Sections: Hero · Stats · How It Works · Testimonials · Pricing
-     These sections are hidden by default and shown via .landing-active
-════════════════════════════════════════════════════════ -->
-  <div id="landingPage" class="page-wrap">
+<div id="landingPage" class="page-wrap">
     <div class="section-spacing container" style="padding-top:4rem;padding-bottom:6rem">
 
       <!-- ── HERO ── -->
@@ -545,16 +507,15 @@
               <div class="neu-testimonial__vent"></div>
               <div class="neu-testimonial__vent"></div>
             </div>
-            <div class="neu-testimonial__tape">MAY 2024</div>
+            <div class="neu-testimonial__tape">MAY 2025</div>
             <div class="neu-testimonial__avatar-wrap">
-              <div class="neu-testimonial__monogram" aria-hidden="true">AS</div>
+              <div class="neu-testimonial__monogram" aria-hidden="true">HJ</div>
               <div>
-                <div class="neu-testimonial__name">Aarav Shah</div>
-                <div class="neu-testimonial__role">PCM · Pune</div>
+                <div class="neu-testimonial__name">Harsh Jha</div>
+                <div class="neu-testimonial__role">PCM · 2025 · Mumbai</div>
               </div>
             </div>
-            <p class="neu-testimonial__quote">Found three silly calculation errors I'd have never spotted just looking
-              at the answer key. This tool is honestly a must after every mock.</p>
+            <p class="neu-testimonial__quote">Found a few silly calculation mistakes I wouldn't have caught just going through the response sheet manually. Made verifying my CET score feel much more reliable.</p>
           </div>
 
           <!-- Card 2 (even → rotate +1deg) -->
@@ -565,16 +526,15 @@
               <div class="neu-testimonial__vent"></div>
               <div class="neu-testimonial__vent"></div>
             </div>
-            <div class="neu-testimonial__tape">APR 2024</div>
+            <div class="neu-testimonial__tape">MAY 2025</div>
             <div class="neu-testimonial__avatar-wrap">
-              <div class="neu-testimonial__monogram" aria-hidden="true">PK</div>
+              <div class="neu-testimonial__monogram" aria-hidden="true">SF</div>
               <div>
-                <div class="neu-testimonial__name">Priya Kulkarni</div>
-                <div class="neu-testimonial__role">PCB · Nashik</div>
+                <div class="neu-testimonial__name">Shruti Fadatare</div>
+                <div class="neu-testimonial__role">PCB · 2025 · Pune</div>
               </div>
             </div>
-            <p class="neu-testimonial__quote">The subject-wise accuracy chart showed me I was losing marks specifically
-              in organic chemistry. Focused there and my score jumped 18 marks the next attempt.</p>
+            <p class="neu-testimonial__quote">The subject-wise breakdown clearly showed where I lost marks, especially in organic chemistry. Helped me properly understand my performance after the exam.</p>
           </div>
 
           <!-- Card 3 (odd → rotate -1deg) -->
@@ -585,16 +545,15 @@
               <div class="neu-testimonial__vent"></div>
               <div class="neu-testimonial__vent"></div>
             </div>
-            <div class="neu-testimonial__tape">MAY 2024</div>
+            <div class="neu-testimonial__tape">MAY 2025</div>
             <div class="neu-testimonial__avatar-wrap">
-              <div class="neu-testimonial__monogram" aria-hidden="true">RM</div>
+              <div class="neu-testimonial__monogram" aria-hidden="true">G</div>
               <div>
-                <div class="neu-testimonial__name">Rohan Mehta</div>
-                <div class="neu-testimonial__role">PCM · Mumbai</div>
+                <div class="neu-testimonial__name">Gauri</div>
+                <div class="neu-testimonial__role">PCM · 2025 · Nashik</div>
               </div>
             </div>
-            <p class="neu-testimonial__quote">100% local processing is the killer feature. Shared it with my whole
-              coaching batch — nobody has to worry about their data going anywhere.</p>
+            <p class="neu-testimonial__quote">Way easier than calculating marks manually. The accuracy and question-wise review gave me a clear picture of where I went wrong.</p>
           </div>
 
         </div>
@@ -605,18 +564,13 @@
     </div><!-- /section-spacing -->
   </div><!-- /landingPage -->
 
-  <!-- ════════════════ CDN LIBRARIES ════════════════ -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.3/dist/confetti.browser.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
   <!-- App logic -->
   <script src="script.js"></script>
-  <script>
-    /* toggleLanding removed — landing shows by default */
-    function toggleLanding() { /* noop */ }
-  </script>
 
-</body> <!-- BUG FIX: missing closing body tag -->
+</body>
 </html>

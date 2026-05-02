@@ -5,15 +5,13 @@
 
 'use strict';
 
-/* ═══════════════════════════════════════════════════════
-   PDF.js WORKER SETUP
-═══════════════════════════════════════════════════════ */
+
+// pdf.js worker setup
 pdfjsLib.GlobalWorkerOptions.workerSrc =
   'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.worker.min.js';
 
-/* ═══════════════════════════════════════════════════════
-   STATE
-═══════════════════════════════════════════════════════ */
+
+// state
 let questions        = [];
 let filteredQs       = [];
 let currentQ         = 0;
@@ -25,11 +23,10 @@ let questionImages   = {};
 let questionPageMap  = {};
 let _pendingQs       = null;
 let _pendingFile     = '';
-let _isProcessing    = false; // BUG 14 FIX: processing lock
+let _isProcessing    = false;
 
-/* ═══════════════════════════════════════════════════════
-   THEME MANAGEMENT — light / dark toggle
-═══════════════════════════════════════════════════════ */
+
+// theme management
 function toggleTheme() {
   const current = document.documentElement.getAttribute('data-theme');
   const next = current === 'dark' ? 'light' : 'dark';
@@ -52,9 +49,8 @@ function applyTheme() {
   applyTheme();
 })();
 
-/* ═══════════════════════════════════════════════════════
-   MOBILE SIDEBAR DRAWER
-═══════════════════════════════════════════════════════ */
+
+// mobile sidebar drawer
 function toggleSidebar() {
   document.getElementById('mainSidebar').classList.toggle('open');
   document.getElementById('sidebarOverlay').classList.toggle('open');
@@ -64,9 +60,8 @@ function closeSidebar() {
   document.getElementById('sidebarOverlay').classList.remove('open');
 }
 
-/* ═══════════════════════════════════════════════════════
-   LIGHTBOX
-═══════════════════════════════════════════════════════ */
+
+// lightbox
 function openLightbox(src) {
   document.getElementById('lightboxImg').src = src;
   document.getElementById('lightbox').classList.add('open');
@@ -78,9 +73,8 @@ function closeLightbox() {
   document.getElementById('lightboxImg').src = '';
 }
 
-/* ═══════════════════════════════════════════════════════
-   CONFETTI (score ≥ 150)
-═══════════════════════════════════════════════════════ */
+
+// confetti
 function fireConfetti() {
   if (!window.confetti) return;
   const colors = ['#00ff88', '#ff00ff', '#00d4ff', '#ffffff', '#00ff8880'];
@@ -89,9 +83,8 @@ function fireConfetti() {
   setTimeout(() => confetti({ particleCount: 80, angle: 120, spread: 60, origin: { x: 1 }, colors }), 700);
 }
 
-/* ═══════════════════════════════════════════════════════
-   LOCAL STORAGE — session persistence (restore removed)
-═══════════════════════════════════════════════════════ */
+
+// local storage
 function saveSession(filename, qs) {
   try {
     localStorage.setItem('examSession', JSON.stringify({
@@ -101,12 +94,9 @@ function saveSession(filename, qs) {
 }
 
 function checkStoredSession() { /* restore session removed */ }
-function restoreStoredSession() { /* removed */ }
-function dismissRestoreBanner() { /* removed */ }
 
-/* ═══════════════════════════════════════════════════════
-   CSV EXPORT
-═══════════════════════════════════════════════════════ */
+
+// csv export
 function exportCSV() {
   if (!questions.length) { alert('No data to export. Please upload a response sheet first.'); return; }
   const header = ['Q#', 'Section', 'Section Q#', 'Status', 'Correct Option ID', 'Candidate Option ID', 'Marks'];
@@ -117,15 +107,14 @@ function exportCSV() {
     q.marks
   ]);
   const csv   = [header, ...rows]
-    .map(r => r.map(v => `"${String(v).replace(/"/g, '""')}"`).join(',')) // BUG 13 FIX: escape internal quotes
+    .map(r => r.map(v => `"${String(v).replace(/"/g, '""')}"`).join(','))
     .join('\n');
   const fname = document.getElementById('topbarFile').textContent.replace(/\.[^.]+$/, '') || 'exam';
   triggerDownload(`${fname}_analysis.csv`, 'text/csv;charset=utf-8;', '\uFEFF' + csv);
 }
 
-/* ═══════════════════════════════════════════════════════
-   PDF EXPORT (jsPDF)
-═══════════════════════════════════════════════════════ */
+
+// pdf export
 function exportPDF() {
   if (!questions.length) { alert('No data to export. Please upload a response sheet first.'); return; }
   if (!window.jspdf)     { alert('PDF library not loaded. Check your internet connection.');  return; }
@@ -238,9 +227,8 @@ function exportPDF() {
   doc.save(`ExamReport_${mode}_${Date.now()}.pdf`);
 }
 
-/* ═══════════════════════════════════════════════════════
-   SHARE CARD (html2canvas → PNG download)
-═══════════════════════════════════════════════════════ */
+
+// share card
 async function generateShareCard() {
   if (!questions.length)    { alert('No data to share. Upload a response sheet first.'); return; }
   if (!window.html2canvas)  { alert('html2canvas not loaded. Check your connection.');  return; }
@@ -274,9 +262,8 @@ async function generateShareCard() {
   }
 }
 
-/* ═══════════════════════════════════════════════════════
-   DOWNLOAD HELPER
-═══════════════════════════════════════════════════════ */
+
+// download helper
 function triggerDownload(filename, mime, content) {
   const blob = new Blob([content], { type: mime });
   const url  = URL.createObjectURL(blob);
@@ -288,9 +275,8 @@ function triggerDownload(filename, mime, content) {
   URL.revokeObjectURL(url);
 }
 
-/* ═══════════════════════════════════════════════════════
-   DRAG & DROP with filename preview
-═══════════════════════════════════════════════════════ */
+
+// drag & drop with filename preview
 document.addEventListener('DOMContentLoaded', function () {
   const dz = document.getElementById('dropZone');
 
@@ -327,7 +313,7 @@ document.addEventListener('DOMContentLoaded', function () {
     if (e.target.tagName === 'IMG') openLightbox(e.target.src);
   });
 
-  // BUG 11 FIX: modal image area click → lightbox
+
   document.getElementById('qdImgArea').addEventListener('click', function (e) {
     if (e.target.tagName === 'IMG') openLightbox(e.target.src);
   });
@@ -335,7 +321,7 @@ document.addEventListener('DOMContentLoaded', function () {
   // Check for a stored session
   checkStoredSession();
 
-  // BUG 1 FIX: allow body scroll on upload/landing screen
+
   document.body.classList.add('upload-active');
 });
 
@@ -349,9 +335,8 @@ function setMode(m) {
   document.getElementById('btnPCB').classList.toggle('active', m === 'PCB');
 }
 
-/* ═══════════════════════════════════════════════════════
-   CORE PARSER (HTML / text)
-═══════════════════════════════════════════════════════ */
+
+// core parser
 function parsePortalText(text) {
   const CORR_RE = /Correct\s+Option\s*[:\s]\s*(\d{5,6})/gi;
 
@@ -424,9 +409,8 @@ function parsePortalText(text) {
   return qs;
 }
 
-/* ═══════════════════════════════════════════════════════
-   PIPE-DELIMITED PARSER (.txt)
-═══════════════════════════════════════════════════════ */
+
+// pipe-delimited parser
 function parseRawData(raw) {
   const lines = raw.trim().split('\n');
   const qs = [];
@@ -472,9 +456,8 @@ function parseRawData(raw) {
   return qs;
 }
 
-/* ═══════════════════════════════════════════════════════
-   IMPROVED ERROR MESSAGES
-═══════════════════════════════════════════════════════ */
+
+// improved error messages
 function classifyUploadError(file, err) {
   const name = file.name.toLowerCase();
   if (!name.match(/\.(html?|pdf|txt)$/)) {
@@ -492,15 +475,14 @@ function classifyUploadError(file, err) {
   return '❌ ' + (err.message || 'An unknown error occurred.');
 }
 
-/* ═══════════════════════════════════════════════════════
-   PROCESS FILE
-═══════════════════════════════════════════════════════ */
+
+// process file
 async function processFile(file) {
-  if (_isProcessing) return;   // BUG 14 FIX: prevent concurrent processing
-  _isProcessing = true;        // BUG 14 FIX: acquire lock
+  if (_isProcessing) return;
+  _isProcessing = true;
   showLoading();
   pdfPageImages   = {};
-  questionImages  = {}; // BUG FIX: reset question images when processing new file
+  questionImages  = {};
   questionPageMap = {};
 
   const isPDF = file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf');
@@ -532,7 +514,7 @@ async function processFile(file) {
     alert(classifyUploadError(file, err));
     resetApp();
   } finally {
-    _isProcessing = false;    // BUG 14 FIX: release lock
+    _isProcessing = false;
   }
 }
 
@@ -540,9 +522,8 @@ function extractHTMLImages(htmlText) {
   // Placeholder — portal images are relative paths that won't resolve externally
 }
 
-/* ═══════════════════════════════════════════════════════
-   PDF PROCESSING
-═══════════════════════════════════════════════════════ */
+
+// pdf processing
 async function processPDF(file) {
   setStep('Loading PDF…', 'Reading file');
   const buf = await file.arrayBuffer();
@@ -678,9 +659,8 @@ async function processPDF(file) {
   finish(file.name, qs);
 }
 
-/* ═══════════════════════════════════════════════════════
-   FINISH / MISMATCH GUARD
-═══════════════════════════════════════════════════════ */
+
+// finish / mismatch guard
 function finish(filename, qs) {
   const oppositeMode  = examMode === 'PCM' ? 'PCB' : 'PCM';
   const oppositeCount = examMode === 'PCM' ? 200   : 150;
@@ -729,16 +709,15 @@ function mismatchReupload() {
   resetApp();
 }
 
-/* ═══════════════════════════════════════════════════════
-   STATS COMPUTATION
-═══════════════════════════════════════════════════════ */
+
+// stats computation
 function computeStats(qs) {
   const correct     = qs.filter(q => q.status === 'correct').length;
   const incorrect   = qs.filter(q => q.status === 'incorrect').length;
   const unattempted = qs.filter(q => q.status === 'unattempted').length;
   const earned      = qs.reduce((s, q) => s + q.marks, 0);
   const maxM        = qs.reduce((s, q) => s + (q.section === 'Mathematics' ? 2 : 1), 0) || 200;
-  const accuracy    = Math.round(correct / ((correct + incorrect) || 1) * 100); // BUG FIX: added parens — || binds tighter than / causing wrong precedence
+  const accuracy    = Math.round(correct / ((correct + incorrect) || 1) * 100);
   const secs        = [...new Set(qs.map(q => q.section))];
   const subStats    = secs.map(s => {
     const sq = qs.filter(q => q.section === s);
@@ -749,9 +728,8 @@ function computeStats(qs) {
   return { correct, incorrect, unattempted, earned, maxM, accuracy, subStats };
 }
 
-/* ═══════════════════════════════════════════════════════
-   RENDER DASHBOARD
-═══════════════════════════════════════════════════════ */
+
+// render dashboard
 function renderDashboard(qs) {
   questions  = qs;
   filteredQs = [...qs];
@@ -807,16 +785,15 @@ function renderDashboard(qs) {
     </div>`).join('');
 
   renderSubjectCharts(qs, unatColor);
-  renderScoreCard(st); // UI CHANGE: render tabbed score card with arc gauge
+  renderScoreCard(st);
   renderGrid(qs);
   updateFilterCounts(qs);
-  renderQuestionTable(); // UI CHANGE: render question table
+  renderQuestionTable();
   showQuestion(0);
 }
 
-/* ═══════════════════════════════════════════════════════
-   SUBJECT PIE CHARTS
-═══════════════════════════════════════════════════════ */
+
+// subject pie charts
 function renderSubjectCharts(qs, unatColor) {
   subjectChartInsts.forEach(c => c.destroy());
   subjectChartInsts = [];
@@ -874,9 +851,8 @@ function renderSubjectCharts(qs, unatColor) {
   });
 }
 
-/* ═══════════════════════════════════════════════════════
-   RENDER SIDEBAR GRID
-═══════════════════════════════════════════════════════ */
+
+// render sidebar grid
 function renderGrid(qs) {
   const secs    = [...new Set(qs.map(q => q.section))];
   const ordered = ['Physics', 'Chemistry', 'Mathematics', 'Biology'].filter(s => secs.includes(s));
@@ -893,12 +869,11 @@ function renderGrid(qs) {
   }).join('');
 }
 
-/* ═══════════════════════════════════════════════════════
-   SHOW QUESTION
-═══════════════════════════════════════════════════════ */
+
+// show question
 function showQuestion(idx, scroll) {
   if (idx < 0 || idx >= filteredQs.length) return;
-  if (!filteredQs.length) return; // BUG FIX: guard against empty filter result
+  if (!filteredQs.length) return;
   currentQ = idx;
   const q  = filteredQs[idx];
 
@@ -944,10 +919,10 @@ function showQuestion(idx, scroll) {
   }
 
   document.getElementById('qOf').textContent = `${idx + 1} / ${filteredQs.length}`;
-  highlightQTableRow(q.id); // UI CHANGE: highlight active row in question table
+  highlightQTableRow(q.id);
 
   if (scroll) {
-    // SCROLL BUG 3 FIX: qViewer is hidden, just scroll content to top
+
     const contentEl = document.querySelector('.content');
     if (contentEl) contentEl.scrollTo({ top: 0, behavior: 'smooth' });
   }
@@ -970,7 +945,7 @@ function updateFilterCounts(qs) {
   const i = qs.filter(q => q.status === 'incorrect').length;
   const u = qs.filter(q => q.status === 'unattempted').length;
   
-  // UI CHANGE: get subjects and create buttons for them
+
   const secs = [...new Set(qs.map(q => q.section))];
   const ordered = ['Physics', 'Chemistry', 'Mathematics', 'Biology'].filter(s => secs.includes(s));
   
@@ -1020,11 +995,9 @@ function setFilter(f, btn) {
   if (filteredQs.length > 0) showQuestion(0);
 }
 
-/* ═══════════════════════════════════════════════════════
-   UI CHANGE: TABBED SCORE CARD — Tab switcher + Arc gauge + Subject rows
-═══════════════════════════════════════════════════════ */
 
-// UI CHANGE: switch between "Overall Score" and "Subject-wise Score" tabs
+// ui change: tabbed score card
+
 function switchScoreTab(tabName, btn) {
   // Deactivate all tabs and panels
   document.querySelectorAll('.score-tab').forEach(t => t.classList.remove('active'));
@@ -1037,12 +1010,11 @@ function switchScoreTab(tabName, btn) {
   if (panel) panel.classList.add('active');
 }
 
-// UI CHANGE: render the score card (arc gauge + subject rows)
 function renderScoreCard(st) {
   // ── Arc gauge SVG paths ──
-  const cx = 100, cy = 110, r = 80; // UI CHANGE: arc center and radius
-  const startAngle = Math.PI;       // UI CHANGE: left end (180°)
-  const endAngle = 0;               // UI CHANGE: right end (0°)
+  const cx = 100, cy = 110, r = 80;
+  const startAngle = Math.PI;
+  const endAngle = 0;
 
   // Helper: angle to SVG point
   const ptAt = (angle) => ({
@@ -1057,10 +1029,10 @@ function renderScoreCard(st) {
   document.querySelector('.arc-track').setAttribute('d', trackD);
 
   // Filled arc proportional to earned/maxM
-  const ratio = st.maxM > 0 ? Math.min(st.earned / st.maxM, 1) : 0; // UI CHANGE: clamp ratio
-  const fillAngle = startAngle - ratio * Math.PI; // UI CHANGE: sweep from left
+  const ratio = st.maxM > 0 ? Math.min(st.earned / st.maxM, 1) : 0;
+  const fillAngle = startAngle - ratio * Math.PI;
   const fillEnd = ptAt(fillAngle);
-  const largeArc = 0; // UI CHANGE: SVG large-arc flag must always be 0 for an arc <= 180 degrees
+  const largeArc = 0;
   const fillD = ratio > 0
     ? `M ${trackStart.x} ${trackStart.y} A ${r} ${r} 0 ${largeArc} 1 ${fillEnd.x} ${fillEnd.y}`
     : '';
@@ -1068,13 +1040,13 @@ function renderScoreCard(st) {
 
   // Tick labels: 0 (left), midpoint (top), maxM (right)
   const ticks = document.querySelectorAll('.arc-tick');
-  ticks[0].textContent = '0';                                // UI CHANGE: left tick
-  ticks[1].textContent = String(Math.round(st.maxM / 2));    // UI CHANGE: midpoint tick
-  ticks[2].textContent = String(st.maxM);                    // UI CHANGE: right tick
+  ticks[0].textContent = '0';
+  ticks[1].textContent = String(Math.round(st.maxM / 2));
+  ticks[2].textContent = String(st.maxM);
 
   // Center score
-  document.getElementById('arcScoreVal').textContent = String(st.earned); // UI CHANGE: big score
-  document.getElementById('arcScoreMax').textContent = `/ ${st.maxM}`;    // UI CHANGE: max label
+  document.getElementById('arcScoreVal').textContent = String(st.earned);
+  document.getElementById('arcScoreMax').textContent = `/ ${st.maxM}`;
 
   // 3 stat pills
   document.getElementById('arcStatPills').innerHTML = `
@@ -1097,14 +1069,12 @@ function renderScoreCard(st) {
       <span class="subject-score-name">${s.s}</span>
       <span class="subject-score-earned">${s.e}</span>
       <span class="subject-score-max">/ ${s.mx}</span>
-    </div>`).join(''); // UI CHANGE: render subject rows from subStats
+    </div>`).join('');
 }
 
-/* ═══════════════════════════════════════════════════════
-   UI CHANGE: QUESTION TABLE — Filterable table above q-viewer
-═══════════════════════════════════════════════════════ */
 
-// SCROLL BUG 1 FIX: render question table with deferred highlight
+// ui change: question table
+
 function renderQuestionTable() {
   const tbody = document.getElementById('qTableBody');
   if (!tbody) return;
@@ -1135,19 +1105,17 @@ function renderQuestionTable() {
   });
 }
 
-// UI CHANGE: click handler for question table rows — opens detail modal
 function onQTableRowClick(globalIdx) {
   // Find this question in filteredQs
   const q = questions[globalIdx];
   const fi = filteredQs.findIndex(fq => fq.id === q.id);
   if (fi >= 0) {
-    currentQ = fi; // UI CHANGE: track which filtered question is active
+    currentQ = fi;
     highlightQTableRow(q.id);
-    openQDetail(fi); // UI CHANGE: open modal instead of scrolling
+    openQDetail(fi);
   }
 }
 
-// UI CHANGE: highlight the active row in question table
 function highlightQTableRow(qId) {
   const tbody = document.getElementById('qTableBody');
   if (!tbody) return;
@@ -1169,28 +1137,24 @@ function highlightQTableRow(qId) {
   }
 }
 
-/* ═══════════════════════════════════════════════════════
-   UI CHANGE: QUESTION DETAIL MODAL — full question view
-═══════════════════════════════════════════════════════ */
 
-// UI CHANGE: open the question detail modal for a specific filtered index
+// ui change: question detail modal
+
 function openQDetail(filteredIdx) {
   if (filteredIdx < 0 || filteredIdx >= filteredQs.length) return;
   currentQ = filteredIdx;
   populateQDetail(filteredQs[filteredIdx]);
   document.getElementById('qDetailOverlay').classList.add('open');
-  // UI CHANGE: update counter
+
   document.getElementById('qdCounter').textContent = `${filteredIdx + 1} / ${filteredQs.length}`;
 }
 
-// UI CHANGE: close the question detail modal
 function closeQDetail() {
   document.getElementById('qDetailOverlay').classList.remove('open');
 }
 
-// UI CHANGE: populate the modal with question data
 function populateQDetail(q) {
-  // SCROLL BUG 2 FIX: Always reset modal scroll to top when navigating
+
   const detailBody = document.querySelector('.q-detail-body');
   if (detailBody) detailBody.scrollTop = 0;
 
@@ -1205,7 +1169,7 @@ function populateQDetail(q) {
   pill.textContent = q.marks > 0 ? `+${q.marks}` : String(q.marks);
   pill.className = 'marks-pill ' + (q.marks > 0 ? 'marks-pos' : 'marks-zero');
 
-  // Image — BUG 11 FIX: add zoomable-img class, title, and cursor
+  // image area
   const imgArea = document.getElementById('qdImgArea');
   const img = questionImages[q.id] || null;
   imgArea.innerHTML = img
@@ -1238,23 +1202,20 @@ function populateQDetail(q) {
   showQuestion(currentQ);
 }
 
-// UI CHANGE: navigate to previous question in modal
 function prevQDetail() {
   if (currentQ > 0) openQDetail(currentQ - 1);
 }
 
-// UI CHANGE: navigate to next question in modal
 function nextQDetail() {
   if (currentQ < filteredQs.length - 1) openQDetail(currentQ + 1);
 }
 
-/* ═══════════════════════════════════════════════════════
-   KEYBOARD SHORTCUTS
-═══════════════════════════════════════════════════════ */
+
+// keyboard shortcuts
 document.addEventListener('keydown', e => {
-  if (e.key === 'Escape') { closeQDetail(); closeLightbox(); closeSidebar(); } // UI CHANGE: also close modal
+  if (e.key === 'Escape') { closeQDetail(); closeLightbox(); closeSidebar(); }
   if (document.getElementById('lightbox').classList.contains('open')) return;
-  // UI CHANGE: arrow keys navigate in modal if open
+
   const modalOpen = document.getElementById('qDetailOverlay').classList.contains('open');
   if (modalOpen) {
     if (e.key === 'ArrowLeft')  prevQDetail();
@@ -1265,11 +1226,10 @@ document.addEventListener('keydown', e => {
   if (e.key === 'ArrowRight') nextQ();
 });
 
-/* ═══════════════════════════════════════════════════════
-   SCREEN STATE MANAGEMENT
-═══════════════════════════════════════════════════════ */
+
+// screen state management
 function showLoading() {
-  document.body.classList.remove('upload-active'); // BUG FIX: lock body scroll during loading too
+  document.body.classList.remove('upload-active');
   document.getElementById('uploadScreen').style.display  = 'none';
   document.getElementById('loadingScreen').style.display = 'flex';
   document.getElementById('dashboard').style.display     = 'none';
@@ -1285,11 +1245,11 @@ function setStep(label, sub) {
 function showDash(qs) {
   document.getElementById('loadingScreen').style.display = 'none';
   document.getElementById('dashboard').style.display     = 'flex';
-  // BUG 1 FIX: lock body scroll when dashboard is active
+
   document.body.classList.remove('upload-active');
   document.getElementById('uploadThemeBtn').style.display = 'none'; // hide upload screen toggle
   const lp = document.getElementById('landingPage');
-  if (lp) lp.style.display = 'none'; /* BUG 1 FIX: hide landing page behind dashboard */
+  if (lp) lp.style.display = 'none';
   renderDashboard(qs);
   saveSession(document.getElementById('topbarFile').textContent, qs);
   const st = computeStats(qs);
@@ -1297,9 +1257,9 @@ function showDash(qs) {
 }
 
 function resetApp() {
-  _isProcessing = false;      // BUG 14 FIX: release processing lock
+  _isProcessing = false;
   questions = []; filteredQs = []; currentQ = 0;
-  _pendingQs = null; _pendingFile = ''; // BUG FIX: reset pending mismatch state
+  _pendingQs = null; _pendingFile = '';
   pdfPageImages = {}; questionImages = {}; questionPageMap = {};
   subjectChartInsts.forEach(c => c.destroy()); subjectChartInsts = [];
   if (donutChartInst) { donutChartInst.destroy(); donutChartInst = null; }
@@ -1309,9 +1269,9 @@ function resetApp() {
   document.getElementById('uploadScreen').style.display  = 'flex';
   document.getElementById('uploadThemeBtn').style.display = ''; // restore upload screen toggle
   const lp = document.getElementById('landingPage');
-  if (lp) lp.style.display = ''; // BUG FIX: restore landing page
-  document.body.classList.add('upload-active'); // BUG FIX: re-enable body scroll
+  if (lp) lp.style.display = '';
+  document.body.classList.add('upload-active');
   document.getElementById('fileInput').value = '';
-  try { localStorage.removeItem('examSession'); } catch (e) { /* BUG FIX: localStorage may throw in private browsing */ }
+  try { localStorage.removeItem('examSession'); } catch (e) { }
   window._storedSession = null;
 }

@@ -1,12 +1,9 @@
-/* ═══════════════════════════════════════════════════════
-   CLEAN DESIGN SYSTEM — CETLens
-   style.css
-═══════════════════════════════════════════════════════ */
+/* clean design system */
 
 /* ─── Reset ─── */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
-/* BUG 1 FIX: Lock page scroll when dashboard is active */
+
 html, body { height: 100%; overflow: hidden; }
 body.upload-active { overflow: auto; } /* Allow scroll on upload/landing screen */
 
@@ -31,7 +28,7 @@ body.upload-active { overflow: auto; } /* Allow scroll on upload/landing screen 
   --shadow-recessed: inset 4px 4px 8px #babecc, inset -4px -4px 8px #ffffff;
   --shadow-glow:     0 0 10px 2px rgba(255,71,87,0.6);
 
-  /* ── Legacy accent aliases (keeps JS / chart compat) ── */
+  /* legacy aliases */
   --accent-light:  #ff6b81;
   --accent-dim:    rgba(255, 71, 87, 0.22);
   --accent-faint:  rgba(255, 71, 87, 0.07);
@@ -73,7 +70,7 @@ body.upload-active { overflow: auto; } /* Allow scroll on upload/landing screen 
   --font-body:    'Inter', system-ui, sans-serif;
   --font-mono:    'JetBrains Mono', 'Fira Code', monospace;
 
-  /* ── Shadow aliases (legacy compat) ── */
+  /* shadow aliases */
   --neon-sm:  var(--shadow-card);
   --neon:     var(--shadow-card);
   --neon-lg:  var(--shadow-floating);
@@ -84,7 +81,7 @@ body.upload-active { overflow: auto; } /* Allow scroll on upload/landing screen 
   --phb:   #e8384f;
 }
 
-/* ─── LIGHT THEME — kept as pass-through (base IS light now) ─── */
+/* light theme */
 [data-theme="light"] {
   --obsidian:     var(--background);
   --charcoal:     var(--foreground);
@@ -114,7 +111,7 @@ html[data-theme="light"] body {
 [data-theme="light"] .cmd-box,
 [data-theme="light"] .mismatch-box { box-shadow: var(--shadow-floating); }
 
-/* ─── DARK THEME — industrial dark neumorphism ─── */
+/* dark theme */
 [data-theme="dark"] {
   --background:    #1a1d23;
   --foreground:    #22262e;
@@ -187,9 +184,8 @@ html[data-theme="dark"] body {
 [data-theme="dark"] ::-webkit-scrollbar-track { background: #1a1d23; }
 [data-theme="dark"] ::-webkit-scrollbar-thumb { background: rgba(255,71,87,0.35); }
 
-/* ═══════════════════════════════════════════════════════
-   ANIMATIONS
-═══════════════════════════════════════════════════════ */
+
+/* animations */
 @keyframes spin  { to { transform: rotate(360deg); } }
 @keyframes blink { 50% { opacity: 0; } }
 @keyframes fade-in {
@@ -197,14 +193,13 @@ html[data-theme="dark"] body {
   to   { opacity: 1; transform: none; }
 }
 
-/* ═══════════════════════════════════════════════════════
-   BASE
-═══════════════════════════════════════════════════════ */
+
+/* base */
 body {
   font-family: var(--font-body);
   background: var(--background);
   color: var(--text);
-  /* BUG FIX: removed min-height:100vh — conflicts with height:100% on html,body above */
+
   transition: background .35s, color .35s;
   position: relative;
 }
@@ -217,8 +212,8 @@ body::before {
   z-index: 0;
   pointer-events: none;
   opacity: 0.25;
-  mix-blend-mode: soft-light; /* BUG 2 FIX: soft-light avoids Chromium compositing seam */
-  will-change: opacity;       /* BUG 2 FIX: promote to own layer to avoid repaint artifacts */
+  mix-blend-mode: soft-light;
+  will-change: opacity;
   background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
   background-repeat: repeat;
   background-size: 256px 256px;
@@ -235,9 +230,8 @@ input, button, select { font-family: var(--font-body); }
 /* Selection */
 ::selection { background: var(--accent-dim); color: var(--accent-light); }
 
-/* ═══════════════════════════════════════════════════════
-   THEME TOGGLE BUTTON
-═══════════════════════════════════════════════════════ */
+
+/* theme toggle button */
 .theme-toggle-btn {
   background: var(--charcoal);
   border: 1px solid var(--border);
@@ -269,9 +263,8 @@ input, button, select { font-family: var(--font-body); }
 .theme-toggle-btn svg { transition: transform .3s ease; }
 .theme-toggle-btn:hover svg { transform: rotate(20deg); }
 
-/* ═══════════════════════════════════════════════════════
-   UPLOAD SCREEN
-═══════════════════════════════════════════════════════ */
+
+/* upload screen */
 .upload-screen {
   min-height: auto;
   display: flex;
@@ -366,9 +359,8 @@ input, button, select { font-family: var(--font-body); }
 .upload-title { font-size: 14px; font-weight: 600; margin-bottom: .5rem; color: var(--text); letter-spacing: .01em; }
 .upload-sub   { font-size: 13px; color: var(--pewter); margin-bottom: 1.5rem; line-height: 1.75; }
 
-/* ═══════════════════════════════════════════════════════
-   RESTORE SESSION BANNER
-═══════════════════════════════════════════════════════ */
+
+/* restore session banner */
 #restoreBanner {
   position: fixed;
   top: 0; left: 0; right: 0;
@@ -397,11 +389,8 @@ input, button, select { font-family: var(--font-body); }
 .restore-info { flex: 1; font-size: 12px; color: var(--text2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
 .restore-btns { display: flex; gap: .5rem; flex-shrink: 0; }
 
-/* ═══════════════════════════════════════════════════════
-   BUTTONS — Industrial Skeuomorphism
-   Variants: primary | secondary | ghost
-   Sizes:    sm | (md default) | lg
-═══════════════════════════════════════════════════════ */
+
+/* buttons */
 
 /* ── Shared base ── */
 .btn-primary,
@@ -559,7 +548,7 @@ input, button, select { font-family: var(--font-body); }
   border-radius: 8px;
 }
 .btn-md {
-  /* default — explicitly listed for clarity */
+
   min-height: 48px;
   padding: .75rem 1.75rem;
   font-size: 13px;
@@ -572,9 +561,8 @@ input, button, select { font-family: var(--font-body); }
   border-radius: 16px;
 }
 
-/* ═══════════════════════════════════════════════════════
-   ABOUT / CREDIT PANEL
-═══════════════════════════════════════════════════════ */
+
+/* about / credit panel */
 .about-avatar {
   width: 64px; height: 64px;
   background: var(--accent-faint);
@@ -605,9 +593,8 @@ input, button, select { font-family: var(--font-body); }
 .about-link:hover { border-color: var(--accent-dim); color: var(--accent-light); background: var(--accent-faint); }
 .about-note { font-size: 12px; color: var(--pewter); line-height: 1.8; padding: .875rem 1rem; border: 1px solid var(--border); background: var(--charcoal-mid); text-align: left; border-radius: var(--radius); }
 
-/* ═══════════════════════════════════════════════════════
-   LOADING SCREEN
-═══════════════════════════════════════════════════════ */
+
+/* loading screen */
 .loading-overlay { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; gap: 2rem; }
 .spinner {
   width: 44px; height: 44px;
@@ -619,10 +606,9 @@ input, button, select { font-family: var(--font-body); }
 .step-label { font-size: 14px; font-weight: 600; letter-spacing: .05em; text-transform: uppercase; color: var(--text); }
 .step-sub { font-size: 13px; color: var(--pewter); margin-top: .2rem; text-align: center; }
 
-/* ═══════════════════════════════════════════════════════
-   DASHBOARD
-═══════════════════════════════════════════════════════ */
-.dashboard { display: none; flex-direction: column; height: 100vh; overflow: hidden; } /* BUG 1 FIX: constrain dashboard to viewport */
+
+/* dashboard */
+.dashboard { display: none; flex-direction: column; height: 100vh; overflow: hidden; }
 
 /* Topbar */
 .topbar {
@@ -632,12 +618,12 @@ input, button, select { font-family: var(--font-body); }
   padding: .75rem 1.5rem;
   border-bottom: 1px solid var(--border);
   background: var(--charcoal);
-  position: relative; /* BUG FIX: sticky doesn't work inside overflow:hidden parent (.dashboard) */
+  position: relative;
   z-index: 100;
   gap: 1rem;
   transition: background .35s, border-color .35s;
   box-shadow: 0 2px 8px rgba(0, 0, 0, .2);
-  flex-shrink: 0; /* BUG FIX: prevent topbar from shrinking in flex column */
+  flex-shrink: 0;
 }
 .topbar-left { display: flex; align-items: center; gap: .85rem; min-width: 0; overflow: hidden; }
 .topbar-brand {
@@ -686,7 +672,7 @@ input, button, select { font-family: var(--font-body); }
 .hamburger-btn:hover { background: var(--charcoal-mid); }
 .hamburger-btn span  { display: block; width: 18px; height: 1.5px; background: var(--text2); transition: all .3s; }
 
-/* Main layout — UI CHANGE: single column, sidebar removed */
+/* Main layout */
 .main-layout { display: grid; grid-template-columns: 1fr; height: calc(100vh - 53px); overflow: hidden; }
 
 /* Sidebar */
@@ -694,8 +680,8 @@ input, button, select { font-family: var(--font-body); }
   border-right: 1px solid var(--border);
   background: var(--charcoal);
   overflow-y: auto;
-  /* BUG FIX: removed max-height — parent .main-layout already constrains height */
-  /* BUG FIX: removed position:sticky — doesn't work inside overflow:hidden parent */
+
+
   transition: background .35s, border-color .35s;
 }
 .sidebar-inner  { padding: 1.25rem 1rem; }
@@ -730,17 +716,16 @@ input, button, select { font-family: var(--font-body); }
 .q-btn.active { border-color: var(--accent) !important; background: var(--accent-faint) !important; color: var(--accent-light) !important; }
 
 /* Content area */
-.content        { overflow-y: auto; overflow-x: hidden; } /* BUG FIX: removed max-height — parent .main-layout constrains; prevent horizontal overflow */
-.content-inner  { padding: 1.5rem; max-width: 1000px; margin: 0 auto; overflow-x: hidden; } /* UI CHANGE: wider since sidebar removed */
+.content        { overflow-y: auto; overflow-x: hidden; }
+.content-inner  { padding: 1.5rem; max-width: 1000px; margin: 0 auto; overflow-x: hidden; }
 
-/* BUG 2 FIX: grid children must not overflow their track */
+
 .metrics-grid > *,
 .chart-grid > *,
 .subject-charts-grid > * { min-width: 0; }
 
-/* ═══════════════════════════════════════════════════════
-   METRIC CARDS + TOOLTIPS
-═══════════════════════════════════════════════════════ */
+
+/* metric cards + tooltips */
 .metrics-grid {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
@@ -784,9 +769,8 @@ input, button, select { font-family: var(--font-body); }
 .mv-red   { color: #f87171; }
 .mv-amber { color: var(--accent-light); }
 
-/* ═══════════════════════════════════════════════════════
-   CHART CARDS
-═══════════════════════════════════════════════════════ */
+
+/* chart cards */
 .chart-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -828,11 +812,10 @@ input, button, select { font-family: var(--font-body); }
 .filter-bar { display: flex; flex-direction: column; gap: .75rem; margin-bottom: 1.5rem; }
 .filter-group { display: flex; gap: .5rem; flex-wrap: wrap; align-items: center; }
 
-/* ═══════════════════════════════════════════════════════
-   UI CHANGE: TABBED SCORE CARD
-═══════════════════════════════════════════════════════ */
+
+/* ui change: tabbed score card */
 .score-tabs-card {
-  background: var(--charcoal); /* UI CHANGE: neumorphic card surface */
+  background: var(--charcoal);
   border: 1px solid var(--border);
   border-radius: var(--radius);
   overflow: hidden;
@@ -841,12 +824,12 @@ input, button, select { font-family: var(--font-body); }
 
 /* Tab header row */
 .score-tabs-header {
-  display: flex; /* UI CHANGE: side-by-side tabs */
+  display: flex;
   border-bottom: 1px solid var(--border);
   background: var(--charcoal-mid);
 }
 .score-tab {
-  flex: 1; /* UI CHANGE: equal-width tabs */
+  flex: 1;
   padding: .875rem 1rem;
   background: transparent;
   border: none;
@@ -862,23 +845,23 @@ input, button, select { font-family: var(--font-body); }
 }
 .score-tab:hover { color: var(--text); }
 .score-tab.active {
-  color: var(--accent-light); /* UI CHANGE: accent underline for active tab */
+  color: var(--accent-light);
   border-bottom-color: var(--accent);
   background: var(--charcoal);
 }
 
 /* Tab panels */
 .score-tab-panel {
-  display: none; /* UI CHANGE: hidden by default */
+  display: none;
   padding: 1.5rem;
 }
 .score-tab-panel.active {
-  display: block; /* UI CHANGE: show active panel */
+  display: block;
 }
 
 /* ── Arc Gauge (semicircular speedometer) ── */
 .arc-gauge-wrap {
-  position: relative; /* UI CHANGE: position context for centered score */
+  position: relative;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -887,25 +870,25 @@ input, button, select { font-family: var(--font-body); }
   aspect-ratio: 200 / 120;
 }
 .arc-gauge {
-  width: 100%; /* UI CHANGE: responsive SVG gauge */
+  width: 100%;
   height: auto;
   overflow: visible;
 }
 .arc-track {
   fill: none;
-  stroke: var(--border); /* UI CHANGE: track color from design system */
+  stroke: var(--border);
   stroke-width: 12;
   stroke-linecap: round;
 }
 .arc-fill {
   fill: none;
-  stroke: var(--accent); /* UI CHANGE: filled arc uses accent color */
+  stroke: var(--accent);
   stroke-width: 12;
   stroke-linecap: round;
-  /* BUG 12 FIX: removed transition: d — SVG 'd' is not CSS-animatable */
+
 }
 .arc-tick {
-  fill: var(--pewter); /* UI CHANGE: muted tick labels */
+  fill: var(--pewter);
   font-size: 10px;
   font-family: var(--font-mono);
   font-weight: 500;
@@ -918,7 +901,7 @@ input, button, select { font-family: var(--font-body); }
 
 /* Score centered inside the arc */
 .arc-score-center {
-  position: absolute; /* UI CHANGE: overlay on the arc */
+  position: absolute;
   bottom: 8%;
   left: 50%;
   transform: translateX(-50%);
@@ -927,7 +910,7 @@ input, button, select { font-family: var(--font-body); }
 }
 .arc-score-val {
   display: block;
-  font-size: 38px; /* UI CHANGE: large prominent score */
+  font-size: 38px;
   font-weight: 800;
   color: var(--accent-light);
   line-height: 1;
@@ -935,7 +918,7 @@ input, button, select { font-family: var(--font-body); }
 }
 .arc-score-max {
   display: block;
-  font-size: 13px; /* UI CHANGE: muted max label */
+  font-size: 13px;
   color: var(--pewter);
   font-weight: 600;
   margin-top: 2px;
@@ -943,14 +926,14 @@ input, button, select { font-family: var(--font-body); }
 
 /* 3 stat pills below gauge */
 .arc-stat-pills {
-  display: flex; /* UI CHANGE: inline pill row */
+  display: flex;
   justify-content: center;
   gap: 12px;
   margin-top: 1rem;
   flex-wrap: wrap;
 }
 .arc-pill {
-  display: inline-flex; /* UI CHANGE: individual pill */
+  display: inline-flex;
   align-items: center;
   gap: 6px;
   padding: .4rem .9rem;
@@ -961,39 +944,39 @@ input, button, select { font-family: var(--font-body); }
   border: 1px solid;
 }
 .arc-pill--correct {
-  color: var(--correct); /* UI CHANGE: green correct pill */
+  color: var(--correct);
   background: rgba(34,197,94,.08);
   border-color: rgba(34,197,94,.25);
 }
 .arc-pill--incorrect {
-  color: var(--incorrect); /* UI CHANGE: red incorrect pill */
+  color: var(--incorrect);
   background: rgba(239,68,68,.08);
   border-color: rgba(239,68,68,.25);
 }
 .arc-pill--accuracy {
-  color: var(--accent-light); /* UI CHANGE: accent accuracy pill */
+  color: var(--accent-light);
   background: var(--accent-faint);
   border-color: var(--accent-dim);
 }
 .arc-pill-dot {
-  width: 7px; height: 7px; /* UI CHANGE: colored dot inside pill */
+  width: 7px; height: 7px;
   border-radius: 50%;
   flex-shrink: 0;
 }
 
 /* ── Subject-wise Score Rows (Tab 2) ── */
 .subject-score-rows {
-  display: flex; /* UI CHANGE: vertical stack */
+  display: flex;
   flex-direction: column;
   gap: 0;
 }
 .subject-score-row {
-  display: flex; /* UI CHANGE: row layout */
+  display: flex;
   align-items: center;
   gap: 1rem;
   padding: 1rem 1.25rem;
   border-bottom: 1px solid var(--border);
-  border-left: 3px solid transparent; /* UI CHANGE: left accent border */
+  border-left: 3px solid transparent;
   transition: background .15s;
 }
 .subject-score-row:last-child { border-bottom: none; }
@@ -1001,54 +984,53 @@ input, button, select { font-family: var(--font-body); }
 
 /* Subject color borders — CSS variables only */
 .subject-score-row[data-subject="Physics"]     { border-left-color: var(--correct); }
-.subject-score-row[data-subject="Chemistry"]   { border-left-color: #c084fc; } /* UI CHANGE: purple tint for Chemistry */
+.subject-score-row[data-subject="Chemistry"]   { border-left-color: #c084fc; }
 .subject-score-row[data-subject="Mathematics"] { border-left-color: var(--accent); }
 .subject-score-row[data-subject="Biology"]     { border-left-color: var(--accent); }
 
 .subject-score-name {
-  font-size: 13px; /* UI CHANGE: subject name */
+  font-size: 13px;
   font-weight: 600;
   color: var(--text);
   flex: 1;
   min-width: 0;
 }
 .subject-score-earned {
-  font-size: 24px; /* UI CHANGE: large bold earned score */
+  font-size: 24px;
   font-weight: 800;
   color: var(--text);
   font-family: var(--font-display);
   line-height: 1;
 }
 .subject-score-max {
-  font-size: 14px; /* UI CHANGE: muted max */
+  font-size: 14px;
   color: var(--pewter);
   font-weight: 500;
 }
 
-/* ═══════════════════════════════════════════════════════
-   UI CHANGE: QUESTION TABLE
-═══════════════════════════════════════════════════════ */
+
+/* ui change: question table */
 .q-table-card {
-  background: var(--charcoal); /* UI CHANGE: neumorphic card wrapper */
+  background: var(--charcoal);
   border: 1px solid var(--border);
   border-radius: var(--radius);
   overflow: hidden;
   margin-bottom: 1.5rem;
-  max-height: 50vh; /* UI CHANGE: taller since q-viewer is removed */
+  max-height: 50vh;
   overflow-y: auto;
 }
 .q-table {
-  width: 100%; /* UI CHANGE: full-width table */
+  width: 100%;
   border-collapse: collapse;
   font-size: 12px;
 }
 .q-table thead {
-  position: sticky; /* UI CHANGE: sticky header inside scroll */
+  position: sticky;
   top: 0;
   z-index: 5;
 }
 .q-table th {
-  background: var(--charcoal-mid); /* UI CHANGE: header surface */
+  background: var(--charcoal-mid);
   padding: .65rem .75rem;
   text-align: left;
   font-size: 10px;
@@ -1066,27 +1048,27 @@ input, button, select { font-family: var(--font-body); }
   vertical-align: middle;
 }
 .q-table tbody tr {
-  cursor: pointer; /* UI CHANGE: clickable rows */
+  cursor: pointer;
   transition: background .12s;
 }
 .q-table tbody tr:nth-child(even) {
-  background: var(--bg3); /* UI CHANGE: alternating row bg */
+  background: var(--bg3);
 }
 .q-table tbody tr:nth-child(odd) {
-  background: var(--bg); /* UI CHANGE: alternating row bg */
+  background: var(--bg);
 }
 .q-table tbody tr:hover {
-  background: var(--accent-faint); /* UI CHANGE: hover highlight */
+  background: var(--accent-faint);
 }
 .q-table tbody tr.q-table-active {
-  background: var(--accent-faint); /* UI CHANGE: active row highlight */
+  background: var(--accent-faint);
   outline: 1px solid var(--accent-dim);
   outline-offset: -1px;
 }
 
 /* Table status icons */
 .q-table-status {
-  font-weight: 700; /* UI CHANGE: colored status cell */
+  font-weight: 700;
   font-size: 14px;
 }
 .q-table-status--correct    { color: var(--correct); }
@@ -1104,7 +1086,7 @@ input, button, select { font-family: var(--font-body); }
 
 /* Table preview thumbnail */
 .q-table-thumb {
-  width: 40px; height: 28px; /* UI CHANGE: small thumbnail */
+  width: 40px; height: 28px;
   object-fit: cover;
   border-radius: 3px;
   border: 1px solid var(--border);
@@ -1112,7 +1094,7 @@ input, button, select { font-family: var(--font-body); }
   display: block;
 }
 .q-table-no-thumb {
-  width: 40px; height: 28px; /* UI CHANGE: placeholder when no image */
+  width: 40px; height: 28px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1123,9 +1105,8 @@ input, button, select { font-family: var(--font-body); }
   font-size: 10px;
 }
 
-/* ═══════════════════════════════════════════════════════
-   QUESTION VIEWER
-═══════════════════════════════════════════════════════ */
+
+/* question viewer */
 .q-viewer {
   background: var(--charcoal);
   border: 1px solid var(--border);
@@ -1137,7 +1118,7 @@ input, button, select { font-family: var(--font-body); }
   flex-direction: column;
   max-height: calc(100vh - 100px);
 }
-.q-header { display: flex; align-items: center; gap: .75rem; padding: .875rem 1.25rem; border-bottom: 1px solid var(--border); background: var(--charcoal-mid); flex-shrink: 0; } /* BUG FIX: prevent header from shrinking in flex column */
+.q-header { display: flex; align-items: center; gap: .75rem; padding: .875rem 1.25rem; border-bottom: 1px solid var(--border); background: var(--charcoal-mid); flex-shrink: 0; }
 .q-num { font-size: 13px; font-weight: 600; color: var(--text); }
 .q-badge { font-size: 10px; padding: 2px 8px; font-weight: 600; text-transform: uppercase; letter-spacing: .08em; border-radius: 4px; }
 .badge-correct     { background: rgba(34,197,94,.1);  color: #4ade80; border: 1px solid rgba(34,197,94,.3); }
@@ -1150,7 +1131,7 @@ input, button, select { font-family: var(--font-body); }
 .q-body { flex: 1; overflow-y: auto; min-height: 0; }
 .q-img-area { background: var(--obsidian); display: flex; align-items: flex-start; justify-content: center; border-bottom: 1px solid var(--border); overflow: hidden; }
 .q-img-area img { max-width: 100%; display: block; cursor: zoom-in; transition: opacity .2s; }
-.q-img-area > * { max-width: 100%; } /* BUG FIX: constrain direct children only — wildcard (*) was too aggressive */
+.q-img-area > * { max-width: 100%; }
 .q-img-area img:hover { opacity: .9; }
 .q-img-placeholder { display: flex; align-items: center; justify-content: center; min-height: 180px; width: 100%; color: var(--pewter); font-size: 13px; background: var(--obsidian); flex-direction: column; gap: .75rem; text-align: center; padding: 1.5rem; }
 
@@ -1171,14 +1152,11 @@ input, button, select { font-family: var(--font-body); }
 .vs { color: var(--pewter); }
 .va { color: var(--accent-light); }
 
-.q-footer { display: flex; justify-content: space-between; align-items: center; padding: .875rem 1.25rem; margin-top: auto; flex-shrink: 0; } /* BUG FIX: prevent footer from shrinking in flex column */
+.q-footer { display: flex; justify-content: space-between; align-items: center; padding: .875rem 1.25rem; margin-top: auto; flex-shrink: 0; }
 .nav-btns  { display: flex; gap: .5rem; }
 
-/* ═══════════════════════════════════════════════════════
-   UI CHANGE: QUESTION DETAIL MODAL
-   Opens when clicking a row in the question table
-═══════════════════════════════════════════════════════ */
-/* BUG 4+5 FIX: use opacity+visibility for fade transition instead of display:none */
+
+/* ui change: question detail modal */
 .q-detail-overlay {
   position: fixed;
   inset: 0;
@@ -1189,7 +1167,7 @@ input, button, select { font-family: var(--font-body); }
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 1.5rem 3rem; /* BUG 4 FIX: wider horizontal padding for side buttons */
+  padding: 1.5rem 3rem;
   opacity: 0;
   visibility: hidden;
   pointer-events: none;
@@ -1201,7 +1179,7 @@ input, button, select { font-family: var(--font-body); }
   pointer-events: auto;
 }
 
-/* BUG 4 FIX: Wrapper sized wider than modal to hold side buttons */
+
 .q-detail-wrapper {
   position: relative;
   width: 100%;
@@ -1265,8 +1243,7 @@ input, button, select { font-family: var(--font-body); }
   min-height: 0;
 }
 
-/* BUG 7 FIX: removed conflicting overflow:hidden, kept overflow-x:hidden + overflow-y:auto */
-/* BUG 9 FIX: max-height changed from 55vh to 40vh */
+
 .q-detail-img {
   background: var(--obsidian);
   display: flex;
@@ -1297,7 +1274,7 @@ input, button, select { font-family: var(--font-body); }
   border-left: 1px solid var(--border);
 }
 
-/* BUG 8 FIX: justify-content changed from space-between to center */
+
 .q-detail-footer {
   display: flex;
   justify-content: center;
@@ -1323,7 +1300,7 @@ input, button, select { font-family: var(--font-body); }
   border-radius: 8px;
 }
 
-/* BUG 1 FIX: Side nav buttons — font-family + hover preserves translateY */
+
 .modal-side-btn {
   position: absolute;
   top: 50%;
@@ -1345,12 +1322,12 @@ input, button, select { font-family: var(--font-body); }
   transition: all .2s;
 }
 .modal-side-btn:hover {
-  transform: translateY(-50%) scale(1.08); /* BUG 1 FIX: preserve translateY on hover */
+  transform: translateY(-50%) scale(1.08);
   background: var(--charcoal-mid);
   color: var(--accent);
   border-color: var(--border2);
 }
-/* BUG 4 FIX: buttons positioned relative to wrapper, not screen edges */
+
 .modal-side-prev { left: -3rem; }
 .modal-side-next { right: -3rem; }
 
@@ -1394,9 +1371,8 @@ input, button, select { font-family: var(--font-body); }
   }
 }
 
-/* ═══════════════════════════════════════════════════════
-   LIGHTBOX
-═══════════════════════════════════════════════════════ */
+
+/* lightbox */
 #lightbox {
   position: fixed; inset: 0;
   background: rgba(0, 0, 0, .94);
@@ -1430,9 +1406,8 @@ input, button, select { font-family: var(--font-body); }
 .lightbox-close:hover { background: var(--charcoal-mid); border-color: var(--border2); color: var(--text); }
 .lightbox-hint { position: fixed; bottom: 1.5rem; left: 50%; transform: translateX(-50%); font-size: 12px; color: var(--pewter); pointer-events: none; }
 
-/* ═══════════════════════════════════════════════════════
-   CMD OVERLAY
-═══════════════════════════════════════════════════════ */
+
+/* cmd overlay */
 .cmd-overlay { position: fixed; inset: 0; background: rgba(0,0,0,.7); backdrop-filter: blur(8px); z-index: 200; display: none; align-items: flex-start; justify-content: center; padding-top: 12vh; }
 .cmd-overlay.open { display: flex; }
 .cmd-box {
@@ -1458,9 +1433,8 @@ input, button, select { font-family: var(--font-body); }
 .cmd-item-badge{ font-size: 10px; padding: 2px 8px; margin-left: auto; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; border-radius: 4px; }
 .empty-state   { text-align: center; padding: 3rem 1rem; color: var(--pewter); font-size: 13px; }
 
-/* ═══════════════════════════════════════════════════════
-   MISMATCH POPUP
-═══════════════════════════════════════════════════════ */
+
+/* mismatch popup */
 .mismatch-overlay { position: fixed; inset: 0; background: rgba(0,0,0,.75); backdrop-filter: blur(10px); z-index: 300; display: none; align-items: center; justify-content: center; }
 .mismatch-overlay.open { display: flex; }
 .mismatch-box {
@@ -1513,9 +1487,8 @@ input, button, select { font-family: var(--font-body); }
 }
 .credit-link:hover { background: var(--accent-faint); border-color: var(--accent-dim); color: var(--accent-light); }
 
-/* ═══════════════════════════════════════════════════════
-   SHARE CARD (off-screen capture element)
-═══════════════════════════════════════════════════════ */
+
+/* share card */
 #shareCardEl {
   position: fixed;
   left: -9999px; top: 0;
@@ -1526,11 +1499,8 @@ input, button, select { font-family: var(--font-body); }
   overflow: hidden;
 }
 
-/* ═══════════════════════════════════════════════════════
-   CARD — Industrial Skeuomorphism
-   Variants: base | elevated
-   Manufacturing details: corner screws + vent slots
-═══════════════════════════════════════════════════════ */
+
+/* card */
 
 /* ── Base card ── */
 .neu-card {
@@ -1628,10 +1598,8 @@ input, button, select { font-family: var(--font-body); }
   box-shadow: inset 1px 1px 2px rgba(0,0,0,0.1);
 }
 
-/* ═══════════════════════════════════════════════════════
-   INPUT — Industrial Skeuomorphism
-   Recessed well with LED-backlight focus
-═══════════════════════════════════════════════════════ */
+
+/* input */
 
 .neu-input {
   width: 100%;
@@ -1676,10 +1644,8 @@ textarea.neu-input {
   line-height: 1.6;
 }
 
-/* ═══════════════════════════════════════════════════════
-   LED STATUS INDICATOR
-   Variants: green (ONLINE) | red (ALERT) | yellow (STANDBY)
-═══════════════════════════════════════════════════════ */
+
+/* led status indicator */
 
 @keyframes led-pulse {
   0%, 100% { opacity: 1; }
@@ -1735,9 +1701,8 @@ textarea.neu-input {
 .led--sm .led__dot { width: 8px; height: 8px; }
 .led--lg .led__dot { width: 12px; height: 12px; }
 
-/* ═══════════════════════════════════════════════════════
-   PAGE WRAPPER / CONTAINER
-═══════════════════════════════════════════════════════ */
+
+/* page wrapper / container */
 
 .page-wrap {
   width: 100%;
@@ -1754,8 +1719,8 @@ textarea.neu-input {
   z-index: 0;
   pointer-events: none;
   opacity: 0.25;
-  mix-blend-mode: soft-light; /* BUG 3 FIX: soft-light avoids Chromium compositing seam */
-  will-change: opacity;       /* BUG 3 FIX: promote to own layer */
+  mix-blend-mode: soft-light;
+  will-change: opacity;
   background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
   background-repeat: repeat;
   background-size: 256px 256px;
@@ -1778,9 +1743,8 @@ textarea.neu-input {
   gap: 6rem;
 }
 
-/* ═══════════════════════════════════════════════════════
-   HERO SECTION
-═══════════════════════════════════════════════════════ */
+
+/* hero section */
 
 .hero {
   display: grid;
@@ -1855,7 +1819,7 @@ textarea.neu-input {
   box-shadow: var(--shadow-floating);
 }
 
-/* BUG 10 FIX: CSS-only carbon fiber — no external URL */
+
 .device__bezel::before {
   content: '';
   position: absolute;
@@ -2001,9 +1965,8 @@ textarea.neu-input {
   text-transform: uppercase;
 }
 
-/* ═══════════════════════════════════════════════════════
-   STATS STRIP
-═══════════════════════════════════════════════════════ */
+
+/* stats strip */
 
 .stats-strip {
   background: #2d3436;
@@ -2061,11 +2024,8 @@ textarea.neu-input {
   color: #a8b2d1;
 }
 
-/* ═══════════════════════════════════════════════════════
-   HOW IT WORKS — STEPS
-   Desktop: horizontal with pipe connectors
-   Mobile:  vertical stack, no pipes
-═══════════════════════════════════════════════════════ */
+
+/* how it works */
 
 .steps {
   display: flex;
@@ -2136,15 +2096,14 @@ textarea.neu-input {
   top: -19px;
 }
 
-/* ═══════════════════════════════════════════════════════
-   RESPONSIVE
-═══════════════════════════════════════════════════════ */
+
+/* responsive */
 @media (max-width: 700px) {
   .upload-screen  { padding: 1rem 1rem 5rem; align-items: flex-start; }
   .upload-container { grid-template-columns: 1fr; }
   .upload-left, .upload-right { padding: 1.75rem 1.5rem; }
 
-  .main-layout { grid-template-columns: 1fr; } /* BUG FIX: single-column layout on mobile */
+  .main-layout { grid-template-columns: 1fr; }
 
   /* MOBILE FIX: sidebar is hidden in HTML (display:none) — don't force it back */
   /* Sidebar drawer code removed — question table replaces sidebar */
@@ -2162,14 +2121,14 @@ textarea.neu-input {
   }
   .export-btn svg { width: 10px; height: 10px; }
 
-  /* BUG FIX: collapse grids for narrow screens */
+
   .metrics-grid       { grid-template-columns: repeat(2, 1fr); }
   .chart-grid         { grid-template-columns: 1fr; }
   .subject-charts-grid{ grid-template-columns: repeat(2, 1fr) !important; }
   .q-ans-row          { grid-template-columns: 1fr; }
   .ans-cell + .ans-cell { border-left: none; border-top: 1px solid var(--border); }
 
-  /* BUG FIX: topbar actions overflow on narrow screens */
+
   .topbar-file        { display: none; }
   .topbar-actions     { gap: .25rem; }
   .topbar-actions .btn-ghost,
@@ -2205,14 +2164,14 @@ textarea.neu-input {
   .step { width: 100%; max-width: 280px; }
   .step__pipe { display: none; }
 
-  /* UI CHANGE: mobile responsive for score tabs */
+
   .score-tab { font-size: 10px; padding: .7rem .5rem; }
   .arc-score-val { font-size: 28px; }
   .arc-stat-pills { gap: 8px; }
   .arc-pill { font-size: 11px; padding: .3rem .7rem; }
   .subject-score-earned { font-size: 20px; }
 
-  /* UI CHANGE: hide preview column on mobile */
+
   .q-table-preview-col { display: none; }
   .q-table td:nth-child(3) { display: none; }
   .q-table-card { max-height: 240px; }
@@ -2231,10 +2190,8 @@ textarea.neu-input {
   .container { padding: 0 3rem; }
 }
 
-/* ═══════════════════════════════════════════════════════
-   TESTIMONIAL CARD — Industrial Skeuomorphism
-   Extends .neu-card with push-pin, tape label, avatar
-═══════════════════════════════════════════════════════ */
+
+/* testimonial card */
 
 /* ── Grid wrapper ── */
 .testimonials-grid {
@@ -2461,11 +2418,8 @@ textarea.neu-input {
   margin-top: 3px;
 }
 
-/* ═══════════════════════════════════════════════════════
-   PRICING CARDS — Industrial Skeuomorphism
-   Three tiers: Basic | Pro (featured) | Enterprise
-   Hanging hole at top-center simulates punched metal
-═══════════════════════════════════════════════════════ */
+
+/* pricing cards */
 
 /* ── Grid wrapper ── */
 .pricing-grid {
@@ -2719,9 +2673,8 @@ textarea.neu-input {
   z-index: 2;
 }
 
-/* ═══════════════════════════════════════════════════════
-   SECTION LABELS — for landing page sections
-═══════════════════════════════════════════════════════ */
+
+/* section labels */
 .section-label {
   display: flex;
   flex-direction: column;
@@ -2765,11 +2718,10 @@ textarea.neu-input {
   color: var(--text-muted);
 }
 
-/* ═══════════════════════════════════════════════════════
-   RESPONSIVE ADDITIONS — Testimonials + Pricing
-═══════════════════════════════════════════════════════ */
+
+/* responsive additions */
 @media (max-width: 700px) {
-  /* BUG FIX: duplicate mobile block removed — rules consolidated into main @media(max-width:700px) above */
+
   /* Testimonials: single column on mobile */
   .testimonials-grid {
     grid-template-columns: 1fr;
@@ -2801,4 +2753,3 @@ textarea.neu-input {
   /* Pricing stays 1 column, let it scroll or stack */
   .pricing-grid { grid-template-columns: 1fr; }
 }
-
