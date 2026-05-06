@@ -24,6 +24,129 @@ let questionPageMap  = {};
 let _pendingQs       = null;
 let _pendingFile     = '';
 let _isProcessing    = false;
+let selectedAttempt  = '';
+let selectedShift    = '';
+
+// ── IndexedDB helpers for question image persistence ──
+const IDB_NAME = 'CETLensDB';
+const IDB_VERSION = 1;
+const IDB_STORE = 'questionImages';
+
+function openImageDB() {
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open(IDB_NAME, IDB_VERSION);
+    req.onupgradeneeded = () => {
+      const db = req.result;
+      if (!db.objectStoreNames.contains(IDB_STORE)) {
+        db.createObjectStore(IDB_STORE);
+      }
+    };
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  });
+}
+
+function saveImagesToIDB(images) {
+  return openImageDB().then(db => {
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(IDB_STORE, 'readwrite');
+      const store = tx.objectStore(IDB_STORE);
+      store.clear(); // one session at a time
+      for (const [qId, dataUrl] of Object.entries(images)) {
+        store.put(dataUrl, qId);
+      }
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+    });
+  }).catch(e => console.warn('IDB save images failed:', e));
+}
+
+function loadImagesFromIDB() {
+  return openImageDB().then(db => {
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(IDB_STORE, 'readonly');
+      const store = tx.objectStore(IDB_STORE);
+      const req = store.openCursor();
+      const result = {};
+      req.onsuccess = () => {
+        const cursor = req.result;
+        if (cursor) {
+          result[cursor.key] = cursor.value;
+          cursor.continue();
+        } else {
+          resolve(result);
+        }
+      };
+      req.onerror = () => reject(req.error);
+    });
+  }).catch(e => { console.warn('IDB load images failed:', e); return {}; });
+}
+
+function clearImagesFromIDB() {
+  return openImageDB().then(db => {
+    const tx = db.transaction(IDB_STORE, 'readwrite');
+    tx.objectStore(IDB_STORE).clear();
+  }).catch(() => {});
+}
+
+function updateShifts() {
+  const attempt = document.getElementById('attemptSelect').value;
+  const shiftContainer = document.getElementById('shiftContainer');
+  const shiftSelect = document.getElementById('shiftSelect');
+
+  if (attempt === 'Attempt 1') {
+    if (examMode === 'PCM') {
+      shiftSelect.innerHTML = `
+        <option value="" disabled selected>Select shift...</option>
+        <option value="11 April - Morning">11 April - Morning</option>
+        <option value="11 April - Evening">11 April - Evening</option>
+        <option value="13 April - Morning">13 April - Morning</option>
+        <option value="13 April - Evening">13 April - Evening</option>
+        <option value="15 April - Morning">15 April - Morning</option>
+        <option value="15 April - Evening">15 April - Evening</option>
+        <option value="16 April - Morning">16 April - Morning</option>
+        <option value="16 April - Evening">16 April - Evening</option>
+        <option value="17 April - Morning">17 April - Morning</option>
+        <option value="17 April - Evening">17 April - Evening</option>
+        <option value="18 April - Morning">18 April - Morning</option>
+        <option value="18 April - Evening">18 April - Evening</option>
+        <option value="19 April - Morning">19 April - Morning</option>
+        <option value="19 April - Evening">19 April - Evening</option>
+        <option value="20 April - Morning">20 April - Morning</option>
+        <option value="20 April - Evening">20 April - Evening</option>
+      `;
+    } else {
+      shiftSelect.innerHTML = `
+        <option value="" disabled selected>Select shift...</option>
+        <option value="21 April - Morning">21 April - Morning</option>
+        <option value="21 April - Evening">21 April - Evening</option>
+        <option value="22 April - Morning">22 April - Morning</option>
+        <option value="22 April - Evening">22 April - Evening</option>
+        <option value="23 April - Morning">23 April - Morning</option>
+        <option value="23 April - Evening">23 April - Evening</option>
+        <option value="24 April - Morning">24 April - Morning</option>
+        <option value="24 April - Evening">24 April - Evening</option>
+        <option value="25 April - Morning">25 April - Morning</option>
+        <option value="25 April - Evening">25 April - Evening</option>
+      `;
+    }
+    shiftContainer.style.display = 'block';
+  } else {
+    shiftContainer.style.display = 'none';
+  }
+}
+
+function onAttemptChange() {
+  selectedAttempt = document.getElementById('attemptSelect').value;
+  updateShifts();
+  selectedShift = '';
+  document.getElementById('selectorError').style.display = 'none';
+}
+
+function onShiftChange() {
+  selectedShift = document.getElementById('shiftSelect').value;
+  document.getElementById('selectorError').style.display = 'none';
+}
 
 
 // theme management
@@ -84,16 +207,76 @@ function fireConfetti() {
 }
 
 
-// local storage
+// local storage + IndexedDB for images
 function saveSession(filename, qs) {
   try {
     localStorage.setItem('examSession', JSON.stringify({
-      questions: qs, examMode, filename, timestamp: Date.now()
+      questions: qs, examMode, filename, timestamp: Date.now(),
+      selectedAttempt, selectedShift
     }));
   } catch (e) { /* quota exceeded — silently ignore */ }
+  // Persist question images to IndexedDB (async, fire-and-forget)
+  if (Object.keys(questionImages).length > 0) {
+    saveImagesToIDB(questionImages);
+  }
 }
 
-function checkStoredSession() { /* restore session removed */ }
+function checkStoredSession() {
+  try {
+    const raw = localStorage.getItem('examSession');
+    if (!raw) return;
+    const session = JSON.parse(raw);
+    if (!session || !session.questions || !session.questions.length) return;
+    window._storedSession = session;
+
+    // Build the meta info
+    const ago = Date.now() - (session.timestamp || 0);
+    const mins = Math.floor(ago / 60000);
+    const hours = Math.floor(mins / 60);
+    const days = Math.floor(hours / 24);
+    let timeStr = '';
+    if (days > 0) timeStr = days + ' day' + (days > 1 ? 's' : '') + ' ago';
+    else if (hours > 0) timeStr = hours + ' hour' + (hours > 1 ? 's' : '') + ' ago';
+    else if (mins > 0) timeStr = mins + ' minute' + (mins > 1 ? 's' : '') + ' ago';
+    else timeStr = 'just now';
+
+    const meta = document.getElementById('restoreMeta');
+    if (meta) {
+      meta.innerHTML = `
+        <strong>${session.filename || 'Unknown file'}</strong><br>
+        Mode: <strong>${session.examMode || 'PCM'}</strong> · ${session.questions.length} questions<br>
+        Last opened: <strong>${timeStr}</strong>`;
+    }
+    document.getElementById('restoreOverlay').classList.add('open');
+  } catch (e) { /* corrupted session data — ignore */ }
+}
+
+function restoreSession() {
+  const session = window._storedSession;
+  if (!session || !session.questions || !session.questions.length) {
+    dismissRestore();
+    return;
+  }
+  document.getElementById('restoreOverlay').classList.remove('open');
+  examMode = session.examMode || 'PCM';
+  selectedAttempt = session.selectedAttempt || '';
+  selectedShift = session.selectedShift || '';
+  document.getElementById('topbarFile').textContent = session.filename || 'Restored session';
+  document.getElementById('topbarMode').textContent = examMode;
+
+  // Load question images from IndexedDB before showing dashboard
+  loadImagesFromIDB().then(images => {
+    if (images && Object.keys(images).length > 0) {
+      questionImages = images;
+    }
+    showDashRestored(session.questions);
+  });
+}
+
+function dismissRestore() {
+  document.getElementById('restoreOverlay').classList.remove('open');
+  window._storedSession = null;
+}
 
 
 // csv export
@@ -277,8 +460,30 @@ function triggerDownload(filename, mime, content) {
 
 
 // drag & drop with filename preview
+function validateSelection() {
+  if (!selectedAttempt) {
+    document.getElementById('selectorError').style.display = 'block';
+    return false;
+  }
+  if (selectedAttempt === 'Attempt 1') {
+    if (!selectedShift) {
+      document.getElementById('selectorError').style.display = 'block';
+      return false;
+    }
+  }
+  return true;
+}
+
 document.addEventListener('DOMContentLoaded', function () {
   const dz = document.getElementById('dropZone');
+  
+  // Intercept clicks on the file input to enforce validation
+  document.getElementById('fileInput').addEventListener('click', (e) => {
+    if (!validateSelection()) {
+      e.preventDefault();
+      setTimeout(() => document.getElementById('selectorError').style.display = 'none', 3000);
+    }
+  });
 
   dz.addEventListener('dragover', e => {
     e.preventDefault();
@@ -304,6 +509,10 @@ document.addEventListener('DOMContentLoaded', function () {
     e.preventDefault();
     dz.classList.remove('drag');
     document.getElementById('dragPreview').textContent = '';
+    if (!validateSelection()) {
+      setTimeout(() => document.getElementById('selectorError').style.display = 'none', 3000);
+      return;
+    }
     const f = e.dataTransfer.files[0];
     if (f) processFile(f);
   });
@@ -322,6 +531,7 @@ document.addEventListener('DOMContentLoaded', function () {
   checkStoredSession();
 
 
+
   document.body.classList.add('upload-active');
 });
 
@@ -333,6 +543,12 @@ function setMode(m) {
   examMode = m;
   document.getElementById('btnPCM').classList.toggle('active', m === 'PCM');
   document.getElementById('btnPCB').classList.toggle('active', m === 'PCB');
+  
+  if (selectedAttempt) {
+    updateShifts();
+    document.getElementById('shiftSelect').value = "";
+    selectedShift = '';
+  }
 }
 
 
@@ -672,6 +888,12 @@ function loadDash(filename, qs) {
   document.getElementById('topbarFile').textContent = filename;
   document.getElementById('topbarMode').textContent = examMode;
   setStep('Done!', `${qs.length} questions loaded`);
+
+  const st = computeStats(qs);
+  if (typeof saveSubmissionToFirebase === 'function') {
+    saveSubmissionToFirebase(qs, st, filename);
+  }
+
   setTimeout(() => showDash(qs), 200);
 }
 
@@ -1257,6 +1479,30 @@ function showDash(qs) {
   if (st.earned >= 150) setTimeout(fireConfetti, 600);
 }
 
+// Restore session without writing to Firebase
+function showDashRestored(qs) {
+  document.getElementById('loadingScreen').style.display = 'none';
+  document.getElementById('uploadScreen').style.display  = 'none';
+  document.getElementById('dashboard').style.display     = 'flex';
+
+  document.body.classList.remove('upload-active');
+  document.getElementById('uploadThemeBtn').style.display = 'none';
+  const lp = document.getElementById('landingPage');
+  if (lp) lp.style.display = 'none';
+  renderDashboard(qs);
+  // Do NOT call saveSubmissionToFirebase — session restore is read-only
+  // Do NOT call saveSession again — it's already saved
+  const st = computeStats(qs);
+  // Still fetch the brief strip so they can see their stats
+  if (typeof fetchAndRenderBriefStrip === 'function') {
+    const stream = examMode;
+    const attempt = typeof selectedAttempt !== 'undefined' ? selectedAttempt : '';
+    const shift = typeof selectedShift !== 'undefined' ? selectedShift : '';
+    fetchAndRenderBriefStrip(stream, attempt, shift, st.earned, st.subStats || []);
+  }
+  if (st.earned >= 150) setTimeout(fireConfetti, 600);
+}
+
 function resetApp() {
   _isProcessing = false;
   questions = []; filteredQs = []; currentQ = 0;
@@ -1267,12 +1513,81 @@ function resetApp() {
   const subGrid = document.getElementById('subjectChartsGrid');
   if (subGrid) { subGrid.innerHTML = ''; subGrid.style.display = 'none'; }
   document.getElementById('dashboard').style.display     = 'none';
+  document.getElementById('analysisScreen').style.display = 'none';
   document.getElementById('uploadScreen').style.display  = 'flex';
   document.getElementById('uploadThemeBtn').style.display = ''; // restore upload screen toggle
   const lp = document.getElementById('landingPage');
   if (lp) lp.style.display = '';
   document.body.classList.add('upload-active');
   document.getElementById('fileInput').value = '';
+  const brief = document.getElementById('liveStatsBrief');
+  if (brief) brief.style.display = 'none';
   try { localStorage.removeItem('examSession'); } catch (e) { }
+  clearImagesFromIDB();
   window._storedSession = null;
+}
+
+
+// ── Analysis screen ──
+
+let _analysisCharts = {};
+
+function openAnalysisScreen() {
+  document.getElementById('dashboard').style.display   = 'none';
+  document.getElementById('analysisScreen').style.display = 'flex';
+  document.getElementById('analysisModeTag').textContent = examMode;
+
+  // Reset content state
+  document.getElementById('analysisLoading').style.display = 'flex';
+  document.getElementById('analysisContent').style.display  = 'none';
+
+  // Destroy any old charts
+  Object.values(_analysisCharts).forEach(c => { try { c.destroy(); } catch(e){} });
+  _analysisCharts = {};
+
+  // Fetch and render
+  if (typeof fetchFullAnalysis === 'function') {
+    fetchFullAnalysis();
+  }
+}
+
+function closeAnalysisScreen() {
+  document.getElementById('analysisScreen').style.display = 'none';
+  document.getElementById('dashboard').style.display      = 'flex';
+}
+
+// ── Community screen ──
+
+let _communityScreenCharts = {};
+
+function openCommunityScreen() {
+  // Hide landing / upload
+  const lp = document.getElementById('landingPage');
+  if (lp) lp.style.display = 'none';
+  const up = document.getElementById('uploadScreen');
+  if (up) up.style.display = 'none';
+
+  document.getElementById('communityScreen').style.display = 'flex';
+
+  // Reset content state
+  document.getElementById('commLoading').style.display = 'flex';
+  document.getElementById('commContent').style.display  = 'none';
+
+  // Destroy old charts
+  Object.values(_communityCharts).forEach(c => { try { c.destroy(); } catch(e){} });
+  _communityCharts = {};
+
+  // Fetch and render
+  if (typeof fetchCommunityFullAnalysis === 'function') {
+    fetchCommunityFullAnalysis();
+  }
+}
+
+function closeCommunityScreen() {
+  document.getElementById('communityScreen').style.display = 'none';
+  const lp = document.getElementById('landingPage');
+  if (lp) lp.style.display = '';
+  const up = document.getElementById('uploadScreen');
+  if (up) up.style.display = '';
+  document.body.classList.add('upload-active');
 }

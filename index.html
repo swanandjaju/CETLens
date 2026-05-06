@@ -14,6 +14,170 @@
     rel="stylesheet">
   <!-- App stylesheet -->
   <link rel="stylesheet" href="style.css">
+
+  <style>
+    /* Scoped styles for the attempt and shift selectors */
+    .attempt-selector {
+      width: 100%;
+    }
+    .attempt-selector-label {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: .1em;
+      color: var(--text2);
+      font-weight: 600;
+      margin-bottom: .875rem;
+    }
+    .select-dropdown {
+      width: 100%;
+      height: 48px;
+      padding: 0 1rem;
+      background: transparent;
+      color: var(--text);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      font-family: var(--font-body);
+      font-size: 13px;
+      outline: none;
+      margin-bottom: 1.25rem;
+      cursor: pointer;
+      -webkit-appearance: none;
+      -moz-appearance: none;
+      appearance: none;
+      background-image: url("data:image/svg+xml;charset=UTF-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 1rem center;
+      background-size: 1em;
+    }
+    [data-theme="dark"] .select-dropdown {
+      background-image: url("data:image/svg+xml;charset=UTF-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23e2e8f0' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+    }
+    .select-dropdown:focus {
+      border-color: var(--accent);
+    }
+    .select-dropdown option {
+      background: var(--background);
+      color: var(--text);
+    }
+    .error-msg {
+      color: #ef4444;
+      font-size: 12px;
+      margin-top: -0.5rem;
+      margin-bottom: 1rem;
+      display: none;
+      font-weight: 500;
+    }
+
+    /* ── Restore Session Modal ── */
+    .restore-overlay {
+      position: fixed; inset: 0; z-index: 9999;
+      background: rgba(0,0,0,.55); backdrop-filter: blur(6px);
+      display: flex; align-items: center; justify-content: center;
+      opacity: 0; pointer-events: none; transition: opacity .25s ease;
+    }
+    .restore-overlay.open { opacity: 1; pointer-events: auto; }
+    .restore-box {
+      background: var(--charcoal); border: 1px solid var(--border);
+      border-radius: 16px; padding: 2.5rem 2rem; max-width: 420px; width: 90%;
+      text-align: center; box-shadow: 0 20px 60px rgba(0,0,0,.4);
+      transform: translateY(20px) scale(.96); transition: transform .3s ease;
+    }
+    .restore-overlay.open .restore-box { transform: translateY(0) scale(1); }
+    .restore-icon { font-size: 40px; margin-bottom: 1rem; }
+    .restore-title {
+      font-size: 18px; font-weight: 700; color: var(--text); margin-bottom: .5rem;
+    }
+    .restore-meta {
+      font-size: 12px; color: var(--pewter, #718096); margin-bottom: 1.5rem;
+      line-height: 1.6;
+    }
+    .restore-meta strong { color: var(--text); }
+    .restore-btns { display: flex; gap: .75rem; justify-content: center; }
+    .restore-btns .btn-primary {
+      padding: .6rem 1.5rem; font-size: 13px; border-radius: 10px;
+    }
+    .restore-btns .btn-ghost {
+      padding: .6rem 1.5rem; font-size: 13px; border-radius: 10px;
+    }
+
+    /* ── Community CTA Banner ── */
+    .community-cta-banner {
+      display: flex; align-items: center; gap: 1.25rem;
+      padding: 1.15rem 1.5rem;
+      background: var(--charcoal, #1a1d23);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      cursor: pointer; transition: all .3s ease;
+      margin-top: 1.25rem;
+      position: relative; overflow: hidden;
+      text-decoration: none; width: 100%;
+    }
+    .community-cta-banner::before {
+      content: ''; position: absolute; inset: 0;
+      border-radius: 14px; padding: 1px;
+      background: linear-gradient(135deg, var(--accent), #60a5fa, var(--accent));
+      -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+      mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+      -webkit-mask-composite: xor;
+      mask-composite: exclude;
+      opacity: 0; transition: opacity .3s ease;
+      pointer-events: none;
+    }
+    .community-cta-banner:hover::before { opacity: 1; }
+    .community-cta-banner:hover {
+      border-color: transparent;
+      transform: translateY(-2px);
+      box-shadow: 0 8px 30px rgba(255,71,87,.12), 0 2px 8px rgba(0,0,0,.15);
+    }
+    .community-cta__pulse {
+      width: 44px; height: 44px; border-radius: 12px;
+      background: rgba(255,71,87,.1);
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0; position: relative;
+    }
+    .community-cta__pulse .led__dot { width: 10px; height: 10px; }
+    .community-cta__pulse::after {
+      content: ''; position: absolute; inset: 0;
+      border-radius: 12px;
+      background: rgba(255,71,87,.08);
+      animation: cta-pulse 2s ease-in-out infinite;
+    }
+    @keyframes cta-pulse {
+      0%, 100% { transform: scale(1); opacity: .5; }
+      50% { transform: scale(1.15); opacity: 0; }
+    }
+    .community-cta__text { flex: 1; min-width: 0; }
+    .community-cta__title {
+      font-size: 15px; font-weight: 700; color: var(--text);
+      display: flex; align-items: center; gap: .5rem;
+    }
+    .community-cta__title .cta-badge {
+      font-size: 9px; font-weight: 700; text-transform: uppercase;
+      letter-spacing: .08em; padding: 2px 7px; border-radius: 4px;
+      background: rgba(255,71,87,.12); color: var(--accent);
+      line-height: 1.4;
+    }
+    .community-cta__sub {
+      font-size: 12px; color: var(--pewter, #718096);
+      margin-top: 3px; line-height: 1.4;
+    }
+    .community-cta__arrow {
+      width: 36px; height: 36px; border-radius: 10px;
+      background: var(--muted, rgba(255,255,255,.06));
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0; transition: all .25s ease;
+      color: var(--pewter, #718096); font-size: 16px; font-weight: 700;
+    }
+    .community-cta-banner:hover .community-cta__arrow {
+      background: var(--accent); color: #fff;
+      transform: translateX(3px);
+    }
+  </style>
+
+  <!-- Firebase SDK -->
+  <script src="https://www.gstatic.com/firebasejs/10.9.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.9.0/firebase-database-compat.js"></script>
+  <script src="firebase.js"></script>
 </head>
 
 <body>
@@ -57,6 +221,22 @@
           </div>
         </div>
 
+        <div class="attempt-selector">
+          <div class="attempt-selector-label">Select Attempt</div>
+          <select id="attemptSelect" class="select-dropdown" onchange="onAttemptChange()">
+            <option value="" disabled selected>Select attempt...</option>
+            <option value="Attempt 1">Attempt 1</option>
+          </select>
+
+          <div id="shiftContainer" style="display: none;">
+            <div class="attempt-selector-label">Select Shift</div>
+            <select id="shiftSelect" class="select-dropdown" onchange="onShiftChange()">
+              <option value="" disabled selected>Select shift...</option>
+            </select>
+          </div>
+          <div id="selectorError" class="error-msg">Please select an attempt and shift before uploading.</div>
+        </div>
+
         <div class="upload-zone" id="dropZone" onclick="document.getElementById('fileInput').click()">
           <svg class="upload-icon" viewBox="0 0 52 52" fill="none">
             <rect x="9" y="4" width="34" height="44" stroke="currentColor" stroke-width="2" />
@@ -72,6 +252,21 @@
           <div class="drag-preview" id="dragPreview"></div>
           <input type="file" id="fileInput" accept=".pdf,.html,.htm,.txt" style="display:none"
             onchange="handleFile(this)">
+        </div>
+
+        <!-- Community Analysis CTA -->
+        <div class="community-cta-banner" onclick="openCommunityScreen()" role="button" tabindex="0">
+          <div class="community-cta__pulse">
+            <span class="led led--green"><span class="led__dot"></span></span>
+          </div>
+          <div class="community-cta__text">
+            <div class="community-cta__title">
+              View Live Community Analysis
+              <span class="cta-badge">Live</span>
+            </div>
+            <div class="community-cta__sub">See how students are scoring across all shifts and streams — updated in real-time</div>
+          </div>
+          <div class="community-cta__arrow">→</div>
         </div>
       </div>
 
@@ -119,6 +314,19 @@
         <button class="btn-primary" id="mismatchSwitchBtn" onclick="mismatchSwitchAndContinue()">Switch &amp;
           Continue</button>
         <button class="btn-ghost" onclick="mismatchReupload()">Re-upload</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Restore Session Modal ── -->
+  <div class="restore-overlay" id="restoreOverlay">
+    <div class="restore-box">
+      <div class="restore-icon">📋</div>
+      <div class="restore-title">Restore Previous Session?</div>
+      <div class="restore-meta" id="restoreMeta"></div>
+      <div class="restore-btns">
+        <button class="btn-primary" onclick="restoreSession()">Restore Session</button>
+        <button class="btn-ghost" onclick="dismissRestore()">Start Fresh</button>
       </div>
     </div>
   </div>
@@ -181,6 +389,12 @@
           </svg>
           Share
         </button>
+        <button class="btn-icon export-btn" onclick="openAnalysisScreen()" title="Detailed Analysis" id="analysisBtn">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+            <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
+          </svg>
+          Analysis
+        </button>
         <button class="btn-ghost" onclick="resetApp()">↑ Upload New</button>
       </div>
     </div>
@@ -224,6 +438,9 @@
               <div class="subject-score-rows" id="subjectScoreRows"></div>
             </div>
           </div>
+
+          <!-- Brief Live Stats Strip (shown on dashboard after upload) -->
+          <div id="liveStatsBrief" style="display:none"></div>
 
           <div id="metricsGrid" style="display:none"></div>
           <div style="display:none">
@@ -407,7 +624,6 @@
           <h1 class="hero__headline">Analyze your exam.<br>Instantly. Locally.</h1>
           <p class="hero__sub">Upload your MHT-CET response sheet and get a full breakdown of accuracy, subject-wise
             performance, and question-by-question review — all without leaving your device.</p>
-          <!-- CTA buttons removed -->
         </div>
 
         <!-- CSS Device Mockup -->
@@ -449,7 +665,7 @@
         </div>
       </section>
 
-      <!-- Stats strip removed -->
+
 
       <!-- ── HOW IT WORKS ── -->
       <section>
@@ -563,6 +779,430 @@
 
     </div><!-- /section-spacing -->
   </div><!-- /landingPage -->
+
+<!-- ═══════════════════════════════════════════════════════════════
+     DETAILED ANALYSIS SCREEN
+     ═══════════════════════════════════════════════════════════════ -->
+<div id="analysisScreen" style="display:none">
+  <!-- Topbar -->
+  <div class="topbar">
+    <div class="topbar-left">
+      <button class="btn-ghost" onclick="closeAnalysisScreen()" style="min-height:36px;padding:.3rem .75rem;font-size:11px;border-radius:8px;">← Back</button>
+      <div class="topbar-brand">CETLens</div>
+      <span class="topbar-mode" id="analysisModeTag"></span>
+    </div>
+    <div class="topbar-actions">
+      <button class="theme-toggle-btn" onclick="toggleTheme()" title="Toggle dark mode">
+        <svg class="theme-icon-sun" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/>
+          <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/>
+          <line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/>
+          <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
+        </svg>
+        <svg class="theme-icon-moon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/>
+        </svg>
+      </button>
+    </div>
+  </div>
+
+  <div class="analysis-body">
+    <div class="analysis-inner">
+
+      <!-- Page title -->
+      <div class="analysis-page-header">
+        <div>
+          <h1 class="analysis-title">Shift-wise Live Analysis</h1>
+          <p class="analysis-subtitle">Real-time competitor analytics powered by anonymous submissions</p>
+        </div>
+        <div class="analysis-live-badge">
+          <span class="led led--green led--sm"><span class="led__dot"></span><span class="led__label">Live Data</span></span>
+          <span id="analysisTotalBadge" class="analysis-total-badge"></span>
+        </div>
+      </div>
+
+      <!-- Loading State -->
+      <div id="analysisLoading" class="analysis-loading">
+        <div class="spinner"></div>
+        <div style="text-align:center">
+          <div class="step-label">Fetching Live Data</div>
+          <div class="step-sub">Connecting to Firebase…</div>
+        </div>
+      </div>
+
+      <!-- Content (hidden until data loads) -->
+      <div id="analysisContent" style="display:none">
+
+        <!-- ── SECTION 1: YOUR POSITION ── -->
+        <div class="analysis-section-title">
+          <span class="analysis-section-eyebrow">Section 01</span>
+          <h2>Your Position in Your Shift</h2>
+        </div>
+
+        <div class="analysis-cards-row">
+          <!-- Percentile gauge -->
+          <div class="analysis-card analysis-card--tall">
+            <div class="analysis-card-label">Your Percentile</div>
+            <div class="percentile-gauge-wrap">
+              <svg class="percentile-arc" viewBox="0 8 200 112">
+                <path class="arc-track" d="" />
+                <path class="percentile-arc-fill" d="" />
+                <text class="arc-tick" x="18" y="112">0</text>
+                <text class="arc-tick arc-tick-mid" x="100" y="16">50</text>
+                <text class="arc-tick" x="182" y="112">100</text>
+              </svg>
+              <div class="percentile-center">
+                <span class="percentile-val" id="analysisPercentileVal">—</span>
+                <span class="percentile-label">Percentile</span>
+              </div>
+            </div>
+            <div class="analysis-card-sub" id="analysisPercentileSub"></div>
+          </div>
+
+          <!-- Position stats -->
+          <div class="analysis-vstack">
+            <div class="analysis-stat-card">
+              <div class="analysis-stat-icon" style="background:rgba(34,197,94,.1);color:#4ade80;">↑</div>
+              <div>
+                <div class="analysis-stat-val" id="analysisAhead">—</div>
+                <div class="analysis-stat-lbl">Students Ahead of You</div>
+              </div>
+            </div>
+            <div class="analysis-stat-card">
+              <div class="analysis-stat-icon" style="background:rgba(96,165,250,.1);color:#60a5fa;">=</div>
+              <div>
+                <div class="analysis-stat-val" id="analysisSame">—</div>
+                <div class="analysis-stat-lbl">Same Score as You</div>
+              </div>
+            </div>
+            <div class="analysis-stat-card">
+              <div class="analysis-stat-icon" style="background:rgba(255,71,87,.1);color:var(--accent);">↓</div>
+              <div>
+                <div class="analysis-stat-val" id="analysisBelow">—</div>
+                <div class="analysis-stat-lbl">Students Below You</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Key shift metrics -->
+          <div class="analysis-vstack">
+            <div class="analysis-stat-card">
+              <div class="analysis-stat-icon" style="background:rgba(245,158,11,.1);color:#f59e0b;">⌀</div>
+              <div>
+                <div class="analysis-stat-val" id="analysisShiftAvg">—</div>
+                <div class="analysis-stat-lbl">Shift Average Score</div>
+              </div>
+            </div>
+            <div class="analysis-stat-card">
+              <div class="analysis-stat-icon" style="background:rgba(192,132,252,.1);color:#c084fc;">★</div>
+              <div>
+                <div class="analysis-stat-val" id="analysisShiftHighest">—</div>
+                <div class="analysis-stat-lbl">Highest Score in Shift</div>
+              </div>
+            </div>
+            <div class="analysis-stat-card">
+              <div class="analysis-stat-icon" style="background:rgba(34,197,94,.1);color:#4ade80;">✦</div>
+              <div>
+                <div class="analysis-stat-val" id="analysisShiftCount">—</div>
+                <div class="analysis-stat-lbl">Total Shift Participants</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Score vs Avg vs Highest bar chart -->
+        <div class="analysis-card analysis-card--full">
+          <div class="analysis-card-label">Score Comparison — You vs Shift</div>
+          <div class="analysis-chart-wrap" style="height:200px">
+            <canvas id="scoreCompareChart"></canvas>
+          </div>
+        </div>
+
+        <!-- ── SECTION 2: SUBJECT-WISE YOUR SHIFT ── -->
+        <div class="analysis-section-title">
+          <span class="analysis-section-eyebrow">Section 02</span>
+          <h2>Subject-wise Performance in Your Shift</h2>
+        </div>
+
+        <div class="analysis-cards-row">
+          <!-- Radar chart -->
+          <div class="analysis-card analysis-card--tall">
+            <div class="analysis-card-label">Radar: You vs Shift Avg</div>
+            <div class="analysis-chart-wrap" style="height:240px">
+              <canvas id="subjectRadarChart"></canvas>
+            </div>
+          </div>
+
+          <!-- Subject comparison bars -->
+          <div class="analysis-card analysis-card--wide">
+            <div class="analysis-card-label">Subject Breakdown</div>
+            <div id="subjectCompareRows" class="subject-compare-rows"></div>
+          </div>
+        </div>
+
+        <!-- ── SECTION 3: SCORE DISTRIBUTION ── -->
+        <div class="analysis-section-title">
+          <span class="analysis-section-eyebrow">Section 03</span>
+          <h2>Score Distribution — Your Shift</h2>
+        </div>
+
+        <div class="analysis-card analysis-card--full">
+          <div class="analysis-card-label">Histogram — How scores are distributed</div>
+          <div id="distributionStats" class="distribution-stats-row"></div>
+          <div class="analysis-chart-wrap" style="height:220px;margin-top:1rem">
+            <canvas id="scoreHistogramChart"></canvas>
+          </div>
+        </div>
+
+        <!-- ── SECTION 4: SHIFT vs SHIFT ── -->
+        <div class="analysis-section-title">
+          <span class="analysis-section-eyebrow">Section 04</span>
+          <h2>Shift vs Shift Comparison</h2>
+        </div>
+
+        <!-- All shifts avg comparison -->
+        <div class="analysis-card analysis-card--full">
+          <div class="analysis-card-label">Average Score by Shift</div>
+          <div class="analysis-chart-wrap" style="height:240px">
+            <canvas id="shiftAvgChart"></canvas>
+          </div>
+        </div>
+
+        <div class="analysis-cards-row">
+          <!-- Participants per shift -->
+          <div class="analysis-card">
+            <div class="analysis-card-label">Participants per Shift</div>
+            <div class="analysis-chart-wrap" style="height:220px">
+              <canvas id="shiftParticipantsChart"></canvas>
+            </div>
+          </div>
+
+          <!-- Highest per shift -->
+          <div class="analysis-card">
+            <div class="analysis-card-label">Highest Score per Shift</div>
+            <div class="analysis-chart-wrap" style="height:220px">
+              <canvas id="shiftHighestChart"></canvas>
+            </div>
+          </div>
+        </div>
+
+        <!-- Subject avg per shift (grouped bar) -->
+        <div class="analysis-card analysis-card--full">
+          <div class="analysis-card-label">Subject-wise Average by Shift</div>
+          <div class="analysis-chart-wrap" style="height:260px">
+            <canvas id="shiftSubjectChart"></canvas>
+          </div>
+        </div>
+
+        <!-- Per-shift detail selector -->
+        <div class="analysis-card analysis-card--full">
+          <div class="analysis-card-label" style="margin-bottom:1rem">Drill Down — Select Any Shift</div>
+          <select id="analysisShiftSelect" class="select-dropdown" style="max-width:320px;margin-bottom:1.25rem" onchange="renderShiftDrillDown(this.value)"></select>
+          <div id="shiftDrillDown"></div>
+        </div>
+
+        <!-- ── SECTION 5: STREAM OVERVIEW ── -->
+        <div class="analysis-section-title">
+          <span class="analysis-section-eyebrow">Section 05</span>
+          <h2>Overall Stream Overview</h2>
+        </div>
+
+        <div class="analysis-cards-row">
+          <div class="analysis-card">
+            <div class="analysis-card-label">PCM vs PCB Participation</div>
+            <div class="analysis-chart-wrap" style="height:200px">
+              <canvas id="streamDonutChart"></canvas>
+            </div>
+          </div>
+          <div class="analysis-vstack">
+            <div class="analysis-stat-card">
+              <div class="analysis-stat-icon" style="background:rgba(255,71,87,.1);color:var(--accent);">∑</div>
+              <div>
+                <div class="analysis-stat-val" id="analysisTotalAll">—</div>
+                <div class="analysis-stat-lbl">Total Students Analyzed</div>
+              </div>
+            </div>
+            <div class="analysis-stat-card">
+              <div class="analysis-stat-icon" style="background:rgba(96,165,250,.1);color:#60a5fa;">◑</div>
+              <div>
+                <div class="analysis-stat-val" id="analysisMedian">—</div>
+                <div class="analysis-stat-lbl">Shift Median Score</div>
+              </div>
+            </div>
+            <div class="analysis-stat-card">
+              <div class="analysis-stat-icon" style="background:rgba(245,158,11,.1);color:#f59e0b;">≈</div>
+              <div>
+                <div class="analysis-stat-val" id="analysisMean">—</div>
+                <div class="analysis-stat-lbl">Shift Mean Score</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Disclaimer -->
+        <div class="analysis-disclaimer">
+          <span class="led led--green led--sm"><span class="led__dot"></span></span>
+          All data is collected anonymously. No personal information is stored. Statistics update in real-time as more students upload their sheets.
+        </div>
+
+      </div><!-- /analysisContent -->
+    </div><!-- /analysis-inner -->
+  </div><!-- /analysis-body -->
+</div><!-- /analysisScreen -->
+
+<!-- ═══════════════════════════════════════════════════════════════
+     COMMUNITY ANALYSIS SCREEN (full-screen, no user score)
+     ═══════════════════════════════════════════════════════════════ -->
+<div id="communityScreen" style="display:none">
+  <div class="topbar">
+    <div class="topbar-left">
+      <button class="btn-ghost" onclick="closeCommunityScreen()" style="min-height:36px;padding:.3rem .75rem;font-size:11px;border-radius:8px;">← Back</button>
+      <div class="topbar-brand">CETLens</div>
+    </div>
+    <div class="topbar-actions">
+      <div class="analysis-live-badge">
+        <span class="led led--green led--sm"><span class="led__dot"></span><span class="led__label">Live Data</span></span>
+        <span id="commTotalBadge" class="analysis-total-badge"></span>
+      </div>
+      <button class="theme-toggle-btn" onclick="toggleTheme()" title="Toggle dark mode">
+        <svg class="theme-icon-sun" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/>
+          <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/>
+          <line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/>
+          <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
+        </svg>
+        <svg class="theme-icon-moon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/>
+        </svg>
+      </button>
+    </div>
+  </div>
+
+  <div class="analysis-body">
+    <div class="analysis-inner">
+
+      <div class="analysis-page-header">
+        <div>
+          <h1 class="analysis-title">Community Live Analysis</h1>
+          <p class="analysis-subtitle">Aggregate performance data across all shifts and streams</p>
+        </div>
+      </div>
+
+      <!-- Loading -->
+      <div id="commLoading" class="analysis-loading">
+        <div class="spinner"></div>
+        <div style="text-align:center">
+          <div class="step-label">Fetching Live Data</div>
+          <div class="step-sub">Connecting to Firebase…</div>
+        </div>
+      </div>
+
+      <!-- Content -->
+      <div id="commContent" style="display:none">
+
+        <!-- SECTION: Score Distribution -->
+        <div class="analysis-section-title">
+          <span class="analysis-section-eyebrow">Section 01</span>
+          <h2>Score Distribution — All Shifts</h2>
+        </div>
+
+        <div class="analysis-card analysis-card--full">
+          <div class="analysis-card-label">Histogram — How scores are distributed</div>
+          <div id="commDistributionStats" class="distribution-stats-row"></div>
+          <div class="analysis-chart-wrap" style="height:220px;margin-top:1rem">
+            <canvas id="comm-histogramChart"></canvas>
+          </div>
+        </div>
+
+        <!-- SECTION: Shift vs Shift -->
+        <div class="analysis-section-title">
+          <span class="analysis-section-eyebrow">Section 02</span>
+          <h2>Shift vs Shift Comparison</h2>
+        </div>
+
+        <div class="analysis-card analysis-card--full">
+          <div class="analysis-card-label">Average Score by Shift</div>
+          <div class="analysis-chart-wrap" style="height:240px">
+            <canvas id="comm-shiftAvgChart"></canvas>
+          </div>
+        </div>
+
+        <div class="analysis-cards-row">
+          <div class="analysis-card">
+            <div class="analysis-card-label">Participants per Shift</div>
+            <div class="analysis-chart-wrap" style="height:220px">
+              <canvas id="comm-participantsChart"></canvas>
+            </div>
+          </div>
+          <div class="analysis-card">
+            <div class="analysis-card-label">Highest Score per Shift</div>
+            <div class="analysis-chart-wrap" style="height:220px">
+              <canvas id="comm-highestChart"></canvas>
+            </div>
+          </div>
+        </div>
+
+        <div class="analysis-card analysis-card--full">
+          <div class="analysis-card-label">Subject-wise Average by Shift</div>
+          <div class="analysis-chart-wrap" style="height:260px">
+            <canvas id="comm-shiftSubjectChart"></canvas>
+          </div>
+        </div>
+
+        <!-- Drill Down -->
+        <div class="analysis-card analysis-card--full">
+          <div class="analysis-card-label" style="margin-bottom:1rem">Drill Down — Select Any Shift</div>
+          <select id="commShiftSelect" class="select-dropdown" style="max-width:320px;margin-bottom:1.25rem" onchange="renderCommShiftDrillDown(this.value)"></select>
+          <div id="commDrillDown"></div>
+        </div>
+
+        <!-- SECTION: Stream Overview -->
+        <div class="analysis-section-title">
+          <span class="analysis-section-eyebrow">Section 03</span>
+          <h2>Overall Stream Overview</h2>
+        </div>
+
+        <div class="analysis-cards-row">
+          <div class="analysis-card">
+            <div class="analysis-card-label">PCM vs PCB Participation</div>
+            <div class="analysis-chart-wrap" style="height:200px">
+              <canvas id="comm-streamDonutChart"></canvas>
+            </div>
+          </div>
+          <div class="analysis-vstack">
+            <div class="analysis-stat-card">
+              <div class="analysis-stat-icon" style="background:rgba(255,71,87,.1);color:var(--accent);">∑</div>
+              <div>
+                <div class="analysis-stat-val" id="commTotalAll">—</div>
+                <div class="analysis-stat-lbl">Total Students Analyzed</div>
+              </div>
+            </div>
+            <div class="analysis-stat-card">
+              <div class="analysis-stat-icon" style="background:rgba(96,165,250,.1);color:#60a5fa;">◑</div>
+              <div>
+                <div class="analysis-stat-val" id="commMedian">—</div>
+                <div class="analysis-stat-lbl">Overall Median Score</div>
+              </div>
+            </div>
+            <div class="analysis-stat-card">
+              <div class="analysis-stat-icon" style="background:rgba(245,158,11,.1);color:#f59e0b;">≈</div>
+              <div>
+                <div class="analysis-stat-val" id="commMean">—</div>
+                <div class="analysis-stat-lbl">Overall Mean Score</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="analysis-disclaimer">
+          <span class="led led--green led--sm"><span class="led__dot"></span></span>
+          All data is collected anonymously. No personal information is stored. Statistics update in real-time as more students upload their sheets.
+        </div>
+
+      </div><!-- /commContent -->
+    </div><!-- /analysis-inner -->
+  </div><!-- /analysis-body -->
+</div><!-- /communityScreen -->
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.min.js"></script>
