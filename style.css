@@ -3040,58 +3040,7 @@ textarea.neu-input {
   width: 100%;
 }
 
-/* Percentile gauge */
-.percentile-gauge-wrap {
-  position: relative;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  max-width: 220px;
-  margin: 0 auto;
-  aspect-ratio: 200 / 120;
-}
 
-.percentile-arc {
-  width: 100%;
-  height: auto;
-  overflow: visible;
-}
-
-.percentile-arc-fill {
-  fill: none;
-  stroke: var(--accent);
-  stroke-width: 12;
-  stroke-linecap: round;
-  transition: d .8s ease;
-}
-
-.percentile-center {
-  position: absolute;
-  bottom: 8%;
-  left: 50%;
-  transform: translateX(-50%);
-  text-align: center;
-  pointer-events: none;
-}
-
-.percentile-val {
-  display: block;
-  font-size: 32px;
-  font-weight: 800;
-  color: var(--accent-light);
-  line-height: 1;
-  font-family: var(--font-display);
-}
-
-.percentile-label {
-  display: block;
-  font-size: 10px;
-  color: var(--pewter);
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: .1em;
-  margin-top: 2px;
-}
 
 /* Subject compare rows */
 .subject-compare-rows {

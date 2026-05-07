@@ -18,7 +18,7 @@ if (typeof firebase !== 'undefined') {
 // Keys are invalidated automatically after TTL, or explicitly after a new write.
 
 const _fbCache = {};
-const _CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
+const _CACHE_TTL_MS = 15 * 60 * 1000; // 15 minutes
 
 function _cacheGet(key) {
   const entry = _fbCache[key];
@@ -302,8 +302,8 @@ function renderBriefStrip(stream, attempt, shift, userScore, userSubStats, total
       </div>
       <div class="live-brief-strip__stats">
         <div class="live-brief-stat">
-          <span class="live-brief-stat__val accent">${pct}%</span>
-          <span class="live-brief-stat__lbl">Your Percentile</span>
+          <span class="live-brief-stat__val accent">#${above + 1}</span>
+          <span class="live-brief-stat__lbl">Shift Rank</span>
         </div>
         <div class="live-brief-stat">
           <span class="live-brief-stat__val">${avg}</span>
@@ -423,9 +423,12 @@ function fetchFullAnalysis() {
     // ── render stat elements ───────────────────────────────────────────────────
     document.getElementById('analysisTotalBadge').textContent = `${totalAllStreams} total submissions`;
     document.getElementById('analysisTotalAll').textContent   = totalAllStreams;
-    document.getElementById('analysisPercentileVal').textContent = `${pct}%`;
-    document.getElementById('analysisPercentileSub').textContent =
-      `You scored ${userScore}. ${above} students ahead, ${below} students below.`;
+    
+    document.getElementById('analysisShiftRankVal').textContent = `#${above + 1}`;
+    document.getElementById('analysisShiftRankTotal').textContent = `OUT OF ${myCount} STUDENTS`;
+    const topPct = myCount > 0 ? Math.max(1, Math.ceil(((above + 1) / myCount) * 100)) : 100;
+    document.getElementById('analysisShiftRankSub').textContent = `You scored higher than ${below} students (Top ${topPct}%).`;
+    
     document.getElementById('analysisAhead').textContent    = above;
     document.getElementById('analysisSame').textContent     = same;
     document.getElementById('analysisBelow').textContent    = below;
@@ -434,11 +437,6 @@ function fetchFullAnalysis() {
     document.getElementById('analysisShiftCount').textContent   = myCount;
     document.getElementById('analysisMedian').textContent = median;
     document.getElementById('analysisMean').textContent   = myAvg.toFixed(1);
-
-    // Percentile gauge arc
-    const pArc = document.querySelector('.percentile-arc');
-    const pFill = document.querySelector('.percentile-arc-fill');
-    if (pArc && pFill) drawArcGauge(pArc, pFill, parseFloat(pct) / 100);
 
     // ── Charts ─────────────────────────────────────────────────────────────────
     const colors = getChartColors();

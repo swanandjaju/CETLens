@@ -299,8 +299,30 @@
         <div class="about-note">Built this tool to help MHT-CET students instantly analyze their response sheet — fully
           local, no data uploaded.</div>
         <div class="about-note" style="margin-top:.75rem;font-size:10px;letter-spacing:.08em;text-transform:uppercase;opacity:.7">© 2026 Swanand Jaju. All rights reserved.</div>
+        
+        <div class="deco-rule" style="width:100%; margin-top:1.5rem;"><span>Support</span></div>
+        <div style="background: var(--charcoal); border: 1px solid var(--border); border-radius: var(--radius); padding: 1rem; display: flex; flex-direction: column; gap: .75rem; width: 100%;">
+          <div style="font-size: 12px; color: var(--pewter); line-height: 1.6; text-align: center;">
+            CETLens is free and always will be. If it helped you, a small coffee goes a long way in keeping it running. ☕
+          </div>
+          <button class="about-link" style="width:100%; cursor:pointer;" onclick="document.getElementById('donateOverlay').classList.add('open')">Buy me a coffee ☕</button>
+        </div>
       </div>
 
+    </div>
+  </div>
+
+  <!-- ── Donate Modal ── -->
+  <div class="restore-overlay" id="donateOverlay" style="z-index:10000;">
+    <div class="restore-box" style="padding: 2rem;">
+      <div class="restore-title">Support CETLens</div>
+      <div style="margin: 1.5rem auto; background: #fff; padding: 10px; border-radius: 12px; display: inline-block;">
+        <img src="donate-qr.png" alt="Donate QR Code" style="width: 180px; height: 180px; display: block; border-radius: 8px;">
+      </div>
+      <div class="restore-meta">Scan with any UPI app — GPay, PhonePe, Paytm</div>
+      <div class="restore-btns">
+        <button class="btn-ghost" onclick="document.getElementById('donateOverlay').classList.remove('open')">Close</button>
+      </div>
     </div>
   </div>
 
@@ -840,23 +862,15 @@
         </div>
 
         <div class="analysis-cards-row">
-          <!-- Percentile gauge -->
-          <div class="analysis-card analysis-card--tall">
-            <div class="analysis-card-label">Your Percentile</div>
-            <div class="percentile-gauge-wrap">
-              <svg class="percentile-arc" viewBox="0 8 200 112">
-                <path class="arc-track" d="" />
-                <path class="percentile-arc-fill" d="" />
-                <text class="arc-tick" x="18" y="112">0</text>
-                <text class="arc-tick arc-tick-mid" x="100" y="16">50</text>
-                <text class="arc-tick" x="182" y="112">100</text>
-              </svg>
-              <div class="percentile-center">
-                <span class="percentile-val" id="analysisPercentileVal">—</span>
-                <span class="percentile-label">Percentile</span>
-              </div>
+
+          <!-- Shift Rank -->
+          <div class="analysis-card analysis-card--tall" style="display:flex; flex-direction:column;">
+            <div class="analysis-card-label">Your Shift Rank</div>
+            <div style="flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; padding: 1rem 0;">
+              <div style="font-size: 64px; font-weight: 900; color: var(--accent-light); font-family: var(--font-display); line-height: 1; text-shadow: 0 2px 10px rgba(255,71,87,0.2);" id="analysisShiftRankVal">—</div>
+              <div style="font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.15em; color: var(--pewter); margin-top: 0.75rem;" id="analysisShiftRankTotal">out of —</div>
             </div>
-            <div class="analysis-card-sub" id="analysisPercentileSub"></div>
+            <div class="analysis-card-sub" id="analysisShiftRankSub"></div>
           </div>
 
           <!-- Position stats -->
