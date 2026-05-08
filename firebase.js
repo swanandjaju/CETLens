@@ -1,17 +1,4 @@
-const firebaseConfig = {
-  apiKey: "AIzaSyAJcMR2h0koopwyxw81ybyGqkq4KPWlLWI",
-  authDomain: "cetlens.firebaseapp.com",
-  databaseURL: "https://cetlens-default-rtdb.firebaseio.com",
-  projectId: "cetlens",
-  storageBucket: "cetlens.firebasestorage.app",
-  messagingSenderId: "531158222764",
-  appId: "1:531158222764:web:912956a9796b9a3fa11c09",
-  measurementId: "G-QE27HLWH4Y"
-};
-
-if (typeof firebase !== 'undefined') {
-  firebase.initializeApp(firebaseConfig);
-}
+// ── CETLens — Supabase-backed analytics ──────────────────────────────────────
 
 // ── In-memory read cache ──────────────────────────────────────────────────────
 // Prevents repeat Firebase reads when analysis / community screens are reopened.
