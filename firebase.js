@@ -165,28 +165,53 @@ function rawEntriesFromStats(statsByShift, stream, attempt, summary) {
   return raw;
 }
 
-// Fetches aggregated stats for one stream/attempt. Returns reconstructed raw
-// entries for compatibility with the analysis renderer.
+// Fetches aggregated stats for one stream/attempt from Supabase.
+// Returns reconstructed raw entries for compatibility with the analysis renderer.
 // Results are cached for _CACHE_TTL_MS to avoid redundant reads on re-open.
-function fetchAnalysisRaw(db, stream, attempt) {
+function fetchAnalysisSupabase(stream, attempt) {
   const cacheKey = `analysisRaw:${stream}:${attempt}`;
   const cached = _cacheGet(cacheKey);
   if (cached !== null) {
-    // Reconstruct raw from cached data (no Firebase read needed)
     if (cached.statsByShift) {
       return Promise.resolve(rawEntriesFromStats(cached.statsByShift, stream, attempt, cached.summary));
     }
     return Promise.resolve(null);
   }
 
+  const sb = window._supabaseClient;
+  if (!sb) return Promise.resolve(null);
+
   return Promise.all([
-    db.ref(`stats/${stream}/${attempt}`).once('value'),
-    db.ref('summary').once('value')
-  ]).then(([statsSnapshot, summarySnapshot]) => {
-    const statsByShift = statsSnapshot.val();
-    const summary = summarySnapshot.val();
+    sb.from('shift_stats').select('*').eq('stream', stream).eq('attempt', attempt),
+    sb.from('submission_summary').select('*')
+  ]).then(([statsRes, summaryRes]) => {
+    if (statsRes.error) { console.error('Supabase stats error:', statsRes.error); return null; }
+    if (summaryRes.error) { console.error('Supabase summary error:', summaryRes.error); return null; }
+
+    // Reshape rows into { shiftName: { count, sum, highest, min, scoreCounts, subjectSums } }
+    const statsByShift = {};
+    (statsRes.data || []).forEach(row => {
+      statsByShift[row.shift] = {
+        count: row.count,
+        sum: Number(row.total_score),
+        highest: row.highest,
+        min: row.lowest,
+        scoreCounts: row.score_counts || {},
+        subjectSums: row.subject_sums || {}
+      };
+    });
+
+    // Reshape summary rows into { total, streams: { PCM, PCB } }
+    const summary = { total: 0, streams: {} };
+    (summaryRes.data || []).forEach(row => {
+      if (row.key === 'total') summary.total = Number(row.value);
+      else summary.streams[row.key] = Number(row.value);
+    });
+
     _cacheSet(cacheKey, { statsByShift, summary });
-    if (statsByShift) return rawEntriesFromStats(statsByShift, stream, attempt, summary);
+    if (Object.keys(statsByShift).length > 0) {
+      return rawEntriesFromStats(statsByShift, stream, attempt, summary);
+    }
     return null;
   });
 }
@@ -219,72 +244,78 @@ async function generateAnswerHash(qs) {
 // The `submissions` collection write has been removed. All analytics rely on
 // the aggregated `stats` node, so raw submissions were redundant storage.
 
-async function saveSubmissionToFirebase(qs, st, filename) {
-  if (typeof firebase === 'undefined') return;
-  const db = firebase.database();
-  const payload = {
-    attempt: typeof selectedAttempt !== 'undefined' ? selectedAttempt : '',
-    shift:   typeof selectedShift   !== 'undefined' ? selectedShift   : '',
-    stream:  typeof examMode        !== 'undefined' ? examMode        : 'PCM',
-    score:   st.earned,
-    subjects: st.subStats ? st.subStats.reduce((acc, sub) => { acc[sub.s] = sub.e; return acc; }, {}) : {},
-    timestamp: firebase.database.ServerValue.TIMESTAMP
-  };
+async function saveSubmissionToSupabase(qs, st, filename) {
+  const sb = window._supabaseClient;
+  if (!sb) return;
+
+  const p_stream  = typeof examMode        !== 'undefined' ? examMode        : 'PCM';
+  const p_attempt = typeof selectedAttempt !== 'undefined' ? selectedAttempt : '';
+  const p_shift   = typeof selectedShift   !== 'undefined' ? selectedShift   : '';
+  const p_score   = st.earned;
+  const p_subjects = st.subStats
+    ? st.subStats.reduce((acc, sub) => { acc[sub.s] = sub.e; return acc; }, {})
+    : {};
 
   try {
-    // 1. Duplicate check (1 read)
-    const hash = await generateAnswerHash(qs);
-    const hashPath = `hashes/${payload.stream}/${payload.shift}/${hash}`;
+    const p_hash = await generateAnswerHash(qs);
 
-    const hashSnapshot = await db.ref(hashPath).once('value');
-    if (hashSnapshot.exists()) {
-      // Duplicate detected — skip write, proceed to render
+    const { data, error } = await sb.rpc('record_submission', {
+      p_stream,
+      p_attempt,
+      p_shift,
+      p_score,
+      p_subjects,
+      p_hash
+    });
+
+    if (error) { console.error('Supabase RPC error:', error); return; }
+
+    if (data.duplicate) {
       console.log('Score already recorded (duplicate detected).');
-      fetchAndRenderBriefStrip(payload.stream, payload.attempt, payload.shift, payload.score, st.subStats || []);
-      return;
+    } else {
+      console.log('Score saved!');
     }
 
-    // 2. Stats aggregate transaction (1 write — handles concurrent submissions safely)
-    await db.ref(statsPath(payload.stream, payload.attempt, payload.shift))
-      .transaction(current => incrementAggregate(current, {
-        ...payload,
-        score: normalizeScore(payload.score, payload.stream)
-      }));
-
-    // 3. Combined write: summary counters + hash record (1 write instead of 2)
-    const updates = {};
-    updates['summary/total'] = firebase.database.ServerValue.increment(1);
-    updates[`summary/streams/${payload.stream}`] = firebase.database.ServerValue.increment(1);
-    updates[hashPath] = { timestamp: firebase.database.ServerValue.TIMESTAMP };
-    await db.ref().update(updates);
-
-    // Invalidate stale caches so next analysis read fetches fresh data
-    _cacheInvalidate(`analysisRaw:${payload.stream}:${payload.attempt}`);
+    // Invalidate stale caches
+    _cacheInvalidate(`analysisRaw:${p_stream}:${p_attempt}`);
     _cacheInvalidate('community');
 
-    console.log('Score saved!');
-    fetchAndRenderBriefStrip(payload.stream, payload.attempt, payload.shift, payload.score, st.subStats || []);
+    // Render brief strip directly from RPC result — no second network fetch
+    const clamped = normalizeScore(p_score, p_stream);
+    const same = 0; // RPC doesn't return this; brief strip doesn't critically need it
+    // Re-fetch the shift stats for accurate rendering (sum, highest needed)
+    const { data: rows } = await sb.from('shift_stats').select('*')
+      .eq('stream', p_stream).eq('attempt', p_attempt).eq('shift', p_shift).single();
+    if (rows && rows.count) {
+      const above = countScores(rows.score_counts, s => s > clamped);
+      const sameCount = countScores(rows.score_counts, s => s === clamped);
+      renderBriefStrip(p_stream, p_attempt, p_shift, p_score, st.subStats || [],
+        rows.count, Number(rows.total_score), rows.highest, above, sameCount);
+    }
   } catch (err) {
-    console.error('Firebase save error:', err);
+    console.error('Supabase save error:', err);
   }
 }
+
+// Backward-compatible alias — script.js calls saveSubmissionToFirebase()
+const saveSubmissionToFirebase = saveSubmissionToSupabase;
 
 // ── BRIEF STRIP (dashboard) ───────────────────────────────────────────────────
 // Reads only the single shift's aggregated stat node — no fallback to the full
 // submissions collection (which could be thousands of records at scale).
 
 function fetchAndRenderBriefStrip(stream, attempt, shift, userScore, userSubStats) {
-  if (typeof firebase === 'undefined') return;
-  const db = firebase.database();
-  return db.ref(statsPath(stream, attempt, shift)).once('value').then(snapshot => {
-    const stat = snapshot.val();
-    if (stat && stat.count) {
-      const above = countScores(stat.scoreCounts, score => score > userScore);
-      const same  = countScores(stat.scoreCounts, score => score === userScore);
-      renderBriefStrip(stream, attempt, shift, userScore, userSubStats, stat.count, stat.sum || 0, stat.highest, above, same);
-    }
-    // If no stats yet (no one has submitted), strip simply stays hidden.
-  }).catch(err => console.error('Brief strip fetch error:', err));
+  const sb = window._supabaseClient;
+  if (!sb) return;
+  return sb.from('shift_stats').select('*')
+    .eq('stream', stream).eq('attempt', attempt).eq('shift', shift).single()
+    .then(({ data: stat, error }) => {
+      if (error || !stat || !stat.count) return;
+      const above = countScores(stat.score_counts, score => score > userScore);
+      const same  = countScores(stat.score_counts, score => score === userScore);
+      renderBriefStrip(stream, attempt, shift, userScore, userSubStats,
+        stat.count, Number(stat.total_score), stat.highest, above, same);
+    }).catch(err => console.error('Brief strip fetch error:', err));
 }
 
 function renderBriefStrip(stream, attempt, shift, userScore, userSubStats, total, sum, highest, above, same) {
@@ -333,7 +364,8 @@ function renderBriefStrip(stream, attempt, shift, userScore, userSubStats, total
 // ── FULL ANALYSIS SCREEN ──────────────────────────────────────────────────────
 
 function fetchFullAnalysis() {
-  if (typeof firebase === 'undefined') {
+  const sb = window._supabaseClient;
+  if (!sb) {
     document.getElementById('analysisLoading').style.display = 'none';
     return;
   }
@@ -344,8 +376,7 @@ function fetchFullAnalysis() {
   const userScore = ctx.userScore !== undefined ? ctx.userScore : 0;
   const userSubStats = ctx.userSubStats || [];
 
-  const db = firebase.database();
-  fetchAnalysisRaw(db, stream, attempt).then(raw => {
+  fetchAnalysisSupabase(stream, attempt).then(raw => {
     if (!raw) {
       document.getElementById('analysisLoading').style.display = 'none';
       document.getElementById('analysisContent').innerHTML = '<p style="padding:3rem;text-align:center;color:var(--pewter)">No data yet — be the first to submit!</p>';
@@ -682,7 +713,8 @@ function renderShiftDrillDown(shiftName) {
 let _communityCharts = {};
 
 function fetchCommunityFullAnalysis() {
-  if (typeof firebase === 'undefined') {
+  const sb = window._supabaseClient;
+  if (!sb) {
     const el = document.getElementById('commLoading');
     if (el) el.style.display = 'none';
     return;
@@ -696,18 +728,36 @@ function fetchCommunityFullAnalysis() {
     return;
   }
 
-  const db = firebase.database();
-
   Promise.all([
-    db.ref('stats/PCM/Attempt 1').once('value'),
-    db.ref('stats/PCB/Attempt 1').once('value'),
-    db.ref('summary').once('value')
-  ]).then(([pcmSnap, pcbSnap, summarySnap]) => {
-    const payload = {
-      pcmStats: pcmSnap.val(),
-      pcbStats: pcbSnap.val(),
-      summary:  summarySnap.val()
-    };
+    sb.from('shift_stats').select('*').eq('attempt', 'Attempt 1'),
+    sb.from('submission_summary').select('*')
+  ]).then(([statsRes, summaryRes]) => {
+    if (statsRes.error) { console.error('Supabase community stats error:', statsRes.error); return; }
+
+    // Separate rows by stream into { shiftName: stat } maps
+    const pcmStats = {};
+    const pcbStats = {};
+    (statsRes.data || []).forEach(row => {
+      const obj = {
+        count: row.count,
+        sum: Number(row.total_score),
+        highest: row.highest,
+        min: row.lowest,
+        scoreCounts: row.score_counts || {},
+        subjectSums: row.subject_sums || {}
+      };
+      if (row.stream === 'PCM') pcmStats[row.shift] = obj;
+      else pcbStats[row.shift] = obj;
+    });
+
+    // Reshape summary
+    const summary = { total: 0, streams: {} };
+    (summaryRes.data || []).forEach(row => {
+      if (row.key === 'total') summary.total = Number(row.value);
+      else summary.streams[row.key] = Number(row.value);
+    });
+
+    const payload = { pcmStats, pcbStats, summary };
     _cacheSet(cacheKey, payload);
     _renderCommunityData(payload);
   }).catch(err => {
