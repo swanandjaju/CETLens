@@ -1,641 +1,510 @@
 # CETLens
 
-> **Instant MHT-CET Response Sheet Analyzer with Live Community Analytics**
+**Instant MHT-CET Response Sheet Analyzer with Live Community Analytics**
 
-CETLens is a fully client-side web application that allows MHT-CET students to upload their official Objection Portal response sheet (HTML, PDF, or TXT), instantly parse it, and view a rich analytics dashboard with score breakdowns, question-wise results, export options, and anonymous live community comparisons.
+Upload your official MHT-CET Objection Portal response sheet — HTML, PDF, or pipe-delimited TXT — and get a fully interactive analytics dashboard in seconds. No account, no server, no installation. Everything runs in your browser.
 
-🌐 **Live Deployment:** [https://cet-lens.vercel.app](https://cet-lens.vercel.app)
-
-Built by **Swanand Jaju** — First Year AIML student at Walchand College of Engineering, Sangli.
+**Live:** [https://cet-lens.vercel.app](https://cet-lens.vercel.app)
 
 ---
 
 ## Table of Contents
 
-1. [Features](#features)
-2. [Tech Stack & Dependencies](#tech-stack--dependencies)
-3. [Project Structure](#project-structure)
-4. [File-by-File Reference](#file-by-file-reference)
-   - [index.html](#indexhtml)
-   - [style.css](#stylecss)
-   - [script.js](#scriptjs)
-   - [firebase.js](#firebasejs)
-   - [router.js](#routerjs)
-5. [How It Works — End to End](#how-it-works--end-to-end)
-6. [Supported File Formats](#supported-file-formats)
-7. [Scoring Rules](#scoring-rules)
-8. [Firebase Data Model](#firebase-data-model)
-9. [Caching Strategy](#caching-strategy)
-10. [IndexedDB — Question Image Persistence](#indexeddb--question-image-persistence)
-11. [Session Persistence](#session-persistence)
-12. [Export Capabilities](#export-capabilities)
-13. [Routing](#routing)
-14. [UI / Theme System](#ui--theme-system)
-15. [Keyboard Shortcuts](#keyboard-shortcuts)
-16. [Shift Schedule Reference](#shift-schedule-reference)
-17. [Security & Privacy](#security--privacy)
-18. [Known Limitations & Edge Cases](#known-limitations--edge-cases)
-19. [Local Setup](#local-setup)
-20. [Environment Notes](#environment-notes)
+1. [Project Overview](#project-overview)
+2. [Problem Statement](#problem-statement)
+3. [Key Features](#key-features)
+4. [Tech Stack](#tech-stack)
+7. [Architecture and Application Flow](#architecture-and-application-flow)
+8. [Folder Structure](#folder-structure)
+9. [Installation and Local Setup](#installation-and-local-setup)
+10. [Environment Variables and Backend Setup](#environment-variables-and-backend-setup)
+11. [Local Development](#local-development)
+12. [Deployment](#deployment)
+13. [Database Structure and Backend Explanation](#database-structure-and-backend-explanation)
+14. [Authentication Flow](#authentication-flow)
+15. [Supabase API Usage](#supabase-api-usage)
+16. [Core Functionalities in Detail](#core-functionalities-in-detail)
+17. [Security Considerations](#security-considerations)
+18. [Performance Optimizations](#performance-optimizations)
+19. [Known Limitations](#known-limitations)
+20. [License](#license)
 
 ---
 
-## Features
+## Project Overview
 
-| Category | Feature |
-|---|---|
-| **Parsing** | Supports MHT-CET Objection Portal HTML saves, PDF response sheets, and pipe-delimited TXT exports |
-| **Parsing** | Automatic section detection for Physics, Chemistry, Mathematics, and Biology |
-| **Parsing** | PDF page rendering and per-question image cropping via pdf.js |
-| **Dashboard** | Arc gauge score display with animated fill |
-| **Dashboard** | Overall stats: score, correct, incorrect, unattempted, and accuracy |
-| **Dashboard** | Subject-wise doughnut charts for PCM / PCB subjects |
-| **Dashboard** | Question-by-question table with status icons and image thumbnails |
-| **Dashboard** | Detail modal with full question image and answer comparison |
-| **Dashboard** | Filter bar for All / Correct / Incorrect / Unattempted / per-subject views |
-| **Dashboard** | Sidebar question grid with colour-coded status buttons |
-| **Firebase** | Anonymous score submission with SHA-256 duplicate prevention |
-| **Firebase** | Aggregate-only writes; raw submissions are not stored |
-| **Firebase** | Concurrent-safe transaction on the stats node |
-| **Firebase** | 5-minute in-memory read cache |
-| **Live Stats** | Post-submission strip with percentile, shift average, shift highest, and ahead/behind counts |
-| **Analysis** | Full analysis screen with percentile gauge, shift comparisons, histogram, radar chart, subject bars, and stream donut |
-| **Analysis** | Per-shift drill-down with participant count, mean, median, highest, and lowest |
-| **Community** | Community screen across all shifts/streams without requiring a personal upload |
-| **Routing** | Hash-based deep links for home, community, dashboard, and analysis screens via `router.js` |
-| **Export** | CSV export of all question data |
-| **Export** | Styled PDF report via jsPDF |
-| **Export** | PNG share card via html2canvas |
-| **UX** | Dark/light theme with system preference detection and localStorage persistence |
-| **UX** | Session restore via localStorage + IndexedDB |
-| **UX** | Stream mismatch detection with one-click correction |
-| **UX** | Confetti animation for scores ≥ 150 |
-| **UX** | Lightbox for question image zoom |
-| **UX** | Keyboard navigation with arrow keys and Escape |
-| **UX** | Drag-and-drop file upload with filename preview |
-| **UX** | Mobile responsive layout with hamburger sidebar drawer |
+CETLens is a zero-dependency, fully static single-page application built for MHT-CET aspirants. It accepts the official response sheet that NTA/State CET Cell publishes on the Objection Portal — the same file students download to check their answers — and turns it into a rich, readable dashboard.
+
+The dashboard shows your total score, a subject-wise breakdown, a per-question status table with option comparisons, and question images cropped directly from your PDF if you uploaded one. Beyond your own results, CETLens anonymously aggregates scores from all students who use the app and surfaces live community statistics: shift-wise averages, percentiles, score distributions, and subject performance — without collecting any personal data.
+
+The entire parsing and scoring pipeline runs client-side using vanilla JavaScript. The only server interaction is anonymous, aggregated analytics written to and read from a Supabase Postgres database. There is no login wall, no tracking, and no account required.
 
 ---
 
-## Tech Stack & Dependencies
+## Problem Statement
 
-All dependencies are loaded from CDN — no build step or `npm install` is required.
+After every MHT-CET attempt, students are left with a raw response sheet — an HTML page or PDF that lists question IDs, option IDs, and correct option IDs in a format that is genuinely difficult to read. The Objection Portal shows you what you answered, but it does not calculate your score, break it down by subject, show your accuracy, or tell you where you stand relative to others in your shift.
 
-| Library | Version | Use |
-|---|---:|---|
-| **Firebase App (compat)** | 10.9.0 | App initialization |
-| **Firebase Realtime Database (compat)** | 10.9.0 | Score aggregation and live analytics |
-| **Chart.js** | 4.4.1 | Charts: bar, doughnut, radar, histogram |
-| **pdf.js** | 3.4.120 | PDF text extraction and page rendering |
-| **canvas-confetti** | 1.9.3 | Celebration animation |
-| **jsPDF** | 2.5.1 | PDF report export |
-| **html2canvas** | 1.4.1 | Share card PNG generation |
-| **Google Fonts — Inter** | — | Body typography |
-| **Google Fonts — JetBrains Mono** | — | Monospace elements |
-
-No framework such as React, Vue, or Angular is used. CETLens is a vanilla HTML/CSS/JavaScript static web app.
+The result is that students manually count correct and incorrect answers, or wait for coaching institutes to publish "estimated cut-offs" that are often inaccurate or shift-specific. There is no official, fast, or reliable way to get a clear picture of your actual performance immediately after the exam.
 
 ---
 
-## Project Structure
+## Key Features
 
-```text
+### File Parsing
+
+- **Three input formats supported:** HTML saves from the MHT-CET Objection Portal, PDF response sheets, and pipe-delimited TXT exports. Each uses a separate parsing strategy internally.
+- **Automatic section detection:** The parser identifies Physics, Chemistry, Mathematics, and Biology sections by matching label text in the response sheet. If labels are missing (which happens in some portal exports), it falls back to positional inference based on question count thresholds.
+- **PDF text extraction and image cropping:** When a PDF is uploaded, CETLens uses pdf.js to extract the text layer for parsing, and then renders each page to a canvas element. Each question's bounding box is detected from text positions, and a per-question image crop is stored in IndexedDB. These question images show up as inline thumbnails in the dashboard and can be opened full-screen in a lightbox.
+- **Stream detection and mismatch handling:** The app detects whether the uploaded sheet is PCM (Physics, Chemistry, Mathematics) or PCB (Physics, Chemistry, Biology). If the uploaded file's question count doesn't match the selected stream, a mismatch overlay offers a one-click correction to switch stream mode without re-uploading.
+
+### Dashboard
+
+- **Arc gauge score display:** An SVG-based semicircular gauge fills proportionally to your score relative to the maximum (200 for PCM, 150 for PCB), rendered using trigonometric path calculations rather than a library.
+- **Score statistics row:** Correct, incorrect, unattempted, and accuracy percentage are displayed in metric tiles immediately below the gauge.
+- **Subject-wise doughnut charts:** Individual Chart.js doughnut instances for each subject, showing earned vs maximum marks.
+- **Question-by-question table:** A scrollable table listing every question with its section, status icon, marks obtained, and a thumbnail image if a PDF was uploaded.
+- **Filter chips:** Filter the question table by All, Correct, Incorrect, Unattempted, or by individual subject. Filters update the visible table rows and keep the sidebar in sync.
+- **Sidebar question grid:** A colour-coded grid of numbered buttons — green for correct, red for incorrect, grey for unattempted — that mirrors the filter state and jumps to any question on click.
+- **Question detail modal:** A full-screen overlay showing the question image, selected option vs correct option with clear visual labels, and marks obtained. Navigable with arrow keys.
+- **Lightbox:** Clicking any question image opens a full-screen lightbox for reading question text clearly.
+- **Keyboard navigation:** Left and right arrow keys navigate questions in both the dashboard panel and the detail modal. Escape closes any open overlay.
+- **Confetti:** Scores of 150 or above trigger a three-burst confetti animation on dashboard load.
+
+### Community and Live Analytics
+
+- **Post-submission brief strip:** Immediately after a new upload is processed, a banner appears showing your percentile, your shift's average, the shift's highest recorded score, and how many students scored above and below you. This data comes from Supabase in real time.
+- **Shift-wise analysis screen:** A dedicated full-screen view showing your position within your shift — a percentile arc gauge, score histogram, radar chart comparing your subject scores against shift averages, a bar chart of subject-wise comparison, and statistical cards with mean, median, and participant count.
+- **Community screen:** Accessible directly from the upload page without needing to upload a file. Shows aggregate data across all shifts and both streams — score distribution histogram, shift-vs-shift average comparison, participants per shift, highest score per shift, subject-wise averages per shift, and a drill-down selector for any individual shift. PCM vs PCB participation is shown as a donut chart alongside overall mean, median, and total student count.
+
+### Session and State Management
+
+- **localStorage session restore:** When a dashboard is shown, the parsed question array, exam mode, filename, selected attempt and shift, and a timestamp are serialised to localStorage. On the next page load, a restore modal offers to resume the previous session.
+- **IndexedDB for question images:** PDF-derived question images are too large for localStorage. They are stored in a separate IndexedDB object store (`CETLensDB / questionImages`) and loaded back during session restore.
+- **Hash-based deep links:** The URL updates to `#dashboard`, `#analysis`, or `#community` as you navigate. Sharing or bookmarking `/#dashboard` restores your session silently, without showing the restore modal. `/#community` works even without a saved session.
+
+### Exports
+
+- **CSV export:** Downloads a spreadsheet of all questions with columns for question number, section, section-relative number, status, correct option ID, candidate option ID, and marks.
+- **PDF report:** Generates a styled A4 PDF using jsPDF — branded header, file metadata, large score display, four-column stats row (correct, incorrect, unattempted, accuracy), and a per-subject sectional breakdown table with a footer privacy note.
+- **Share card PNG:** Renders a hidden off-screen score card element using html2canvas and downloads it as a PNG — designed to be posted on social media or sent to friends.
+
+### UX Details
+
+- **Dark and light theme:** The theme toggle respects `prefers-color-scheme` as a default if no preference is stored, and persists the manual choice in localStorage.
+- **Drag-and-drop upload:** The drop zone highlights on dragover and previews the filename before the file is dropped.
+- **Mobile-responsive layout:** The sidebar collapses into a hamburger-triggered drawer on small screens. The dashboard layout stacks vertically. Charts resize correctly.
+- **Loading steps:** A labelled step display (Extracting text → Parsing questions → Rendering images → Calculating scores) keeps the user informed during PDF processing, which can take a few seconds on large files.
+
+---
+
+## Tech Stack
+
+All libraries are loaded from public CDNs. There is no npm, no bundler, and no build step.
+
+| Library / Tool | Version | Purpose |
+|---|---|---|
+| **Supabase JS** | 2.x (UMD) | Postgres-backed anonymous score aggregation and live analytics reads |
+| **Chart.js** | 4.4.1 | Bar, doughnut, radar, and histogram charts throughout the app |
+| **pdf.js** | 3.4.120 | PDF text extraction for parsing, and page canvas rendering for question images |
+| **canvas-confetti** | 1.9.3 | Celebration animation on high scores |
+| **jsPDF** | 2.5.1 | Client-side PDF report generation |
+| **html2canvas** | 1.4.1 | Rasterising the share card element to a downloadable PNG |
+| **Google Fonts — Inter** | — | Primary UI typeface |
+| **Google Fonts — JetBrains Mono** | — | Monospace elements, score numerals |
+
+No framework is used. CETLens is vanilla HTML, CSS, and JavaScript.
+
+**Browser APIs in use:**
+
+- `IndexedDB` — question image persistence across sessions
+- `localStorage` — session state and theme preference
+- `crypto.subtle` (SHA-256) — duplicate submission fingerprinting
+- `FileReader` / `DataTransfer` — file input and drag-and-drop
+- `ResizeObserver` — responsive chart redraws
+- `history.pushState` — hash-based URL management
+
+---
+
+## Architecture and Application Flow
+
+CETLens is a single-page application with no server-side rendering. Every "screen" — upload, loading, dashboard, analysis, community — is a DOM section that gets shown or hidden by JavaScript. Navigation is managed client-side using a hash router.
+
+**High-level flow:**
+
+```
+User opens page
+  └─ applyTheme() — sets light/dark from localStorage or prefers-color-scheme
+  └─ checkStoredSession() — if a session exists, shows restore modal
+  └─ [router.js] handleRoute() — if URL hash is #dashboard or #analysis,
+       silently restores session and skips the restore modal entirely
+
+User selects stream (PCM/PCB), attempt, and shift
+User drops or selects a response sheet file
+
+processFile(file)
+  ├─ HTML → parsePortalHTML(text) — DOM parsing via DOMParser
+  ├─ PDF  → parsePDF(arrayBuffer)
+  │    ├─ pdf.js text extraction → parsePortalText(text)
+  │    └─ pdf.js page rendering → canvas crops → saveImagesToIDB()
+  └─ TXT  → parseTXT(text) — pipe-delimited format
+
+Questions array built → computeStats(qs)
+  └─ Per-question mark calculation (+2 correct, -0.5 incorrect for PCM;
+       +4 correct, -1 incorrect per section for Biology in PCB)
+
+showDash(qs)
+  ├─ renderDashboard(qs) — arc gauge, metric tiles, charts, table, sidebar
+  ├─ saveSession(filename, qs) → localStorage + IndexedDB
+  ├─ saveSubmissionToSupabase() → anonymous aggregate write
+  └─ fetchAndRenderBriefStrip() → live stats pull for post-submission banner
+
+User opens Analysis screen
+  └─ fetchFullAnalysis() — reads shift_stats from Supabase
+       └─ Renders percentile gauge, histogram, radar, bar charts
+
+User opens Community screen
+  └─ fetchCommunityFullAnalysis() — reads all PCM + PCB Attempt 1 data
+       └─ Renders cross-shift overview charts
+```
+
+**Script loading order in index.html:**
+
+```
+1. analytics.js    — loaded early; defines chart helpers and Supabase read functions
+2. supabase CDN    — UMD bundle, required before supabase.js runs
+3. supabase.js     — creates window._supabaseClient
+4. Chart.js CDN
+5. pdf.js CDN
+6. canvas-confetti CDN
+7. jsPDF CDN
+8. html2canvas CDN
+9. script.js       — all core app logic; references window._supabaseClient
+10. router.js      — wraps existing screen functions; must load after script.js
+```
+
+The router wraps functions like `showDash`, `openAnalysisScreen`, and `openCommunityScreen` at load time by capturing references to the originals, adding `history.pushState` calls, and reassigning the global names. This is why the order matters — if `router.js` loaded before `script.js`, those globals would not exist yet.
+
+---
+
+## Folder Structure
+
+```
 cetlens/
-├── index.html      — Full page structure, all screens, CDN script tags
-├── style.css       — Design system, neumorphic tokens, all component styles
-├── script.js       — Application logic: parsing, rendering, UI state, exports
-├── firebase.js     — Firebase config, aggregation helpers, write/read logic
-├── router.js       — Hash router for shareable URLs and browser back/forward support
-├── LICENSE
-└── README.md
-```
-
-Everything runs from a single static directory. No bundler, framework, or custom server is required.
-
----
-
-## File-by-File Reference
-
-### index.html
-
-The single HTML file that contains the skeleton for every screen in the application. Screens are regular DOM sections that are shown or hidden by JavaScript.
-
-**Screens / overlays defined:**
-
-| Element ID | Description |
-|---|---|
-| `#uploadScreen` | Landing / upload page with brand, stream selector, attempt/shift dropdowns, drag-and-drop zone, and Community CTA banner |
-| `#loadingScreen` | Full-screen spinner overlay shown during file processing |
-| `#dashboard` | Main analysis dashboard with topbar, sidebar, score cards, metrics, table, and viewer |
-| `#analysisScreen` | Full-screen detailed analysis view powered by Firebase aggregates |
-| `#communityScreen` | Community-wide live analysis accessible before uploading |
-| `#mismatchOverlay` | Modal shown when uploaded question count does not match the selected stream |
-| `#restoreOverlay` | Modal shown when a previous session is found in localStorage |
-| `#qDetailOverlay` | Modal for a full question view and answer comparison |
-| `#lightbox` | Full-screen image lightbox |
-| `#shareCardEl` | Hidden off-screen element used by html2canvas to create the shareable PNG card |
-| `#landingPage` | Informational landing section with hero, how-it-works content, and testimonials |
-
-**Script loading order:**
-
-1. Firebase scripts in `<head>`
-2. `firebase.js` after Firebase scripts
-3. `Chart.js`
-4. `pdf.js`
-5. `canvas-confetti`
-6. `jsPDF`
-7. `html2canvas`
-8. `script.js`
-9. `router.js` after `script.js`, so it can wrap the existing screen functions
-
-To enable the hash router, include this after `script.js`:
-
-```html
-<script src="router.js"></script>
-```
-
-### style.css
-
-Contains the visual system for the app, built around an industrial skeuomorphic / neumorphic style.
-
-**Key systems:**
-
-- CSS custom properties on `:root` for background, foreground, accent, shadows, status colours, and fonts.
-- Dark theme overrides via `[data-theme="dark"]`.
-- Responsive upload page, dashboard layout, sidebar drawer, cards, charts, tables, overlays, modals, and landing-page sections.
-
-**Important component classes:**
-
-| Class | Description |
-|---|---|
-| `.upload-screen` / `.upload-container` | Two-column upload layout |
-| `.mode-btn` | Stream selector buttons |
-| `.upload-zone` | Drag-and-drop file area |
-| `.topbar` | Fixed dashboard navigation bar |
-| `.main-layout` | Sidebar + content flex layout |
-| `.sidebar` | Collapsible question grid sidebar |
-| `.score-tabs-card` | Overall / subject-wise score card |
-| `.arc-gauge` | SVG arc gauge animated by JavaScript |
-| `.metric-card` | Score statistic tiles |
-| `.q-table` / `.q-table-card` | Scrollable question list |
-| `.q-viewer` | Inline question detail panel |
-| `.q-detail-modal` | Modal question detail |
-| `.filter-chip` | Filter buttons |
-| `.q-btn` | Question grid buttons |
-| `.analysis-card` | Shared card style for analysis screens |
-| `.live-brief-strip` | Post-submission stats banner |
-| `.community-cta-banner` | Landing/upload community analytics CTA |
-
-### script.js
-
-The main application file. It manages browser state, file parsing, score calculation, dashboard rendering, session persistence, overlays, keyboard navigation, and export functions.
-
-**Core state variables:**
-
-| Variable | Purpose |
-|---|---|
-| `questions` | Full parsed question array for the current session |
-| `filteredQs` | Currently displayed subset |
-| `currentQ` | Active index in `filteredQs` |
-| `examMode` | `PCM` or `PCB` |
-| `donutChartInst` | Main Chart.js doughnut instance |
-| `subjectChartInsts` | Per-subject chart instances |
-| `pdfPageImages` | Rendered PDF page canvases |
-| `questionImages` | Cropped question image data URLs keyed by question ID |
-| `questionPageMap` | Question-to-PDF-page mapping |
-| `selectedAttempt` | Selected exam attempt |
-| `selectedShift` | Selected exam shift |
-| `_pendingQs` | Buffered questions during mismatch correction |
-| `_isProcessing` | Mutex to prevent double-processing |
-| `_analysisCharts` | Chart instances for the analysis screen |
-| `_communityCharts` | Chart instances for the community screen |
-
-**Important function groups:**
-
-| Group | Functions |
-|---|---|
-| Theme / init | `applyTheme()`, `toggleTheme()`, `checkStoredSession()` |
-| File handling | `handleFile()`, `processFile()`, `processPDF()`, `classifyUploadError()` |
-| Parsers | `parsePortalText()`, `parseRawData()` |
-| Stats | `computeStats()` |
-| Dashboard | `renderDashboard()`, `renderScoreCard()`, `renderSubjectCharts()`, `renderGrid()`, `renderQuestionTable()`, `showQuestion()` |
-| Navigation | `prevQ()`, `nextQ()`, `jumpToQ()`, `setFilter()`, `highlightQTableRow()` |
-| Screens | `showLoading()`, `showDash()`, `showDashRestored()`, `resetApp()`, `openAnalysisScreen()`, `openCommunityScreen()` |
-| Export | `exportCSV()`, `exportPDF()`, `generateShareCard()`, `triggerDownload()` |
-| Mismatch | `finish()`, `showMismatchPopup()`, `mismatchSwitchAndContinue()`, `mismatchReupload()` |
-
-Both parsers normalize data into question objects with IDs, section, correct answer, candidate answer, status, and marks.
-
-### firebase.js
-
-Handles all Firebase Realtime Database interaction and shared chart utilities.
-
-**Main responsibilities:**
-
-- Initialize the Firebase app.
-- Maintain a short in-memory cache for analytics reads.
-- Provide shared chart helpers such as `getChartColors()`, `baseChartOptions()`, and `drawArcGauge()`.
-- Generate duplicate-prevention hashes using SHA-256.
-- Write aggregate score data with transactions.
-- Read shift-level, full-analysis, and community-level aggregate data.
-- Render the brief strip, full analysis charts, and community analytics charts.
-
-**Firebase configuration keys are embedded client-side.** This is normal for Firebase web apps; actual security must be enforced using Firebase Realtime Database rules.
-
-### router.js
-
-`router.js` adds a lightweight hash router on top of the existing single-page UI. It does not replace the current screen functions; instead, it wraps them so that opening and closing screens also updates the URL hash.
-
-**Supported routes:**
-
-| Route | Screen |
-|---|---|
-| `/` | Home / upload screen |
-| `/#community` | Community Live Analysis |
-| `/#dashboard` | Results Dashboard |
-| `/#analysis` | Shift-wise Live Analysis |
-
-**How it works:**
-
-1. Stores references to the original screen functions from `script.js`.
-2. Wraps functions such as `showDash()`, `showDashRestored()`, `resetApp()`, `openAnalysisScreen()`, `closeAnalysisScreen()`, `openCommunityScreen()`, and `closeCommunityScreen()`.
-3. Uses `history.pushState()` to update the URL when screens change.
-4. Uses `handleRoute()` to read `window.location.hash` and show the correct screen.
-5. Listens to browser `popstate` so Back / Forward buttons work naturally.
-6. Runs once on `DOMContentLoaded` so direct links like `/#community` and `/#analysis` can open the correct screen.
-
-**Session-aware routes:**
-
-- `/#community` works without a saved session.
-- `/#dashboard` and `/#analysis` require an existing saved session in `localStorage`.
-- If a dashboard or analysis route is opened without a valid saved session, the router redirects back to the home URL.
-
-**Important integration note:**
-
-Because `router.js` wraps functions declared in `script.js`, it must be loaded **after** `script.js`:
-
-```html
-<script src="script.js"></script>
-<script src="router.js"></script>
-```
-
----
-
-## How It Works — End to End
-
-### Step 1: Stream & Shift Selection
-
-The user selects PCM or PCB, chooses an attempt, and then selects the relevant shift. The selected stream affects section expectations and marks calculation.
-
-### Step 2: File Upload & Parsing
-
-`processFile(file)` routes the uploaded file by type:
-
-- **PDF**: Uses pdf.js to extract text, render pages, map questions to pages, and crop question images.
-- **HTML / HTM**: Reads the file as text, strips markup, and parses portal text.
-- **TXT**: Parses pipe-delimited rows in the expected export format.
-
-If parsing returns zero questions, the app shows a friendly error message based on the file type and failure mode.
-
-### Step 3: Score Computation
-
-`computeStats(qs)` calculates:
-
-- Correct, incorrect, and unattempted counts.
-- Earned score and maximum possible score.
-- Accuracy.
-- Per-subject correct count, earned marks, maximum marks, and percentage.
-
-### Step 4: Dashboard Rendering
-
-`showDash(qs)` displays the dashboard and calls `renderDashboard(qs)`, which renders:
-
-1. Metric cards.
-2. Main doughnut chart.
-3. Per-subject doughnut charts.
-4. Arc score gauge.
-5. Subject score rows.
-6. Sidebar question grid.
-7. Question table.
-8. First selected question viewer.
-9. Local session persistence.
-
-### Step 5: Firebase Write Path
-
-`saveSubmissionToFirebase(qs, st, filename)`:
-
-1. Builds a payload with attempt, shift, stream, score, subjects, and timestamp.
-2. Generates a SHA-256 hash from the answer pattern.
-3. Checks whether the hash was already submitted.
-4. Runs a transaction on the shift stats node.
-5. Updates summary counters and writes the hash record.
-6. Invalidates affected cache keys.
-7. Fetches and renders the live stats brief strip.
-
-### Step 6: Live Stats Strip
-
-After a successful submission or restored session, the brief strip shows:
-
-- Your percentile.
-- Shift average.
-- Shift highest.
-- Count ahead of you.
-- Total students in the selected shift.
-- Link to full analysis.
-
-### Step 7: Full Analysis Screen
-
-The full analysis screen compares the user against their selected shift and stream using Firebase aggregate data. It includes percentile, shift stats, subject comparison, score distribution, shift-vs-shift charts, and stream overview.
-
-### Step 8: Community Screen
-
-The community screen is accessible before uploading. It reads anonymous aggregate stats for PCM and PCB Attempt 1 and renders community-wide charts.
-
-### Step 9: Hash Routing
-
-When `router.js` is loaded, screen transitions update the URL hash. Users can open or share `/#community`, return to `/#dashboard` after a saved session, and use browser Back / Forward navigation between major screens.
-
----
-
-## Supported File Formats
-
-| Format | How to obtain | Notes |
-|---|---|---|
-| `.html` / `.htm` | Save the MHT-CET Objection Tracker Portal response page using **File → Save As → Webpage, Complete** | Most reliable for text parsing and section labels |
-| `.pdf` | Download or print-to-PDF from the portal | Enables per-question image previews |
-| `.txt` | Pipe-delimited export | Format: `qid|section|text|optId:text|...|correctOptId|candidateOptId` per line |
-
----
-
-## Scoring Rules
-
-| Stream | Section | Correct | Incorrect | Unattempted |
-|---|---|---:|---:|---:|
-| PCM | Physics | +1 | 0 | 0 |
-| PCM | Chemistry | +1 | 0 | 0 |
-| PCM | Mathematics | **+2** | 0 | 0 |
-| PCB | Physics | +1 | 0 | 0 |
-| PCB | Chemistry | +1 | 0 | 0 |
-| PCB | Biology | +1 | 0 | 0 |
-
-Maximum scores:
-
-- **PCM:** 200
-- **PCB:** 150
-
-There is no negative marking.
-
----
-
-## Firebase Data Model
-
-```text
-cetlens
-├── stats/
-│   ├── PCM/
-│   │   └── Attempt 1/
-│   │       └── {shiftName}/
-│   │           ├── count
-│   │           ├── sum
-│   │           ├── highest
-│   │           ├── min
-│   │           ├── updatedAt
-│   │           ├── scoreCounts/
-│   │           │   └── {score}: count
-│   │           └── subjectSums/
-│   │               ├── Physics
-│   │               ├── Chemistry
-│   │               └── Mathematics
-│   └── PCB/
-│       └── Attempt 1/
-│           └── {shiftName}/
-│               └── same aggregate structure
 │
-├── summary/
-│   ├── total
-│   └── streams/
-│       ├── PCM
-│       └── PCB
+├── index.html        Single HTML file containing all screen markup, CDN imports, and scoped styles
+├── style.css         Full design system — CSS custom properties, light/dark themes, every component
+├── script.js         Core application logic: parsing, scoring, dashboard rendering, modals, exports
+├── analytics.js      Supabase analytics: read/write helpers, chart rendering for analysis and community screens
+├── supabase.js       Supabase client initialisation (createClient call, stored at window._supabaseClient)
+├── router.js         Hash-based router — wraps screen functions, handles popstate and initial URL dispatch
 │
-└── hashes/
-    └── {stream}/
-        └── {shift}/
-            └── {sha256hash}/
-                └── timestamp
+├── LICENSE           MIT
+└── README.md         This file
 ```
 
-**Design decisions:**
+**Why no `src/`, `dist/`, or `components/` directories?**
 
-- Raw submissions are not stored.
-- `scoreCounts` enables percentile and histogram calculations.
-- `subjectSums` enables subject-average analytics.
-- `hashes` prevents duplicate submissions from inflating community stats.
-- Writes use transactions and multi-path updates to reduce race conditions and round trips.
+CETLens has no build pipeline. Every file is served as-is. Splitting into subdirectories would add complexity without benefit for a project of this scope. The five JavaScript and CSS files are small enough to navigate directly, and keeping everything flat makes local development as simple as `python3 -m http.server`.
 
 ---
 
-## Caching Strategy
+## Installation and Local Setup
 
-`firebase.js` maintains a module-level cache:
+CETLens requires no installation beyond a browser and a static file server. The only reason to use a server at all (rather than opening `index.html` directly) is that `crypto.subtle` and pdf.js workers require a secure context — `localhost` or HTTPS.
 
-```js
-const _fbCache = {};
-const _CACHE_TTL_MS = 5 * 60 * 1000;
-```
-
-| Key Pattern | Content | Invalidated By |
-|---|---|---|
-| `analysisRaw:{stream}:{attempt}` | Stats and summary for a stream/attempt | Matching submission write |
-| `community` | PCM + PCB Attempt 1 stats and summary | Any submission write |
-
-The cache keeps repeated analysis screen opens fast while still invalidating data after new submissions.
-
----
-
-## IndexedDB — Question Image Persistence
-
-Question images cropped from PDFs can be large, so they are stored in IndexedDB instead of localStorage.
-
-| Function | Behaviour |
-|---|---|
-| `openImageDB()` | Opens or creates the `CETLensDB` database |
-| `saveImagesToIDB(images)` | Clears and writes current question images |
-| `loadImagesFromIDB()` | Restores images during session restore |
-| `clearImagesFromIDB()` | Deletes stored images on reset |
-
-The app stores only one image session at a time.
-
----
-
-## Session Persistence
-
-When a dashboard is shown, `saveSession(filename, qs)` stores the active session in localStorage and stores PDF question images in IndexedDB.
-
-Stored session fields include:
-
-- Parsed questions.
-- Exam mode.
-- Filename.
-- Timestamp.
-- Selected attempt.
-- Selected shift.
-
-On the next page load, `checkStoredSession()` can show a restore modal. Restored sessions skip duplicate Firebase writes but can still fetch live stats.
-
-`router.js` also uses this saved session to restore `/#dashboard` and `/#analysis` links.
-
----
-
-## Export Capabilities
-
-### CSV Export
-
-Exports question-level data including question number, section, section question number, status, correct option ID, candidate option ID, and marks.
-
-### PDF Export
-
-Uses jsPDF to generate a styled A4 report with title, metadata, score box, stats row, sectional breakdown table, footer, and privacy note.
-
-### Share Card PNG
-
-Uses html2canvas to render a hidden score card element into a downloadable PNG image.
-
----
-
-## Routing
-
-CETLens uses hash routing through `router.js`.
-
-| URL | Behaviour |
-|---|---|
-| `https://cet-lens.vercel.app/` | Opens home / upload screen |
-| `https://cet-lens.vercel.app/#community` | Opens Community Live Analysis |
-| `https://cet-lens.vercel.app/#dashboard` | Restores dashboard if a saved session exists |
-| `https://cet-lens.vercel.app/#analysis` | Restores dashboard and opens analysis if a saved session exists |
-
-The router improves shareability and navigation while keeping the app fully static and client-side.
-
----
-
-## UI / Theme System
-
-The app supports light and dark themes. `toggleTheme()` updates `data-theme` on `<html>` and persists the preference in localStorage. If no preference is saved, the app falls back to `prefers-color-scheme`.
-
-Charts read CSS variables at render time through `getChartColors()`, so their colours match the active theme.
-
----
-
-## Keyboard Shortcuts
-
-| Key | Context | Action |
-|---|---|---|
-| `←` Arrow | Dashboard with no modal open | Previous question |
-| `→` Arrow | Dashboard with no modal open | Next question |
-| `←` Arrow | Question detail modal open | Previous modal question |
-| `→` Arrow | Question detail modal open | Next modal question |
-| `Escape` | Anywhere | Closes modal, lightbox, or sidebar in priority order |
-
----
-
-## Shift Schedule Reference
-
-### PCM — Physics, Chemistry, Mathematics — Attempt 1
-
-| Date | Sessions |
-|---|---|
-| 11 April | Morning, Evening |
-| 13 April | Morning, Evening |
-| 15 April | Morning, Evening |
-| 16 April | Morning, Evening |
-| 17 April | Morning, Evening |
-| 18 April | Morning, Evening |
-| 19 April | Morning, Evening |
-| 20 April | Morning, Evening |
-
-### PCB — Physics, Chemistry, Biology — Attempt 1
-
-| Date | Sessions |
-|---|---|
-| 21 April | Morning, Evening |
-| 22 April | Morning, Evening |
-| 23 April | Morning, Evening |
-| 24 April | Morning, Evening |
-| 25 April | Morning, Evening |
-
----
-
-## Security & Privacy
-
-- Uploaded files are parsed locally in the browser.
-- The raw response sheet is not sent to any server.
-- Firebase receives only anonymous aggregate score data, stream, attempt, shift, per-subject scores, and a SHA-256 answer-pattern hash.
-- The Firebase web API key is not a secret; Firebase Security Rules are responsible for protecting the database.
-- Duplicate prevention is hash-based.
-- localStorage and IndexedDB session data remain on the user's device and can be cleared with reset.
-
----
-
-## Known Limitations & Edge Cases
-
-- **Scanned PDFs:** Image-only PDFs cannot be parsed by pdf.js text extraction.
-- **PDF cropping accuracy:** Question image cropping depends on detected PDF text positions.
-- **Section detection fallback:** If labels are missing, the parser falls back to positional inference.
-- **HTML relative image paths:** Saved portal image paths may not resolve unless the companion asset folder is available.
-- **PCB Mathematics:** PCB does not have Mathematics; unexpected Mathematics rows are treated without the PCM +2 rule.
-- **Community analytics scope:** Community analytics currently read Attempt 1 aggregates.
-- **No authentication:** Firebase writes are anonymous; duplicate prevention is based on hashes.
-- **localStorage quota:** Large sessions may fail to save in localStorage, but images are stored in IndexedDB to reduce pressure.
-- **Hash-routed dashboard links:** `/#dashboard` and `/#analysis` need a saved browser session to restore user-specific data.
-
----
-
-## Local Setup
-
-CETLens requires no build tools.
+**Clone the repository:**
 
 ```bash
-# Clone the repository
- git clone https://github.com/swanandjaju/CETLens.git
- cd CETLens
-
-# Serve with any static server
- npx serve .
-
-# or
- python3 -m http.server 8080
+git clone https://github.com/swanandjaju/CETLens.git
+cd CETLens
 ```
 
-You can also open `index.html` directly in a browser, but some browser APIs such as pdf.js workers and `crypto.subtle` work more reliably on `localhost` or HTTPS.
+**Start a local server using any of the following:**
 
-### Deployment
+```bash
+# Python (built-in, no install needed)
+python3 -m http.server 8080
 
-The project is deployed at:
+# Node.js via npx (no global install needed)
+npx serve .
 
-[https://cet-lens.vercel.app](https://cet-lens.vercel.app)
+# VS Code Live Server extension
+# Right-click index.html → "Open with Live Server"
+```
 
-Because CETLens is a static app, it can also be hosted on GitHub Pages, Netlify, Firebase Hosting, Vercel, or any static CDN.
-
-### Firebase
-
-The project connects to the live `cetlens` Firebase project. To run a separate instance:
-
-1. Create a Firebase project.
-2. Enable Realtime Database.
-3. Replace the `firebaseConfig` object in `firebase.js`.
-4. Configure database rules for your desired read/write policy.
+Then open `http://localhost:8080` in your browser.
 
 ---
 
-## Environment Notes
+## Environment Variables and Backend Setup
 
-- Requires a modern browser with ES2017+ support.
-- Uses `crypto.subtle`, IndexedDB, CSS Custom Properties, and ResizeObserver.
-- Works best in Chrome, Firefox, Edge, and modern mobile browsers.
-- Fully responsive for mobile use.
-- No server-side component is required.
-- Offline parsing and dashboard rendering work after assets are loaded.
-- Firebase-powered features require an internet connection.
+CETLens has no `.env` file. The Supabase configuration is inlined directly in `supabase.js`:
+
+```js
+const SUPABASE_URL  = 'https://<your-ref>.supabase.co';
+const SUPABASE_ANON = '<your-anon-key>';
+```
+
+The `SUPABASE_ANON` key is the public anonymous key, not the service role key. It is intentionally embedded in client-side code — Supabase's Row Level Security (RLS) policies are what actually control what the anonymous client can and cannot do. Embedding the anon key is the standard pattern for Supabase browser clients.
+
+**To run a separate instance with your own Supabase project:**
+
+1. Create a new project at [supabase.com](https://supabase.com).
+2. Create the required tables (see [Database Structure](#database-structure-and-backend-explanation) below).
+3. Configure Row Level Security policies on those tables.
+4. Replace `SUPABASE_URL` and `SUPABASE_ANON` in `supabase.js` with your project's values.
+5. No other configuration is needed.
 
 ---
 
-*Built with ❤️ by Swanand Jaju — WCE Sangli, 2026*
+## Local Development
+
+There is no watch mode, hot reload, or compile step. Edit any file and refresh the browser.
+
+For working on the PDF parsing logic, open the browser DevTools console — `processFile()` and the parser functions log useful intermediate state. The `_fbCache` object in `analytics.js` is accessible at `window._fbCache` in the global scope if you need to inspect or manually invalidate cached Supabase reads.
+
+For Supabase interaction, the client is at `window._supabaseClient` after page load. You can call it directly from the DevTools console to inspect table data:
+
+```js
+const { data } = await window._supabaseClient.from('shift_stats').select('*');
+console.table(data);
+```
+
+**Linting and formatting:**
+
+There is currently no ESLint or Prettier configuration. The codebase uses `'use strict'` in the main JS files and follows consistent spacing and naming conventions. If you add linting, a `.eslintrc` targeting ES2017 browser globals is appropriate.
+
+---
+
+## Deployment
+
+CETLens is a static app and can be deployed to any service that serves static files over HTTPS.
+
+**Vercel (current deployment):**
+
+```bash
+# Install Vercel CLI once
+npm i -g vercel
+
+# Deploy from project root
+vercel
+```
+
+No `vercel.json` configuration is required since there is no routing that needs server-side rewriting — hash-based navigation is handled entirely client-side.
+
+**Netlify:**
+
+Drag and drop the project folder into the Netlify dashboard, or connect the GitHub repository. The build command is blank and the publish directory is the root `/`.
+
+**GitHub Pages:**
+
+Push the repository to GitHub and enable Pages in repository settings, pointing at the `main` branch root. The site will be available at `https://<username>.github.io/CETLens/`.
+
+**Note on HTTPS requirement:**
+
+`crypto.subtle` (used for SHA-256 duplicate fingerprinting) and pdf.js workers both require a secure context. Ensure your deployment is served over HTTPS, which all of the above services provide by default. `localhost` also counts as a secure context for local development.
+
+---
+
+## Database Structure and Backend Explanation
+
+CETLens uses two Supabase tables. Raw response sheets or individual question data are never sent to the server. The only data written is anonymised, pre-aggregated, and structured so that individual users cannot be identified or reconstructed.
+
+### `shift_stats`
+
+Stores running aggregate statistics keyed by stream, attempt, and shift. Each row represents one (stream, attempt, shift) combination.
+
+| Column | Type | Description |
+|---|---|---|
+| `id` | `uuid` | Primary key |
+| `stream` | `text` | `PCM` or `PCB` |
+| `attempt` | `text` | e.g. `Attempt 1`, `Attempt 2` |
+| `shift` | `text` | e.g. `11 April - Morning` |
+| `count` | `integer` | Number of submissions for this shift |
+| `total_score` | `numeric` | Sum of all scores — used with `count` to compute average |
+| `highest` | `integer` | Highest score recorded for this shift |
+| `min_score` | `integer` | Lowest score recorded for this shift |
+| `score_counts` | `jsonb` | Frequency map of scores, e.g. `{"142": 3, "167": 1}` — used for histograms and percentile calculation |
+| `subject_sums` | `jsonb` | Sum of subject scores, e.g. `{"Physics": 420, "Chemistry": 310}` — divided by `count` for subject averages |
+| `updated_at` | `timestamptz` | Last write timestamp |
+
+The `score_counts` JSONB column is the key design decision here. Rather than storing individual scores as separate rows (which would grow linearly with submissions and allow score-sequence reconstruction), CETLens uses a frequency map. A score of 142 appearing 3 times is stored as `"142": 3`. This structure supports histogram rendering, percentile computation, and statistical calculations (mean, median, mode) while being compact and irreversible back to individual records.
+
+### `submission_summary`
+
+A single-row (or small set of rows) table storing overall submission counts and global statistics, used to populate the community overview panel. The exact schema mirrors `shift_stats` but without the shift key, aggregating across all shifts for a given stream and attempt.
+
+### Write Strategy
+
+When a new response sheet is successfully parsed and the dashboard is shown for the first time (`showDash`, not `showDashRestored`), `saveSubmissionToSupabase()` is called. It:
+
+1. Computes a SHA-256 hash of the candidate's answer pattern (the sequence of answered option IDs).
+2. Checks whether this hash has been submitted before by reading a `submitted_hashes` record or checking a local flag in sessionStorage.
+3. If it's a new submission, performs an upsert on the `shift_stats` row for the matching (stream, attempt, shift), incrementing all aggregate fields.
+
+The upsert uses Supabase's built-in atomic update capability to avoid race conditions when multiple users submit simultaneously. No transaction lock is needed because the update operations are additive and commutative.
+
+Session restores (`showDashRestored`) explicitly skip the Supabase write — the comment in the source code makes this clear — so refreshing or reopening a saved session does not inflate submission counts.
+
+---
+
+## Authentication Flow
+
+CETLens has no user authentication. Every Supabase interaction uses the anonymous public key. There is no login, no session token, and no user identity on the server side.
+
+Duplicate submission prevention is handled by SHA-256 fingerprinting of the answer pattern rather than user identity. A device that clears its sessionStorage and re-uploads the same response sheet would generate the same hash and be deduplicated server-side.
+
+**Row Level Security:**
+
+The Supabase tables should have RLS policies that:
+
+- Allow anonymous `SELECT` (read) on `shift_stats` and `submission_summary`.
+- Allow anonymous `INSERT` and `UPDATE` on `shift_stats` only for the aggregate upsert operation.
+- Deny `DELETE` to all anonymous users.
+
+This prevents anyone from clearing or tampering with the aggregate data using the public anon key, while still allowing the app to write and read normally.
+
+---
+
+## Supabase API Usage
+
+`analytics.js` handles all Supabase interactions. The client is accessed via `window._supabaseClient`, which is initialised in `supabase.js` after the CDN bundle loads.
+
+**Reading shift stats:**
+
+```js
+const { data, error } = await sb
+  .from('shift_stats')
+  .select('*')
+  .eq('stream', stream)
+  .eq('attempt', attempt);
+```
+
+**Reading summary:**
+
+```js
+const { data, error } = await sb
+  .from('submission_summary')
+  .select('*');
+```
+
+**Writing an aggregated submission (upsert):**
+
+The write logic increments `count`, `total_score`, updates `highest` and `min_score`, merges the new score into `score_counts`, and merges subject scores into `subject_sums`. Because JSONB merging at the database level requires some care, the current implementation reads the existing row, updates the object in JavaScript using `incrementAggregate()`, and writes it back. This is an optimistic update pattern — acceptable given that exact-to-the-integer consistency on aggregate stats is not critical for the percentile and comparison use case.
+
+**In-memory cache:**
+
+Every Supabase read result is cached in `_fbCache` with a 15-minute TTL. The cache key pattern is:
+
+```
+analysisRaw:{stream}:{attempt}   → shift stats for one stream/attempt
+community                        → PCM + PCB combined data for the community screen
+```
+
+The cache is invalidated by prefix after a new write, so a student who submits and then opens the analysis screen will always fetch fresh data rather than seeing pre-submission numbers.
+
+---
+
+## Core Functionalities in Detail
+
+### Response Sheet Parsing
+
+The parser in `script.js` uses regular expressions and text heuristics rather than a fixed schema, because the MHT-CET portal exports are not structured documents — they are rendered HTML or PDFs that vary in layout across years and NIC portal versions.
+
+**Text extraction flow for PDF:**
+
+1. `pdfjsLib.getDocument(arrayBuffer)` loads the PDF.
+2. Each page is processed with `page.getTextContent()`, and the text items are concatenated with whitespace normalisation.
+3. The combined text string is passed to `parsePortalText()`.
+4. Simultaneously, each page is rendered to a canvas using `page.render()`, and text positions from `getTextContent()` are used to infer per-question bounding boxes for image cropping.
+
+**Core parsing logic (`parsePortalText`):**
+
+The regex `/Correct\s+Option\s*[:\s]\s*(\d{5,6})/gi` anchors each question — every question in the response sheet has a "Correct Option:" field followed by a 5-6 digit option ID. This is the stable pattern across portal exports.
+
+For each match, the parser looks backward to find:
+- The question's internal ID (a 6-digit number starting with `2`).
+- The section label (Physics, Chemistry, Mathematics, Biology).
+- All available option IDs (6-digit numbers starting with `3`).
+- The candidate's selected option ID immediately after the correct option.
+
+Options are sorted numerically and assigned labels A, B, C, D. This allows the dashboard to display "Option B" rather than a raw option ID.
+
+**Scoring rules:**
+
+| Stream | Subject | Correct | Incorrect | Unattempted |
+|---|---|---|---|---|
+| PCM | Mathematics | +2 | 0 | 0 |
+| PCM | Physics, Chemistry | +1 | 0 | 0 |
+| PCB | Physics, Chemistry, Biology | +1 | 0 | 0 |
+
+There is no negative marking. Max score is 200 for PCM (50 Math × 2 + 50 Physics × 1 + 50 Chemistry × 1) and 150 for PCB (50 × 3).
+
+### Chart Rendering
+
+All charts in `analytics.js` read their colours from CSS custom properties at render time via `getChartColors()`. This is what makes charts correctly adapt to theme switches — rather than hardcoding hex values in the chart config, colour values are pulled from `getComputedStyle(document.documentElement)` when the chart is first created. Charts are destroyed and recreated on each screen open to avoid stale canvas state.
+
+### Arc Gauge
+
+The arc gauge on the dashboard and the percentile gauge on the analysis screen are raw SVG paths computed with trigonometry in `drawArcGauge()`. The function calculates the start and end points of a semicircular arc using `Math.cos` and `Math.sin`, then constructs an SVG arc path string. This avoids any gauge library dependency and keeps the visual fully CSS-themeable.
+
+---
+
+## Security Considerations
+
+**File processing is client-side only:** The uploaded response sheet is read by the browser's `FileReader` API and parsed in JavaScript. The raw file content is never sent to any server. This is verifiable by running the app with network requests blocked in DevTools — the parsing and dashboard rendering work completely offline.
+
+**What Supabase receives:** The only outbound network requests are to the Supabase API. These requests contain:
+- The stream (PCM or PCB).
+- The attempt (Attempt 1 or 2).
+- The shift (e.g. "11 April - Morning").
+- The total score as an integer.
+- Per-subject scores as a key-value object.
+- A SHA-256 hash of the candidate's answer pattern.
+
+No name, roll number, registration ID, date of birth, or any other personally identifiable information is transmitted or stored.
+
+**SHA-256 fingerprint:** The answer pattern hash is computed using `crypto.subtle.digest('SHA-256', ...)` — the Web Crypto API — which is available only in secure contexts (HTTPS or localhost). The hash is one-way: it prevents the same student from inflating the submission count by re-uploading, but it cannot be used to reconstruct the original answers.
+
+**Supabase anon key:** The public anonymous key in `supabase.js` is not a secret. Row Level Security policies on the Supabase side control what this key can actually do. The key can be inspected in browser DevTools by anyone, which is expected and harmless as long as RLS is properly configured.
+
+**localStorage and IndexedDB:** Session data and question images stay on the user's device. Resetting the app (`resetApp()`) clears both. A student using a shared or public computer should use the reset button before leaving.
+
+---
+
+## Performance Optimizations
+
+**15-minute in-memory read cache:** `analytics.js` caches every Supabase read result in `_fbCache` with a 15-minute TTL. Reopening the analysis or community screen within the TTL window serves data from memory without a network round-trip. This is particularly useful on mobile where repeated navigation between screens is common.
+
+**One session at a time in IndexedDB:** `saveImagesToIDB()` calls `store.clear()` before writing new images. This prevents unbounded growth of the image store and keeps read times fast, since the cursor only iterates over the current session's images.
+
+**Chart instance destruction on screen open:** Rather than accumulating Chart.js instances, all chart instances for a screen are stored in an object and destroyed before re-rendering. This prevents canvas memory leaks on long sessions with repeated screen navigation.
+
+**Incremental PDF processing feedback:** PDF rendering is inherently slower than HTML or TXT parsing. The loading screen's step labels are updated progressively as each stage completes, giving the user feedback that something is happening rather than a blank loading indicator for several seconds.
+
+**CSS custom properties for theming:** Theme switches are O(1) — a single `setAttribute` call on the root element. There is no class iteration, no component re-render, and no JavaScript recalculation of styles. Charts, however, do not react to CSS changes after creation, which is why they are recreated on each screen open rather than relying on live style updates.
+
+---
+
+## Known Limitations
+
+- **Scanned PDFs:** Image-only PDFs — where the page is a photograph of the response sheet rather than a text-layer document — cannot be parsed. pdf.js's `getTextContent()` returns nothing useful for scanned pages. OCR is not in scope for the current version.
+- **PDF image cropping accuracy:** The question boundary detection from text positions is heuristic. On PDFs with unusual layouts or non-standard fonts, some crops may be misaligned or include adjacent question content.
+- **HTML image paths:** When saving the Objection Portal page as HTML, browsers sometimes save it as a single HTML file without the accompanying asset folder. In this case, question images embedded via relative paths will not load. The parser still extracts text and calculates scores correctly.
+- **Community analytics scope:** The community screen fetches Attempt 1 data only. Attempt 2 aggregates are stored in `shift_stats` but not yet surfaced in the community view.
+- **Concurrent write race conditions:** The current read-modify-upsert pattern for Supabase writes is not atomic. Under high concurrent load (many users submitting simultaneously), it is theoretically possible for updates to overwrite each other. At the traffic levels this app currently handles, this is not a practical problem, but it is worth noting.
+- **localStorage quota:** Parsing a very large session (all 150 questions with metadata) is well within typical localStorage quotas, but on browsers with unusually low quotas or full storage, the `saveSession` call will silently fail. The session restore feature will simply not work in that case; the dashboard still functions normally.
+- **Deep links require a saved session:** Navigating directly to `/#dashboard` or `/#analysis` only works if a session is stored in localStorage. If there is no session, the router redirects to the home screen with a brief error message.
+
+---
+
+## License
+
+This project is licensed under the MIT License. See [LICENSE](LICENSE) for the full text.
+
+You are free to use, copy, modify, merge, publish, distribute, sublicense, or sell the software, subject to including the original copyright notice and license text in any copy or substantial portion of the project.
+
+---
+
+_Built by Swanand Jaju — WCE Sangli, 2026_
