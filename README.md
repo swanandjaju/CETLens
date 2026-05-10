@@ -507,4 +507,4 @@ You are free to use, copy, modify, merge, publish, distribute, sublicense, or se
 
 ---
 
-_Built by Swanand Jaju — WCE Sangli, 2026_
+_Built with ❤️ by Swanand Jaju — WCE Sangli, 2026_
