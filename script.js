@@ -128,6 +128,8 @@ function updateShifts() {
         <option value="24 April - Evening">24 April - Evening</option>
         <option value="25 April - Morning">25 April - Morning</option>
         <option value="25 April - Evening">25 April - Evening</option>
+        <option value="26 April - Morning">26 April - Morning</option>
+        <option value="26 April - Evening">26 April - Evening</option>
       `;
     }
     shiftContainer.style.display = 'block';
