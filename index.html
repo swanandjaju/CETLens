@@ -206,7 +206,7 @@
         <div>
           <div class="brand-title">CETLens</div>
           <div class="deco-rule"><span>MHT-CET</span></div>
-          <div class="brand-sub">Upload your MHT-CET Objection Portal response sheet (.html, .pdf, or .txt) to generate
+          <div class="brand-sub">Upload your MHT-CET Objection Portal response sheet (.html, .mhtml, .pdf, or .txt) to generate
             an instant analysis dashboard.</div>
         </div>
 
@@ -248,12 +248,12 @@
               stroke-linejoin="round" />
           </svg>
           <div class="upload-title" id="dropTitle">Drop your response sheet here</div>
-          <div class="upload-sub">Supports the MHT-CET Objection Tracker Portal HTML/PDF response sheet.<br>All
+          <div class="upload-sub">Supports the MHT-CET Objection Tracker Portal HTML/MHTML/PDF response sheet.<br>All
             processing is local &mdash; your data never leaves your device.</div>
           <button class="btn-primary"
             onclick="event.stopPropagation();document.getElementById('fileInput').click()">Browse File</button>
           <div class="drag-preview" id="dragPreview"></div>
-          <input type="file" id="fileInput" accept=".pdf,.html,.htm,.txt" style="display:none"
+          <input type="file" id="fileInput" accept=".pdf,.html,.htm,.mhtml,.mht,.txt" style="display:none"
             onchange="handleFile(this)">
         </div>
 

@@ -556,6 +556,25 @@ function setMode(m) {
 
 // core parser
 function parsePortalText(text) {
+  // ── Watermark detection & removal ──
+  // The MHT-CET portal embeds copy-protection watermark numbers (5-7 digits)
+  // scattered throughout the page. When text is extracted, these appear next to
+  // "Correct Option:" and "Candidate Response:", causing mis-parsing.
+  // Real option IDs appear 1-3 times; watermarks appear 10+ times.
+  const wmFreq = {};
+  const wmRe = /\b(\d{5,7})\b/g;
+  let wmMatch;
+  while ((wmMatch = wmRe.exec(text)) !== null) {
+    wmFreq[wmMatch[1]] = (wmFreq[wmMatch[1]] || 0) + 1;
+  }
+  const watermarks = Object.entries(wmFreq)
+    .filter(([, count]) => count > 10)
+    .map(([num]) => num);
+  if (watermarks.length > 0) {
+    const wmPattern = new RegExp('\\b(' + watermarks.join('|') + ')\\b', 'g');
+    text = text.replace(wmPattern, '');
+  }
+
   const CORR_RE = /Correct\s+Option\s*[:\s]\s*(\d{5,6})/gi;
 
   const corrMatches = [...text.matchAll(CORR_RE)];
@@ -678,14 +697,14 @@ function parseRawData(raw) {
 // improved error messages
 function classifyUploadError(file, err) {
   const name = file.name.toLowerCase();
-  if (!name.match(/\.(html?|pdf|txt)$/)) {
-    return `Unsupported file type: "${file.name}".\n\nPlease upload one of:\n• .html / .htm — MHT-CET portal response sheet\n• .pdf — PDF version of the portal sheet\n• .txt — Pipe-delimited export`;
+  if (!name.match(/\.(html?|mhtml?|mht|pdf|txt)$/)) {
+    return `Unsupported file type: "${file.name}".\n\nPlease upload one of:\n• .html / .htm — MHT-CET portal response sheet\n• .mhtml / .mht — MHTML saved page\n• .pdf — PDF version of the portal sheet\n• .txt — Pipe-delimited export`;
   }
   if (name.endsWith('.pdf') && err.message.includes('No questions')) {
     return `No questions found in your PDF.\n\nPossible reasons:\n• The PDF may be scanned (image-only), try the HTML version instead\n• This doesn't appear to be an MHT-CET Objection Portal response sheet\n• The PDF may be password-protected`;
   }
-  if ((name.endsWith('.html') || name.endsWith('.htm')) && err.message.includes('No questions')) {
-    return `No questions found in your HTML file.\n\nPossible reasons:\n• Make sure you saved the full page from the MHT-CET Objection Tracker Portal\n• The page may have been saved incorrectly — try "Save As > Webpage, Complete"`;
+  if ((name.endsWith('.html') || name.endsWith('.htm') || name.endsWith('.mhtml') || name.endsWith('.mht')) && err.message.includes('No questions')) {
+    return `No questions found in your HTML/MHTML file.\n\nPossible reasons:\n• Make sure you saved the full page from the MHT-CET Objection Tracker Portal\n• The page may have been saved incorrectly — try "Save As > Webpage, Complete" or MHTML format`;
   }
   if (name.endsWith('.txt') && err.message.includes('pipe')) {
     return `Could not read the .txt file.\n\nExpected pipe-delimited format:\nqid|section|text|optId:text|...|correctOptId|candidateOptId`;
@@ -703,8 +722,10 @@ async function processFile(file) {
   questionImages  = {};
   questionPageMap = {};
 
-  const isPDF = file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf');
-  const isTXT = file.name.toLowerCase().endsWith('.txt');
+  const name  = file.name.toLowerCase();
+  const isPDF = file.type === 'application/pdf' || name.endsWith('.pdf');
+  const isTXT = name.endsWith('.txt');
+  const isMHTML = name.endsWith('.mhtml') || name.endsWith('.mht');
 
   try {
     if (isPDF) {
@@ -716,15 +737,36 @@ async function processFile(file) {
       if (!qs.length) throw new Error('No pipe-delimited rows found in the .txt file.');
       finish(file.name, qs);
     } else {
-      setStep('Reading HTML…', '');
-      const raw  = await file.text();
-      extractHTMLImages(raw);
+      // HTML or MHTML
+      let htmlContent;
+      let mhtmlImages = {};
+
+      if (isMHTML) {
+        setStep('Reading MHTML…', '');
+        const raw = await file.text();
+        const parsed = parseMHTML(raw);
+        htmlContent = parsed.html;
+        mhtmlImages = parsed.images;
+      } else {
+        setStep('Reading HTML…', '');
+        htmlContent = await file.text();
+      }
+
       const div  = document.createElement('div');
-      div.innerHTML = raw;
+      div.innerHTML = htmlContent;
       const text = div.textContent || div.innerText || '';
       setStep('Parsing questions…', 'Scanning for Correct Option / Candidate Response pairs');
       const qs   = parsePortalText(text);
       if (!qs.length) throw new Error('No questions found.\n\nMake sure you uploaded the MHT-CET Objection Tracker Portal response sheet.');
+
+      // Extract question images from the HTML/MHTML content
+      setStep('Rendering question images…', 'This may take a moment');
+      try {
+        await extractHTMLQuestionImages(htmlContent, mhtmlImages, qs);
+      } catch (imgErr) {
+        console.warn('HTML image extraction failed (non-fatal):', imgErr);
+      }
+
       finish(file.name, qs);
     }
   } catch (err) {
@@ -736,8 +778,272 @@ async function processFile(file) {
   }
 }
 
+/**
+ * parseMHTML — Parse MIME multipart MHTML format.
+ * Extracts the text/html body and all image/* parts as data URIs,
+ * keyed by Content-Location and Content-ID.
+ */
+function parseMHTML(raw) {
+  const result = { html: '', images: {} };
+
+  // Find the MIME boundary from the Content-Type header
+  const boundaryMatch = raw.match(/boundary="?([^\s"]+)"?/i);
+  if (!boundaryMatch) {
+    // Fallback: treat the whole thing as HTML
+    result.html = raw;
+    return result;
+  }
+  const boundary = boundaryMatch[1];
+  const parts = raw.split('--' + boundary);
+
+  for (const part of parts) {
+    if (part.trim() === '' || part.trim() === '--') continue;
+
+    // Split headers from body (first blank line)
+    const headerEnd = part.indexOf('\r\n\r\n');
+    const headerEnd2 = part.indexOf('\n\n');
+    const splitIdx = headerEnd !== -1 ? headerEnd : headerEnd2;
+    if (splitIdx === -1) continue;
+
+    const headerBlock = part.substring(0, splitIdx);
+    const bodyStart = headerEnd !== -1 ? splitIdx + 4 : splitIdx + 2;
+    let body = part.substring(bodyStart);
+
+    const getHeader = (name) => {
+      const re = new RegExp('^' + name + ':\\s*(.+)$', 'im');
+      const m = headerBlock.match(re);
+      return m ? m[1].trim() : '';
+    };
+
+    const contentType = getHeader('Content-Type').split(';')[0].trim().toLowerCase();
+    const encoding = getHeader('Content-Transfer-Encoding').toLowerCase();
+    const location = getHeader('Content-Location');
+    const contentId = getHeader('Content-ID').replace(/^<|>$/g, '');
+
+    // Decode body
+    if (encoding === 'quoted-printable') {
+      body = body
+        .replace(/=\r?\n/g, '')                    // soft line breaks
+        .replace(/=([0-9A-Fa-f]{2})/g, (_, hex) =>
+          String.fromCharCode(parseInt(hex, 16))
+        );
+    } else if (encoding === 'base64') {
+      body = body.replace(/\s/g, '');  // keep raw base64 for images
+    }
+
+    if (contentType === 'text/html' || contentType.startsWith('text/html')) {
+      // For base64-encoded HTML, decode it
+      if (encoding === 'base64') {
+        try {
+          body = atob(body);
+        } catch (e) {
+          // If atob fails, use as-is
+        }
+      }
+      if (!result.html) result.html = body;
+    } else if (contentType.startsWith('image/')) {
+      let dataUri;
+      if (encoding === 'base64') {
+        dataUri = `data:${contentType};base64,${body}`;
+      } else {
+        // Convert raw binary to base64
+        const b64 = btoa(unescape(encodeURIComponent(body)));
+        dataUri = `data:${contentType};base64,${b64}`;
+      }
+      if (location) result.images[location] = dataUri;
+      if (contentId) result.images['cid:' + contentId] = dataUri;
+    }
+  }
+
+  return result;
+}
+
+/**
+ * extractHTMLQuestionImages — Render the portal HTML in a hidden iframe,
+ * find "Correct Option" text boundaries, and crop individual question images.
+ *
+ * Key design: html2canvas is injected as a <script> tag INSIDE the iframe.
+ * This is critical because:
+ * 1) html2canvas from the parent window cannot render iframe content
+ * 2) Injecting HTML into a div in the parent page causes parent CSS
+ *    (dark theme) to bleed in and make text invisible
+ */
+async function extractHTMLQuestionImages(htmlContent, mhtmlImages, qs) {
+  if (!qs || qs.length === 0) return;
+
+  // Replace MHTML image references with data URIs
+  let processedHtml = htmlContent;
+  if (mhtmlImages && Object.keys(mhtmlImages).length > 0) {
+    for (const [ref, dataUri] of Object.entries(mhtmlImages)) {
+      // Escape special regex characters in the reference URL
+      const escaped = ref.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      processedHtml = processedHtml.replace(new RegExp(escaped, 'g'), dataUri);
+    }
+  }
+
+  return new Promise((resolve, reject) => {
+    const iframe = document.createElement('iframe');
+    iframe.style.cssText = 'position:fixed;left:-9999px;top:0;width:1200px;height:800px;border:none;visibility:hidden;';
+    document.body.appendChild(iframe);
+
+    const cleanup = () => {
+      try { document.body.removeChild(iframe); } catch (e) {}
+    };
+
+    // Set a timeout to prevent infinite hangs
+    const timeout = setTimeout(() => {
+      cleanup();
+      reject(new Error('HTML image extraction timed out'));
+    }, 30000);
+
+    try {
+      const iframeDoc = iframe.contentDocument || iframe.contentWindow.document;
+      iframeDoc.open();
+      iframeDoc.write(processedHtml);
+      iframeDoc.close();
+
+      // Wait for document and images to load
+      const waitForLoad = () => new Promise((res) => {
+        const imgs = iframeDoc.querySelectorAll('img');
+        let pending = 0;
+        imgs.forEach(img => {
+          if (!img.complete) {
+            pending++;
+            img.onload = img.onerror = () => { pending--; if (pending <= 0) res(); };
+          }
+        });
+        if (pending === 0) {
+          // Give a brief delay for rendering
+          setTimeout(res, 500);
+        }
+      });
+
+      waitForLoad().then(() => {
+        // Walk the iframe DOM to find all "Correct Option" text nodes as boundaries
+        const boundaries = [];
+        const walker = iframeDoc.createTreeWalker(
+          iframeDoc.body,
+          NodeFilter.SHOW_TEXT,
+          null,
+          false
+        );
+        let node;
+        while ((node = walker.nextNode())) {
+          if (/Correct\s+Option/i.test(node.textContent)) {
+            // Find the element containing this text
+            let el = node.parentElement;
+            if (el) {
+              const rect = el.getBoundingClientRect();
+              if (rect.height > 0) {
+                boundaries.push({
+                  element: el,
+                  y: rect.top + iframeDoc.documentElement.scrollTop
+                });
+              }
+            }
+          }
+        }
+
+        if (boundaries.length === 0) {
+          clearTimeout(timeout);
+          cleanup();
+          resolve();
+          return;
+        }
+
+        // Sort boundaries by Y position
+        boundaries.sort((a, b) => a.y - b.y);
+
+        // Inject html2canvas into the iframe
+        const h2cScript = iframeDoc.createElement('script');
+        h2cScript.src = 'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js';
+        h2cScript.onload = async () => {
+          try {
+            const iframeH2C = iframe.contentWindow.html2canvas;
+            if (!iframeH2C) {
+              clearTimeout(timeout);
+              cleanup();
+              resolve();
+              return;
+            }
+
+            // Render the full scrollable page
+            const fullCanvas = await iframeH2C(iframeDoc.body, {
+              scale: 1.5,
+              useCORS: true,
+              allowTaint: true,
+              logging: false,
+              backgroundColor: '#ffffff',
+              width: iframeDoc.body.scrollWidth,
+              height: iframeDoc.body.scrollHeight,
+              windowWidth: iframeDoc.body.scrollWidth,
+              windowHeight: iframeDoc.body.scrollHeight
+            });
+
+            // Scale factor between DOM coords and canvas pixels
+            const scaleX = fullCanvas.width / iframeDoc.body.scrollWidth;
+            const scaleY = fullCanvas.height / iframeDoc.body.scrollHeight;
+
+            // Crop individual question images between consecutive boundaries
+            for (let i = 0; i < boundaries.length && i < qs.length; i++) {
+              const endY = boundaries[i].y;
+              const startY = i > 0 ? boundaries[i - 1].y : 0;
+
+              const cropTop = Math.round(startY * scaleY);
+              const cropBottom = Math.round(endY * scaleY) + Math.round(20 * scaleY);
+              const cropH = Math.max(1, Math.min(cropBottom, fullCanvas.height) - cropTop);
+
+              if (cropH <= 0) continue;
+
+              const qCanvas = document.createElement('canvas');
+              qCanvas.width = fullCanvas.width;
+              qCanvas.height = cropH;
+              const ctx = qCanvas.getContext('2d');
+              ctx.fillStyle = '#fff';
+              ctx.fillRect(0, 0, qCanvas.width, cropH);
+              ctx.drawImage(fullCanvas,
+                0, cropTop, fullCanvas.width, cropH,
+                0, 0, fullCanvas.width, cropH
+              );
+
+              questionImages[qs[i].id] = qCanvas.toDataURL('image/jpeg', 0.85);
+              qCanvas.width = 0;
+              qCanvas.height = 0;
+            }
+
+            // Free memory
+            fullCanvas.width = 0;
+            fullCanvas.height = 0;
+
+            clearTimeout(timeout);
+            cleanup();
+            resolve();
+          } catch (renderErr) {
+            clearTimeout(timeout);
+            cleanup();
+            reject(renderErr);
+          }
+        };
+
+        h2cScript.onerror = () => {
+          clearTimeout(timeout);
+          cleanup();
+          reject(new Error('Failed to load html2canvas in iframe'));
+        };
+
+        iframeDoc.head.appendChild(h2cScript);
+      });
+    } catch (e) {
+      clearTimeout(timeout);
+      cleanup();
+      reject(e);
+    }
+  });
+}
+
+// Legacy stub kept for compatibility
 function extractHTMLImages(htmlText) {
-  // Placeholder — portal images are relative paths that won't resolve externally
+  // No-op — replaced by extractHTMLQuestionImages
 }
 
 
@@ -1119,7 +1425,7 @@ function showQuestion(idx, scroll) {
   const img     = questionImages[q.id] || null;
   imgArea.innerHTML = img
     ? `<img src="${img}" alt="Q${q.id}" class="zoomable-img" title="Click to zoom">`
-    : `<div class="q-img-placeholder">Question image not available<br><small style="font-size:11px;margin-top:4px;display:block">Upload the PDF version for image previews</small></div>`;
+    : `<div class="q-img-placeholder">Question image not available<br><small style="font-size:11px;margin-top:4px;display:block">Image preview requires a PDF, saved HTML, or MHTML file</small></div>`;
 
   const qBody = document.querySelector('.q-body');
   if (qBody) qBody.scrollTop = 0;
@@ -1399,7 +1705,7 @@ function populateQDetail(q) {
   const img = questionImages[q.id] || null;
   imgArea.innerHTML = img
     ? `<img src="${img}" alt="Q${q.id}" class="zoomable-img" title="Click to zoom" style="cursor:zoom-in">`
-    : `<div class="q-img-placeholder">Question image not available<br><small style="font-size:11px;margin-top:4px;display:block">Upload the PDF version for image previews</small></div>`;
+    : `<div class="q-img-placeholder">Question image not available<br><small style="font-size:11px;margin-top:4px;display:block">Image preview requires a PDF, saved HTML, or MHTML file</small></div>`;
 
   // Answers
   const si = document.getElementById('qdSelIcon'), sv = document.getElementById('qdSelected');
