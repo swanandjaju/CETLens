@@ -1187,11 +1187,25 @@ async function processPDF(file) {
 
 
 // finish / mismatch guard
+// PCM = exactly 150 questions, PCB = exactly 200 questions.
+// Only exact counts are valid; everything else means the response sheet
+// was not fully downloaded from the portal.
 function finish(filename, qs) {
-  const oppositeMode  = examMode === 'PCM' ? 'PCB' : 'PCM';
-  const oppositeCount = examMode === 'PCM' ? 200   : 150;
-  if (qs.length === oppositeCount) { showMismatchPopup(filename, qs, oppositeMode); return; }
-  loadDash(filename, qs);
+  const PCM_COUNT = 150;
+  const PCB_COUNT = 200;
+
+  if (qs.length === PCM_COUNT || qs.length === PCB_COUNT) {
+    // Valid count — check if the stream matches
+    const detectedStream = qs.length === PCB_COUNT ? 'PCB' : 'PCM';
+    if (detectedStream !== examMode) {
+      showMismatchPopup(filename, qs, detectedStream);
+      return;
+    }
+    loadDash(filename, qs);
+  } else {
+    // Invalid count — incomplete download
+    showIncompletePopup(filename, qs);
+  }
 }
 
 function loadDash(filename, qs) {
@@ -1229,19 +1243,77 @@ function showMismatchPopup(filename, qs, correctMode) {
     `${qs.length} questions detected · ${correctMode} sheets have ${correctCount} questions`;
   document.getElementById('mismatchSwitchBtn').textContent  = `Switch to ${correctMode} & Continue →`;
   document.getElementById('mismatchSwitchBtn').dataset.mode = correctMode;
+
+  // Populate shift dropdown for the correct stream
+  const shiftSelect = document.getElementById('mismatchShiftSelect');
+  const PCM_SHIFTS = [
+    '11 April - Morning', '11 April - Evening',
+    '13 April - Morning', '13 April - Evening',
+    '15 April - Morning', '15 April - Evening',
+    '16 April - Morning', '16 April - Evening',
+    '17 April - Morning', '17 April - Evening',
+    '18 April - Morning', '18 April - Evening',
+    '19 April - Morning', '19 April - Evening',
+    '20 April - Morning', '20 April - Evening'
+  ];
+  const PCB_SHIFTS = [
+    '21 April - Morning', '21 April - Evening',
+    '22 April - Morning', '22 April - Evening',
+    '23 April - Morning', '23 April - Evening',
+    '24 April - Morning', '24 April - Evening',
+    '25 April - Morning', '25 April - Evening',
+    '26 April - Morning', '26 April - Evening'
+  ];
+  const shifts = correctMode === 'PCM' ? PCM_SHIFTS : PCB_SHIFTS;
+  shiftSelect.innerHTML = '<option value="" disabled selected>Select shift...</option>' +
+    shifts.map(s => `<option value="${s}">${s}</option>`).join('');
+  document.getElementById('mismatchStreamLabel').textContent = correctMode;
+  document.getElementById('mismatchShiftError').style.display = 'none';
+
   document.getElementById('loadingScreen').style.display = 'none';
   document.getElementById('mismatchOverlay').classList.add('open');
 }
 
 function mismatchSwitchAndContinue() {
   const correctMode = document.getElementById('mismatchSwitchBtn').dataset.mode;
+
+  // Validate shift selection
+  const mismatchShift = document.getElementById('mismatchShiftSelect').value;
+  if (!mismatchShift) {
+    document.getElementById('mismatchShiftError').style.display = 'block';
+    return;
+  }
+
   document.getElementById('mismatchOverlay').classList.remove('open');
-  setMode(correctMode);
+
+  // Set examMode directly — do NOT call setMode() which resets selectedShift to ''
+  // and causes the backend submission to silently fail with 'invalid_shift'.
+  examMode = correctMode;
+  document.getElementById('btnPCM').classList.toggle('active', correctMode === 'PCM');
+  document.getElementById('btnPCB').classList.toggle('active', correctMode === 'PCB');
+
+  // Set the correct attempt and shift from the popup selection
+  selectedAttempt = 'Attempt 1';
+  selectedShift   = mismatchShift;
+
+  // Reassign the third subject (Biology ↔ Mathematics) and recalculate marks.
+  // During parsing, the 3rd subject was assigned based on the WRONG examMode,
+  // so questions 101+ have the wrong section name.
+  const oldSubject = correctMode === 'PCM' ? 'Biology' : 'Mathematics';
+  const newSubject = correctMode === 'PCM' ? 'Mathematics' : 'Biology';
+  let newSubjectNum = 0;
+
   _pendingQs.forEach(q => {
+    if (q.section === oldSubject) {
+      q.section = newSubject;
+      newSubjectNum++;
+      q.sectionNum = newSubjectNum;
+    }
     q.marks = q.status === 'correct'
       ? (correctMode === 'PCM' && q.section === 'Mathematics' ? 2 : 1)
       : 0;
   });
+
   loadDash(_pendingFile, _pendingQs);
 }
 
@@ -1249,6 +1321,23 @@ function mismatchReupload() {
   document.getElementById('mismatchOverlay').classList.remove('open');
   _pendingQs   = null;
   _pendingFile = '';
+  resetApp();
+}
+
+function showIncompletePopup(filename, qs) {
+  const expectedCount = examMode === 'PCM' ? 150 : 200;
+  document.getElementById('incompleteMsg').textContent =
+    `Only ${qs.length} questions were found, but a ${examMode} response sheet should have exactly ${expectedCount} questions. ` +
+    `This usually means the page was not fully loaded when you saved the HTML file. ` +
+    `Please go back to the portal, wait for the page to load completely, and download it again.`;
+  document.getElementById('incompleteBadge').textContent =
+    `${qs.length} of ${expectedCount} questions found · Incomplete download`;
+  document.getElementById('loadingScreen').style.display = 'none';
+  document.getElementById('incompleteOverlay').classList.add('open');
+}
+
+function incompleteReupload() {
+  document.getElementById('incompleteOverlay').classList.remove('open');
   resetApp();
 }
 
