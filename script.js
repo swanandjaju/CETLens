@@ -1208,6 +1208,17 @@ function loadDash(filename, qs) {
   setStep('Done!', `${qs.length} questions loaded`);
 
   const st = computeStats(qs);
+
+  // Set synchronously so Analysis screen has userScore immediately,
+  // even before the async Supabase submission completes.
+  window._lastFirebaseData = {
+    stream: examMode,
+    attempt: selectedAttempt,
+    shift: selectedShift,
+    userScore: st.earned,
+    userSubStats: st.subStats || []
+  };
+
   if (typeof saveSubmissionToFirebase === 'function') {
     saveSubmissionToFirebase(qs, st, filename);
   }
@@ -1811,6 +1822,16 @@ function showDashRestored(qs) {
   // Do NOT call saveSubmissionToFirebase — session restore is read-only
   // Do NOT call saveSession again — it's already saved
   const st = computeStats(qs);
+
+  // Set synchronously so Analysis screen has userScore immediately
+  window._lastFirebaseData = {
+    stream: examMode,
+    attempt: typeof selectedAttempt !== 'undefined' ? selectedAttempt : '',
+    shift: typeof selectedShift !== 'undefined' ? selectedShift : '',
+    userScore: st.earned,
+    userSubStats: st.subStats || []
+  };
+
   // Still fetch the brief strip so they can see their stats
   if (typeof fetchAndRenderBriefStrip === 'function') {
     const stream = examMode;
