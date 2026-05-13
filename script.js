@@ -604,15 +604,7 @@ function parsePortalText(text) {
       ? qidMatches[qidMatches.length - 1][1]
       : String(i + 1);
 
-    const sectM   = block.match(/\b(Physics|Chemistry|Mathematics|Biology)\b/i);
-    let section = qs.length < 50 ? 'Physics' : qs.length < 100 ? 'Chemistry' : examMode === 'PCB' ? 'Biology' : 'Mathematics';
-    if (sectM) {
-      const s = sectM[1].toLowerCase();
-      if (s === 'physics') section = 'Physics';
-      else if (s === 'chemistry') section = 'Chemistry';
-      else if (s === 'mathematics') section = 'Mathematics';
-      else if (s === 'biology') section = 'Biology';
-    }
+    const section = qs.length < 50 ? 'Physics' : qs.length < 100 ? 'Chemistry' : examMode === 'PCB' ? 'Biology' : 'Mathematics';
 
     const optIds = [...new Set(
       [...block.matchAll(/\b(3\d{5})\b/g)].map(m => m[1])
