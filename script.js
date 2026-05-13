@@ -605,9 +605,14 @@ function parsePortalText(text) {
       : String(i + 1);
 
     const sectM   = block.match(/\b(Physics|Chemistry|Mathematics|Biology)\b/i);
-    const section = sectM ? sectM[1]
-      : (qs.length < 50 ? 'Physics' : qs.length < 100 ? 'Chemistry'
-        : examMode === 'PCB' ? 'Biology' : 'Mathematics');
+    let section = qs.length < 50 ? 'Physics' : qs.length < 100 ? 'Chemistry' : examMode === 'PCB' ? 'Biology' : 'Mathematics';
+    if (sectM) {
+      const s = sectM[1].toLowerCase();
+      if (s === 'physics') section = 'Physics';
+      else if (s === 'chemistry') section = 'Chemistry';
+      else if (s === 'mathematics') section = 'Mathematics';
+      else if (s === 'biology') section = 'Biology';
+    }
 
     const optIds = [...new Set(
       [...block.matchAll(/\b(3\d{5})\b/g)].map(m => m[1])
@@ -656,7 +661,12 @@ function parseRawData(raw) {
   lines.forEach(line => {
     const parts = line.split('|');
     if (parts.length < 8) return;
-    const [qid, section, text, ...rest] = parts;
+    let [qid, section, text, ...rest] = parts;
+    const secLower = section.trim().toLowerCase();
+    if (secLower === 'physics') section = 'Physics';
+    else if (secLower === 'chemistry') section = 'Chemistry';
+    else if (secLower === 'mathematics') section = 'Mathematics';
+    else if (secLower === 'biology') section = 'Biology';
     const correctOptId   = rest[rest.length - 2];
     const candidateOptId = rest[rest.length - 1].trim();
     const optionParts    = rest.slice(0, rest.length - 2);

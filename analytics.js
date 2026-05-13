@@ -69,7 +69,8 @@ function statsPath(stream, attempt, shift) {
 }
 
 function scoreLimitForStream(stream) {
-  return stream === 'PCB' ? 150 : 200;
+  // Both PCM and PCB have 200 max marks
+  return 200;
 }
 
 function normalizeScore(score, stream) {
@@ -246,6 +247,8 @@ async function saveSubmissionToSupabase(qs, st, filename) {
   try {
     const p_hash = await generateAnswerHash(qs);
 
+    console.log('Submitting:', { p_stream, p_attempt, p_shift, p_score, p_subjects, p_hash });
+
     const { data, error } = await sb.rpc('record_submission', {
       p_stream,
       p_attempt,
@@ -256,6 +259,14 @@ async function saveSubmissionToSupabase(qs, st, filename) {
     });
 
     if (error) { console.error('Supabase RPC error:', error); return; }
+
+    console.log('RPC response:', JSON.stringify(data));
+
+    // Check for application-level errors returned by the RPC
+    if (data && data.error) {
+      console.error('Submission rejected by server:', data.error);
+      return;
+    }
 
     if (data.duplicate) {
       console.log('Score already recorded (duplicate detected).');
