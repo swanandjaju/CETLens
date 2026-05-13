@@ -3207,4 +3207,108 @@ textarea.neu-input {
   .drill-subject-row { grid-template-columns: 100px 1fr 1fr; font-size: 11px; }
   .live-brief-strip { flex-direction: column; align-items: flex-start; }
   .live-brief-strip__stats { gap: 1rem; }
+  .comm-stream-toggle { flex-direction: column; }
+  .comm-stream-btn { min-height: 56px; }
+}
+
+/* ── Community Stream Selector ── */
+.comm-stream-selector {
+  margin-bottom: 2rem;
+  padding: 1.5rem;
+  background: var(--charcoal);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+
+.comm-stream-label {
+  display: block;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .16em;
+  color: var(--pewter);
+  margin-bottom: 1rem;
+}
+
+.comm-stream-toggle {
+  display: flex;
+  gap: .75rem;
+}
+
+.comm-stream-btn {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 1rem 1.25rem;
+  min-height: 68px;
+  background: var(--background);
+  border: 2px solid var(--border);
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 250ms cubic-bezier(.4,0,.2,1);
+  position: relative;
+  overflow: hidden;
+}
+
+.comm-stream-btn::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 3px;
+  background: transparent;
+  transition: background 250ms;
+}
+
+.comm-stream-btn:hover {
+  border-color: var(--pewter);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0,0,0,.08);
+}
+
+.comm-stream-btn.active {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent), 0 4px 16px rgba(255,71,87,.12);
+}
+
+.comm-stream-btn.active::before {
+  background: linear-gradient(90deg, var(--accent), var(--accent-light, #ff6b81));
+}
+
+/* PCB active uses blue accent */
+#commStreamBtnPCB.active {
+  border-color: #60a5fa;
+  box-shadow: 0 0 0 1px #60a5fa, 0 4px 16px rgba(96,165,250,.15);
+}
+#commStreamBtnPCB.active::before {
+  background: linear-gradient(90deg, #60a5fa, #93c5fd);
+}
+
+.comm-stream-btn__icon {
+  font-size: 24px;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.comm-stream-btn__text {
+  font-family: var(--font-display, var(--font-mono));
+  font-size: 20px;
+  font-weight: 800;
+  color: var(--text);
+  letter-spacing: .04em;
+  line-height: 1;
+}
+
+.comm-stream-btn__sub {
+  font-size: 11px;
+  color: var(--pewter);
+  letter-spacing: .02em;
+  white-space: nowrap;
+}
+
+.comm-stream-btn.active .comm-stream-btn__text {
+  color: var(--accent);
+}
+#commStreamBtnPCB.active .comm-stream-btn__text {
+  color: #60a5fa;
 }

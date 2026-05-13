@@ -709,6 +709,24 @@ function renderShiftDrillDown(shiftName) {
 // window costs zero Firebase reads.
 
 let _communityCharts = {};
+let _selectedCommunityStream = 'PCM';  // default stream filter
+let _communityPayloadCache = null;     // stores fetched payload for re-render on stream switch
+
+function switchCommunityStream(stream) {
+  if (stream !== 'PCM' && stream !== 'PCB') return;
+  _selectedCommunityStream = stream;
+
+  // Update button states
+  const btnPCM = document.getElementById('commStreamBtnPCM');
+  const btnPCB = document.getElementById('commStreamBtnPCB');
+  if (btnPCM) btnPCM.classList.toggle('active', stream === 'PCM');
+  if (btnPCB) btnPCB.classList.toggle('active', stream === 'PCB');
+
+  // Re-render with cached data if available
+  if (_communityPayloadCache) {
+    _renderCommunityData(_communityPayloadCache);
+  }
+}
 
 function fetchCommunityFullAnalysis() {
   const sb = window._supabaseClient;
@@ -722,6 +740,7 @@ function fetchCommunityFullAnalysis() {
   const cacheKey = 'community';
   const cached = _cacheGet(cacheKey);
   if (cached) {
+    _communityPayloadCache = cached;
     _renderCommunityData(cached);
     return;
   }
@@ -757,6 +776,7 @@ function fetchCommunityFullAnalysis() {
 
     const payload = { pcmStats, pcbStats, summary };
     _cacheSet(cacheKey, payload);
+    _communityPayloadCache = payload;
     _renderCommunityData(payload);
   }).catch(err => {
     console.error('Community analysis fetch error:', err);
@@ -764,56 +784,58 @@ function fetchCommunityFullAnalysis() {
   });
 }
 
-// Internal renderer — works on either fresh data or cached payload.
+// Internal renderer — filters by _selectedCommunityStream
 function _renderCommunityData({ pcmStats, pcbStats, summary }) {
+  const noDataEl = document.getElementById('commNoData');
+  const noDataMsg = document.getElementById('commNoDataMsg');
+  const chartSections = document.getElementById('commChartSections');
+
   if (!pcmStats && !pcbStats) {
     document.getElementById('commLoading').style.display = 'none';
-    document.getElementById('commContent').innerHTML =
-      '<p style="padding:3rem;text-align:center;color:var(--pewter)">No data yet — be the first to submit!</p>';
+    if (noDataMsg) noDataMsg.textContent = 'No data yet — be the first to submit!';
+    if (noDataEl) noDataEl.style.display = 'block';
+    if (chartSections) chartSections.style.display = 'none';
     document.getElementById('commContent').style.display = 'block';
     return;
   }
 
+  // Pick stats for the selected stream only
+  const stream = _selectedCommunityStream;
+  const activeStats = stream === 'PCM' ? (pcmStats || {}) : (pcbStats || {});
+  const activeShiftMap = buildShiftMapFromStats(activeStats);
+
+  // Totals for the selected stream
+  let pcmTotal = 0, pcbTotal = 0;
   const pcmShiftMap = buildShiftMapFromStats(pcmStats || {});
   const pcbShiftMap = buildShiftMapFromStats(pcbStats || {});
-
-  // Totals
-  let totalAll = (summary && summary.total) || 0;
-  let pcmTotal = 0, pcbTotal = 0;
   Object.values(pcmShiftMap).forEach(s => { pcmTotal += s.count; });
   Object.values(pcbShiftMap).forEach(s => { pcbTotal += s.count; });
-  if (!totalAll) totalAll = pcmTotal + pcbTotal;
   if (summary && summary.streams) {
     pcmTotal = summary.streams.PCM || pcmTotal;
     pcbTotal = summary.streams.PCB || pcbTotal;
   }
+  const streamTotal = stream === 'PCM' ? pcmTotal : pcbTotal;
 
-  // All scores combined
+  // Scores for the selected stream only
   let allScores = [];
-  Object.values(pcmShiftMap).forEach(s => { allScores = allScores.concat(s.scores); });
-  Object.values(pcbShiftMap).forEach(s => { allScores = allScores.concat(s.scores); });
+  Object.values(activeShiftMap).forEach(s => { allScores = allScores.concat(s.scores); });
 
-  // All shift names
-  const pcmShiftNames = Object.keys(pcmShiftMap).sort();
-  const pcbShiftNames = Object.keys(pcbShiftMap).sort();
-  const allShiftNames = [...new Set([...pcmShiftNames, ...pcbShiftNames])].sort();
+  // Shift names for the selected stream
+  const shiftNames = Object.keys(activeShiftMap).sort();
 
-  // Merge shift maps for combined view
-  const mergedShiftMap = {};
-  allShiftNames.forEach(s => {
-    const pcm = pcmShiftMap[s] || { scores: [], subjectSums: {}, count: 0, sum: 0, highest: -Infinity };
-    const pcb = pcbShiftMap[s] || { scores: [], subjectSums: {}, count: 0, sum: 0, highest: -Infinity };
-    mergedShiftMap[s] = {
-      scores: [...pcm.scores, ...pcb.scores],
-      count: pcm.count + pcb.count,
-      highest: Math.max(pcm.highest, pcb.highest),
-      subjectSums: { ...pcm.subjectSums }
-    };
-    // Merge pcb subjects
-    for (const subj in pcb.subjectSums) {
-      mergedShiftMap[s].subjectSums[subj] = (mergedShiftMap[s].subjectSums[subj] || 0) + pcb.subjectSums[subj];
-    }
-  });
+  if (shiftNames.length === 0) {
+    document.getElementById('commLoading').style.display = 'none';
+    if (noDataMsg) noDataMsg.textContent = 'No ' + stream + ' data yet — be the first to submit!';
+    if (noDataEl) noDataEl.style.display = 'block';
+    if (chartSections) chartSections.style.display = 'none';
+    document.getElementById('commContent').style.display = 'block';
+    return;
+  }
+
+  // Data exists — show chart sections, hide no-data overlay
+  if (noDataEl) noDataEl.style.display = 'none';
+  if (chartSections) chartSections.style.display = '';
+
 
   // Stats
   const sorted = [...allScores].sort((a, b) => a - b);
@@ -825,7 +847,7 @@ function _renderCommunityData({ pcmStats, pcbStats, summary }) {
   const mean = allScores.length > 0 ? (allScores.reduce((a, b) => a + b, 0) / allScores.length).toFixed(1) : '—';
 
   // Badge
-  document.getElementById('commTotalBadge').textContent = `${totalAll} total submissions`;
+  document.getElementById('commTotalBadge').textContent = `${streamTotal} ${stream} submissions`;
 
   const colors = getChartColors();
 
@@ -849,7 +871,7 @@ function _renderCommunityData({ pcmStats, pcbStats, summary }) {
   if (histCtx) {
     _communityCharts.histogram = new Chart(histCtx, {
       type: 'bar',
-      data: { labels: bucketLabels, datasets: [{ label: 'Students', data: bucketVals, backgroundColor: 'rgba(96,165,250,.5)', borderRadius: 4 }] },
+      data: { labels: bucketLabels, datasets: [{ label: 'Students', data: bucketVals, backgroundColor: stream === 'PCM' ? 'rgba(255,71,87,.5)' : 'rgba(96,165,250,.5)', borderRadius: 4 }] },
       options: { ...baseChartOptions(colors), plugins: { ...baseChartOptions(colors).plugins, legend: { display: false } } }
     });
   }
@@ -861,59 +883,60 @@ function _renderCommunityData({ pcmStats, pcbStats, summary }) {
       arr.filter(v => v === a).length >= arr.filter(v => v === b).length ? a : b, allScores[0]);
     distEl.innerHTML = [
       ['Mean', mean], ['Median', median], ['Mode', modeScore],
-      ['Min', sorted[0]], ['Max', sorted[sorted.length - 1]], ['Participants', totalAll]
+      ['Min', sorted[0]], ['Max', sorted[sorted.length - 1]], ['Participants', streamTotal]
     ].map(([l, v]) => `<div class="dist-stat"><div class="dist-stat__val">${v}</div><div class="dist-stat__lbl">${l}</div></div>`).join('');
   }
 
   // ── Shift Avg Chart ──
-  const shiftAvgs = allShiftNames.map(s => {
-    const d = mergedShiftMap[s];
+  const streamColor = stream === 'PCM' ? 'rgba(255,71,87,.55)' : 'rgba(96,165,250,.55)';
+  const shiftAvgs = shiftNames.map(s => {
+    const d = activeShiftMap[s];
     return d.count > 0 ? parseFloat((d.scores.reduce((a, b) => a + b, 0) / d.count).toFixed(1)) : 0;
   });
   const shiftAvgCtx = document.getElementById('comm-shiftAvgChart');
   if (shiftAvgCtx) {
     _communityCharts.shiftAvg = new Chart(shiftAvgCtx, {
       type: 'bar',
-      data: { labels: allShiftNames, datasets: [{ label: 'Avg Score', data: shiftAvgs, backgroundColor: 'rgba(96,165,250,.55)', borderRadius: 6 }] },
+      data: { labels: shiftNames, datasets: [{ label: 'Avg Score', data: shiftAvgs, backgroundColor: streamColor, borderRadius: 6 }] },
       options: { ...baseChartOptions(colors), indexAxis: 'y', plugins: { ...baseChartOptions(colors).plugins, legend: { display: false } } }
     });
   }
 
   // ── Participants per Shift ──
-  const shiftCounts = allShiftNames.map(s => mergedShiftMap[s].count);
+  const shiftCounts = shiftNames.map(s => activeShiftMap[s].count);
   const partCtx = document.getElementById('comm-participantsChart');
   if (partCtx) {
     _communityCharts.participants = new Chart(partCtx, {
       type: 'bar',
-      data: { labels: allShiftNames, datasets: [{ label: 'Students', data: shiftCounts, backgroundColor: 'rgba(192,132,252,.55)', borderRadius: 4 }] },
+      data: { labels: shiftNames, datasets: [{ label: 'Students', data: shiftCounts, backgroundColor: 'rgba(192,132,252,.55)', borderRadius: 4 }] },
       options: { ...baseChartOptions(colors), plugins: { ...baseChartOptions(colors).plugins, legend: { display: false } } }
     });
   }
 
   // ── Highest per Shift ──
-  const shiftHighs = allShiftNames.map(s => mergedShiftMap[s].highest === -Infinity ? 0 : mergedShiftMap[s].highest);
+  const shiftHighs = shiftNames.map(s => activeShiftMap[s].highest === -Infinity ? 0 : activeShiftMap[s].highest);
   const highCtx = document.getElementById('comm-highestChart');
   if (highCtx) {
     _communityCharts.highest = new Chart(highCtx, {
       type: 'bar',
-      data: { labels: allShiftNames, datasets: [{ label: 'Highest Score', data: shiftHighs, backgroundColor: 'rgba(192,132,252,.6)', borderRadius: 4 }] },
+      data: { labels: shiftNames, datasets: [{ label: 'Highest Score', data: shiftHighs, backgroundColor: 'rgba(192,132,252,.6)', borderRadius: 4 }] },
       options: { ...baseChartOptions(colors), plugins: { ...baseChartOptions(colors).plugins, legend: { display: false } } }
     });
   }
 
   // ── Subject Avg per Shift ──
-  const allSubjects = [...new Set(Object.values(mergedShiftMap).flatMap(sd => Object.keys(sd.subjectSums)))];
+  const allSubjects = [...new Set(Object.values(activeShiftMap).flatMap(sd => Object.keys(sd.subjectSums)))];
   const subjectColors = { Physics: '#00d4ff', Chemistry: '#c084fc', Mathematics: colors.accent, Biology: '#22c55e' };
   const shiftSubjCtx = document.getElementById('comm-shiftSubjectChart');
   if (shiftSubjCtx && allSubjects.length > 0) {
     _communityCharts.shiftSubject = new Chart(shiftSubjCtx, {
       type: 'bar',
       data: {
-        labels: allShiftNames,
+        labels: shiftNames,
         datasets: allSubjects.map(subj => ({
           label: subj,
-          data: allShiftNames.map(s => {
-            const sd = mergedShiftMap[s];
+          data: shiftNames.map(s => {
+            const sd = activeShiftMap[s];
             return sd.subjectSums[subj] ? parseFloat((sd.subjectSums[subj] / sd.count).toFixed(1)) : 0;
           }),
           backgroundColor: (subjectColors[subj] || '#888') + 'cc',
@@ -938,22 +961,23 @@ function _renderCommunityData({ pcmStats, pcbStats, summary }) {
   }
 
   // ── Stream Overview Stats ──
-  document.getElementById('commTotalAll').textContent = totalAll;
+  document.getElementById('commTotalAll').textContent = streamTotal;
   document.getElementById('commMedian').textContent = median;
   document.getElementById('commMean').textContent = mean;
 
   // ── Drill Down Selector ──
   const sel = document.getElementById('commShiftSelect');
   if (sel) {
-    sel.innerHTML = allShiftNames.map(s => `<option value="${s}">${s}</option>`).join('');
-    window._commShiftMapData = mergedShiftMap;
-    renderCommShiftDrillDown(allShiftNames[0]);
+    sel.innerHTML = shiftNames.map(s => `<option value="${s}">${s}</option>`).join('');
+    window._commShiftMapData = activeShiftMap;
+    renderCommShiftDrillDown(shiftNames[0]);
   }
 
   // Show content
   document.getElementById('commLoading').style.display = 'none';
   document.getElementById('commContent').style.display = 'block';
 }
+
 
 function renderCommShiftDrillDown(shiftName) {
   const container = document.getElementById('commDrillDown');

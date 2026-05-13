@@ -1128,7 +1128,24 @@
       <div class="analysis-page-header">
         <div>
           <h1 class="analysis-title">Community Live Analysis</h1>
-          <p class="analysis-subtitle">Aggregate performance data across all shifts and streams</p>
+          <p class="analysis-subtitle">Stream-wise performance data across all shifts</p>
+        </div>
+      </div>
+
+      <!-- Stream Selector -->
+      <div class="comm-stream-selector">
+        <label class="comm-stream-label" for="commStreamSelect">Select Stream</label>
+        <div class="comm-stream-toggle">
+          <button class="comm-stream-btn active" id="commStreamBtnPCM" onclick="switchCommunityStream('PCM')">
+            <span class="comm-stream-btn__icon">📐</span>
+            <span class="comm-stream-btn__text">PCM</span>
+            <span class="comm-stream-btn__sub">Physics · Chemistry · Mathematics</span>
+          </button>
+          <button class="comm-stream-btn" id="commStreamBtnPCB" onclick="switchCommunityStream('PCB')">
+            <span class="comm-stream-btn__icon">🧬</span>
+            <span class="comm-stream-btn__text">PCB</span>
+            <span class="comm-stream-btn__sub">Physics · Chemistry · Biology</span>
+          </button>
         </div>
       </div>
 
@@ -1143,6 +1160,14 @@
 
       <!-- Content -->
       <div id="commContent" style="display:none">
+
+        <!-- No-data overlay (shown/hidden without destroying chart DOM) -->
+        <div id="commNoData" style="display:none">
+          <p style="padding:3rem;text-align:center;color:var(--pewter)" id="commNoDataMsg">No data yet — be the first to submit!</p>
+        </div>
+
+        <!-- Chart sections wrapper (hidden when no data) -->
+        <div id="commChartSections">
 
         <!-- SECTION: Score Distribution -->
         <div class="analysis-section-title">
@@ -1242,6 +1267,8 @@
           <span class="led led--green led--sm"><span class="led__dot"></span></span>
           All data is collected anonymously. No personal information is stored. Statistics update in real-time as more students upload their sheets.
         </div>
+
+        </div><!-- /commChartSections -->
 
       </div><!-- /commContent -->
     </div><!-- /analysis-inner -->
