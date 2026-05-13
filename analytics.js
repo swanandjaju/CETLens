@@ -247,7 +247,7 @@ async function saveSubmissionToSupabase(qs, st, filename) {
   try {
     const p_hash = await generateAnswerHash(qs);
 
-    console.log('Submitting:', { p_stream, p_attempt, p_shift, p_score, p_subjects, p_hash });
+
 
     const { data, error } = await sb.rpc('record_submission', {
       p_stream,
@@ -260,7 +260,7 @@ async function saveSubmissionToSupabase(qs, st, filename) {
 
     if (error) { console.error('Supabase RPC error:', error); return; }
 
-    console.log('RPC response:', JSON.stringify(data));
+
 
     // Check for application-level errors returned by the RPC
     if (data && data.error) {
@@ -442,7 +442,7 @@ function fetchFullAnalysis() {
 
     // score distribution (buckets of 20)
     const buckets = {};
-    const maxScore = stream === 'PCM' ? 200 : 150;
+    const maxScore = 200;
     for (let i = 0; i <= maxScore; i += 20) buckets[i] = 0;
     myScores.forEach(s => {
       const b = Math.floor(s / 20) * 20;
@@ -515,7 +515,7 @@ function fetchFullAnalysis() {
       const SC = { Physics: '#00d4ff', Chemistry: '#c084fc', Mathematics: colors.accent, Biology: '#00d4ff' };
       const rowsEl = document.getElementById('subjectCompareRows');
       if (rowsEl) {
-        const subjMaxMap = { Physics: 50, Chemistry: 50, Mathematics: stream === 'PCM' ? 100 : 50, Biology: 50 };
+        const subjMaxMap = { Physics: 50, Chemistry: 50, Mathematics: stream === 'PCM' ? 100 : 50, Biology: stream === 'PCB' ? 100 : 50 };
         rowsEl.innerHTML = subjs.map(s => {
           const youVal  = userSubMap[s] || 0;
           const avgVal  = parseFloat(shiftSubjectAvgs[s]);
