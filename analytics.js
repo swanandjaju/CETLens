@@ -1,5 +1,17 @@
 // ── CETLens — Supabase-backed analytics ──────────────────────────────────────
 
+// ── HTML escape utility (XSS prevention) ─────────────────────────────────────
+// All database-sourced values rendered via innerHTML MUST be escaped with this.
+function _escHtml(str) {
+  if (str == null) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
 // ── In-memory read cache ──────────────────────────────────────────────────────
 // Prevents repeat Firebase reads when analysis / community screens are reopened.
 // Keys are invalidated automatically after TTL, or explicitly after a new write.
@@ -526,7 +538,7 @@ function fetchFullAnalysis() {
           return `
             <div class="subject-compare-row">
               <div class="subject-compare-row__header">
-                <span class="subject-compare-row__name">${s}</span>
+                <span class="subject-compare-row__name">${_escHtml(s)}</span>
                 <span class="subject-compare-row__vals">You: <strong style="color:${col}">${youVal}</strong> &nbsp;·&nbsp; Avg: <strong>${avgVal}</strong> &nbsp;·&nbsp; Max: ${maxVal}</span>
               </div>
               <div class="subject-compare-track">
@@ -638,7 +650,7 @@ function fetchFullAnalysis() {
     // 7. Populate shift drill-down selector
     const sel = document.getElementById('analysisShiftSelect');
     if (sel) {
-      sel.innerHTML = shiftNames.map(s => `<option value="${s}" ${s === shift ? 'selected' : ''}>${s}</option>`).join('');
+      sel.innerHTML = shiftNames.map(s => `<option value="${_escHtml(s)}" ${s === shift ? 'selected' : ''}>${_escHtml(s)}</option>`).join('');
       window._shiftMapData = shiftMap;
       renderShiftDrillDown(shift || shiftNames[0]);
     }
@@ -678,7 +690,7 @@ function renderShiftDrillDown(shiftName) {
     }, '—') : '—';
     return `
       <div class="drill-subject-row">
-        <span class="drill-subject-name">${subj}</span>
+        <span class="drill-subject-name">${_escHtml(subj)}</span>
         <span class="drill-subject-val" style="color:var(--text2)">Avg: ${sAvg}</span>
         <span class="drill-subject-val" style="color:var(--pewter)">Total entries: ${count}</span>
       </div>`;
@@ -971,7 +983,7 @@ function _renderCommunityData({ pcmStats, pcbStats, summary }) {
   // ── Drill Down Selector ──
   const sel = document.getElementById('commShiftSelect');
   if (sel) {
-    sel.innerHTML = shiftNames.map(s => `<option value="${s}">${s}</option>`).join('');
+    sel.innerHTML = shiftNames.map(s => `<option value="${_escHtml(s)}">${_escHtml(s)}</option>`).join('');
     window._commShiftMapData = activeShiftMap;
     renderCommShiftDrillDown(shiftNames[0]);
   }
@@ -1000,7 +1012,7 @@ function renderCommShiftDrillDown(shiftName) {
   const subjectRows = Object.entries(sd.subjectSums).map(([subj, sum]) => {
     const sAvg = count > 0 ? (sum / count).toFixed(1) : '—';
     return `<div class="drill-subject-row">
-        <span class="drill-subject-name">${subj}</span>
+        <span class="drill-subject-name">${_escHtml(subj)}</span>
         <span class="drill-subject-val" style="color:var(--text2)">Avg: ${sAvg}</span>
         <span class="drill-subject-val" style="color:var(--pewter)">Total entries: ${count}</span>
       </div>`;

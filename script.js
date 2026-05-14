@@ -244,9 +244,12 @@ function checkStoredSession() {
 
     const meta = document.getElementById('restoreMeta');
     if (meta) {
+      // Escape localStorage-sourced values before innerHTML to prevent self-XSS
+      const safeName = (session.filename || 'Unknown file').replace(/[<>&"']/g, c => ({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;',"'":'&#39;'}[c]));
+      const safeMode = (session.examMode || 'PCM').replace(/[<>&"']/g, c => ({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;',"'":'&#39;'}[c]));
       meta.innerHTML = `
-        <strong>${session.filename || 'Unknown file'}</strong><br>
-        Mode: <strong>${session.examMode || 'PCM'}</strong> · ${session.questions.length} questions<br>
+        <strong>${safeName}</strong><br>
+        Mode: <strong>${safeMode}</strong> · ${session.questions.length} questions<br>
         Last opened: <strong>${timeStr}</strong>`;
     }
     document.getElementById('restoreOverlay').classList.add('open');
