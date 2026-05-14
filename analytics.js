@@ -790,8 +790,13 @@ function _renderCommunityData({ pcmStats, pcbStats, summary }) {
   const noDataMsg = document.getElementById('commNoDataMsg');
   const chartSections = document.getElementById('commChartSections');
 
+  // Always destroy old charts first to prevent stale renders
+  Object.values(_communityCharts).forEach(c => { try { c.destroy(); } catch(e){} });
+  _communityCharts = {};
+
   if (!pcmStats && !pcbStats) {
     document.getElementById('commLoading').style.display = 'none';
+    document.getElementById('commTotalBadge').textContent = '0 submissions';
     if (noDataMsg) noDataMsg.textContent = 'No data yet — be the first to submit!';
     if (noDataEl) noDataEl.style.display = 'block';
     if (chartSections) chartSections.style.display = 'none';
@@ -825,6 +830,7 @@ function _renderCommunityData({ pcmStats, pcbStats, summary }) {
 
   if (shiftNames.length === 0) {
     document.getElementById('commLoading').style.display = 'none';
+    document.getElementById('commTotalBadge').textContent = `0 ${stream} submissions`;
     if (noDataMsg) noDataMsg.textContent = 'No ' + stream + ' data yet — be the first to submit!';
     if (noDataEl) noDataEl.style.display = 'block';
     if (chartSections) chartSections.style.display = 'none';
@@ -851,9 +857,6 @@ function _renderCommunityData({ pcmStats, pcbStats, summary }) {
 
   const colors = getChartColors();
 
-  // Destroy old charts
-  Object.values(_communityCharts).forEach(c => { try { c.destroy(); } catch(e){} });
-  _communityCharts = {};
 
   // ── Score Distribution Histogram ──
   const maxBucket = 200;
