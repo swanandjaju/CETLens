@@ -283,6 +283,7 @@ async function saveSubmissionToSupabase(qs, st, filename) {
 
     if (data.duplicate) {
       console.log('Score already recorded (duplicate detected).');
+      return;
     } else {
       console.log('Score saved!');
     }
