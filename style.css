@@ -3322,7 +3322,41 @@ textarea.neu-input {
   display: flex;
   align-items: center;
   gap: .75rem;
+  margin-bottom: 1rem;
+}
+
+.difficulty-toggle {
+  display: flex;
+  gap: 4px;
   margin-bottom: 1.25rem;
+  background: var(--muted);
+  border-radius: 8px;
+  padding: 3px;
+  width: fit-content;
+}
+
+.difficulty-toggle__btn {
+  padding: .4rem 1rem;
+  font-size: 12px;
+  font-weight: 600;
+  font-family: var(--font-body);
+  letter-spacing: .03em;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  background: transparent;
+  color: var(--pewter);
+  transition: all .15s ease;
+}
+
+.difficulty-toggle__btn:hover {
+  color: var(--text);
+}
+
+.difficulty-toggle__btn.active {
+  background: var(--charcoal);
+  color: var(--accent);
+  box-shadow: 0 1px 3px rgba(0,0,0,.15);
 }
 
 .difficulty-header__icon {

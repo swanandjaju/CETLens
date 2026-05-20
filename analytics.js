@@ -1066,7 +1066,6 @@ function _computeMedianFromScoreCounts(scoreCounts) {
     } else {
       if (cumulative > mid) return score;
       if (cumulative === mid) {
-        // need the next score
         const nextEntry = entries.find(e => e[0] > score);
         return nextEntry ? (score + nextEntry[0]) / 2 : score;
       }
@@ -1075,26 +1074,41 @@ function _computeMedianFromScoreCounts(scoreCounts) {
   return null;
 }
 
+// Store state per container so each screen has its own toggle
+const _difficultyModeState = {};
+
+function _switchDifficultyMode(containerId, mode, shiftMap) {
+  _difficultyModeState[containerId] = mode;
+  renderDifficultyRanking(containerId, shiftMap);
+}
+
 function renderDifficultyRanking(containerId, shiftMap, minSubmissions) {
   const container = document.getElementById(containerId);
   if (!container) return;
 
   minSubmissions = minSubmissions || 3;
 
+  // Store shiftMap reference for toggle re-renders
+  container._shiftMapRef = shiftMap;
+
+  // Current mode
+  const mode = _difficultyModeState[containerId] || 'score';
+
   // Build difficulty data for each shift
   const shiftDiffData = [];
+  let globalTotalScore = 0, globalTotalCount = 0;
   for (const [shiftName, sd] of Object.entries(shiftMap)) {
     if (!sd || sd.count < minSubmissions) continue;
     const avg = sd.count > 0 ? sd.scores.reduce((a, b) => a + b, 0) / sd.count : 0;
     const median = _computeMedianFromScoreCounts(sd.scoreCounts || {});
-    // Difficulty score: weighted blend of avg and median (both lower = harder)
-    const difficultyScore = median !== null ? (avg * 0.6 + median * 0.4) : avg;
+    globalTotalScore += sd.scores.reduce((a, b) => a + b, 0);
+    globalTotalCount += sd.count;
     shiftDiffData.push({
       name: shiftName,
       avg: parseFloat(avg.toFixed(1)),
       median: median !== null ? parseFloat(median.toFixed(1)) : null,
       count: sd.count,
-      difficultyScore: difficultyScore
+      rawScore: median !== null ? (avg * 0.6 + median * 0.4) : avg
     });
   }
 
@@ -1104,7 +1118,25 @@ function renderDifficultyRanking(containerId, shiftMap, minSubmissions) {
     return;
   }
 
-  // Sort by difficulty score ascending (lower score = harder)
+  // Global average for Bayesian shrinkage
+  const globalAvg = globalTotalCount > 0 ? globalTotalScore / globalTotalCount : 0;
+  const maxCount = Math.max(...shiftDiffData.map(s => s.count));
+
+  // Calculate difficulty scores based on mode
+  shiftDiffData.forEach(shift => {
+    if (mode === 'balanced') {
+      // Bayesian approach: small samples shrink toward global average
+      // confidence = count / (count + k), where k controls shrinkage strength
+      const k = maxCount * 0.3; // shifts need ~30% of max count for full confidence
+      const confidence = shift.count / (shift.count + k);
+      const adjustedScore = confidence * shift.rawScore + (1 - confidence) * globalAvg;
+      shift.difficultyScore = adjustedScore;
+    } else {
+      shift.difficultyScore = shift.rawScore;
+    }
+  });
+
+  // Sort by difficulty score ascending (lower = harder)
   shiftDiffData.sort((a, b) => a.difficultyScore - b.difficultyScore);
 
   const hardest = shiftDiffData[0];
@@ -1116,13 +1148,28 @@ function renderDifficultyRanking(containerId, shiftMap, minSubmissions) {
   // Build HTML
   let html = '';
 
-  // Header
+  // Header with toggle
+  const scoreActive = mode === 'score' ? 'active' : '';
+  const balancedActive = mode === 'balanced' ? 'active' : '';
+
   html += `<div class="difficulty-header">
     <div class="difficulty-header__icon">📊</div>
     <div class="difficulty-header__text">
       <h3>Shift Difficulty Ranking</h3>
-      <p>Ranked from hardest to easiest based on community performance</p>
+      <p>${mode === 'score'
+        ? 'Ranked by average & median scores only'
+        : 'Ranked by scores balanced with sample size'}</p>
     </div>
+  </div>`;
+
+  // Toggle buttons
+  html += `<div class="difficulty-toggle">
+    <button class="difficulty-toggle__btn ${scoreActive}" onclick="_switchDifficultyMode('${containerId}', 'score', document.getElementById('${containerId}')._shiftMapRef)">
+      Score Based
+    </button>
+    <button class="difficulty-toggle__btn ${balancedActive}" onclick="_switchDifficultyMode('${containerId}', 'balanced', document.getElementById('${containerId}')._shiftMapRef)">
+      Balanced
+    </button>
   </div>`;
 
   // Extreme cards
@@ -1132,7 +1179,7 @@ function renderDifficultyRanking(containerId, shiftMap, minSubmissions) {
       <div class="difficulty-extreme-card__info">
         <div class="difficulty-extreme-card__label">Hardest Shift</div>
         <div class="difficulty-extreme-card__shift">${_escHtml(hardest.name)}</div>
-        <div class="difficulty-extreme-card__score">Avg: ${hardest.avg}${hardest.median !== null ? ' · Median: ' + hardest.median : ''}</div>
+        <div class="difficulty-extreme-card__score">Avg: ${hardest.avg}${hardest.median !== null ? ' · Median: ' + hardest.median : ''} · ${hardest.count} students</div>
       </div>
     </div>
     <div class="difficulty-extreme-card difficulty-extreme-card--easy">
@@ -1140,7 +1187,7 @@ function renderDifficultyRanking(containerId, shiftMap, minSubmissions) {
       <div class="difficulty-extreme-card__info">
         <div class="difficulty-extreme-card__label">Easiest Shift</div>
         <div class="difficulty-extreme-card__shift">${_escHtml(easiest.name)}</div>
-        <div class="difficulty-extreme-card__score">Avg: ${easiest.avg}${easiest.median !== null ? ' · Median: ' + easiest.median : ''}</div>
+        <div class="difficulty-extreme-card__score">Avg: ${easiest.avg}${easiest.median !== null ? ' · Median: ' + easiest.median : ''} · ${easiest.count} students</div>
       </div>
     </div>
   </div>`;
@@ -1182,7 +1229,10 @@ function renderDifficultyRanking(containerId, shiftMap, minSubmissions) {
   html += '</ul>';
 
   // Footnote
-  html += '<div class="difficulty-footnote">📈 Calculated using live community performance statistics.</div>';
+  html += `<div class="difficulty-footnote">📈 ${mode === 'score'
+    ? 'Ranked using average & median scores only.'
+    : 'Ranked using scores weighted by number of submissions for reliability.'}</div>`;
 
   container.innerHTML = html;
 }
+
