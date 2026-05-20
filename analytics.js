@@ -296,12 +296,13 @@ async function saveSubmissionToSupabase(qs, st, filename) {
     const same = 0; // RPC doesn't return this; brief strip doesn't critically need it
     // Re-fetch the shift stats for accurate rendering (sum, highest needed)
     const { data: rows } = await sb.from('shift_stats').select('*')
-      .eq('stream', p_stream).eq('attempt', p_attempt).eq('shift', p_shift).single();
-    if (rows && rows.count) {
-      const above = countScores(rows.score_counts, s => s > clamped);
-      const sameCount = countScores(rows.score_counts, s => s === clamped);
+      .eq('stream', p_stream).eq('attempt', p_attempt).eq('shift', p_shift);
+    const row = rows && rows[0];
+    if (row && row.count) {
+      const above = countScores(row.score_counts, s => s > clamped);
+      const sameCount = countScores(row.score_counts, s => s === clamped);
       renderBriefStrip(p_stream, p_attempt, p_shift, p_score, st.subStats || [],
-        rows.count, Number(rows.total_score), rows.highest, above, sameCount);
+        row.count, Number(row.total_score), row.highest, above, sameCount);
     }
   } catch (err) {
     console.error('Supabase save error:', err);
@@ -319,9 +320,11 @@ function fetchAndRenderBriefStrip(stream, attempt, shift, userScore, userSubStat
   const sb = window._supabaseClient;
   if (!sb) return;
   return sb.from('shift_stats').select('*')
-    .eq('stream', stream).eq('attempt', attempt).eq('shift', shift).single()
-    .then(({ data: stat, error }) => {
-      if (error || !stat || !stat.count) return;
+    .eq('stream', stream).eq('attempt', attempt).eq('shift', shift)
+    .then(({ data, error }) => {
+      if (error || !data || data.length === 0) return;
+      const stat = data[0];
+      if (!stat || !stat.count) return;
       const above = countScores(stat.score_counts, score => score > userScore);
       const same  = countScores(stat.score_counts, score => score === userScore);
       renderBriefStrip(stream, attempt, shift, userScore, userSubStats,
