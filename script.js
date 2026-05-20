@@ -565,7 +565,7 @@ function parsePortalText(text) {
   // "Correct Option:" and "Candidate Response:", causing mis-parsing.
   // Real option IDs appear 1-3 times; watermarks appear 10+ times.
   const wmFreq = {};
-  const wmRe = /\b(\d{5,7})\b/g;
+  const wmRe = /\b(\d{4,10})\b/g;
   let wmMatch;
   while ((wmMatch = wmRe.exec(text)) !== null) {
     wmFreq[wmMatch[1]] = (wmFreq[wmMatch[1]] || 0) + 1;
@@ -576,6 +576,16 @@ function parsePortalText(text) {
   if (watermarks.length > 0) {
     const wmPattern = new RegExp('\\b(' + watermarks.join('|') + ')\\b', 'g');
     text = text.replace(wmPattern, '');
+  }
+
+  try {
+    const _physicsCount  = (text.match(/\bPHYSICS\b/g)   || []).length;
+    const _chemistryCount= (text.match(/\bCHEMISTRY\b/g) || []).length;
+    const _mathsCount    = (text.match(/\bMATHS\b/g)     || []).length;
+    const _biologyCount  = (text.match(/\bBIOLOGY\b/g)   || []).length;
+    window._isOldSheet = _physicsCount < 10 || _chemistryCount < 10 || (_mathsCount < 10 && _biologyCount < 10);
+  } catch (e) {
+    window._isOldSheet = true;
   }
 
   const CORR_RE = /Correct\s+Option\s*[:\s]\s*(\d{5,6})/gi;

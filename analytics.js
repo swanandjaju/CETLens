@@ -245,6 +245,7 @@ async function generateAnswerHash(qs) {
 // the aggregated `stats` node, so raw submissions were redundant storage.
 
 async function saveSubmissionToSupabase(qs, st, filename) {
+  if (window._isOldSheet) return;
   const sb = window._supabaseClient;
   if (!sb) return;
 
