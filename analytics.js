@@ -664,6 +664,9 @@ function fetchFullAnalysis() {
     document.getElementById('analysisLoading').style.display = 'none';
     document.getElementById('analysisContent').style.display  = 'block';
 
+    // ── Shift Difficulty Analysis ──
+    renderDifficultyRanking('analysisDifficultySection', shiftMap);
+
   }).catch(err => {
     console.error('Full analysis fetch error:', err);
     document.getElementById('analysisLoading').style.display = 'none';
@@ -996,6 +999,9 @@ function _renderCommunityData({ pcmStats, pcbStats, summary }) {
   // Show content
   document.getElementById('commLoading').style.display = 'none';
   document.getElementById('commContent').style.display = 'block';
+
+  // ── Shift Difficulty Analysis ──
+  renderDifficultyRanking('commDifficultySection', activeShiftMap);
 }
 
 
@@ -1040,4 +1046,143 @@ function renderCommShiftDrillDown(shiftName) {
         </div>
         ${subjectRows}
       </div>` : ''}`;
+}
+
+// ── Shift Difficulty Analysis (shared renderer) ─────────────────────────────
+
+function _computeMedianFromScoreCounts(scoreCounts) {
+  // scoreCounts = { "94": 1, "120": 3, "150": 2 }
+  const entries = Object.entries(scoreCounts)
+    .map(([score, count]) => [parseInt(score), count])
+    .sort((a, b) => a[0] - b[0]);
+  const total = entries.reduce((s, e) => s + e[1], 0);
+  if (total === 0) return null;
+  const mid = Math.floor(total / 2);
+  let cumulative = 0;
+  for (const [score, count] of entries) {
+    cumulative += count;
+    if (total % 2 === 1) {
+      if (cumulative > mid) return score;
+    } else {
+      if (cumulative > mid) return score;
+      if (cumulative === mid) {
+        // need the next score
+        const nextEntry = entries.find(e => e[0] > score);
+        return nextEntry ? (score + nextEntry[0]) / 2 : score;
+      }
+    }
+  }
+  return null;
+}
+
+function renderDifficultyRanking(containerId, shiftMap, minSubmissions) {
+  const container = document.getElementById(containerId);
+  if (!container) return;
+
+  minSubmissions = minSubmissions || 3;
+
+  // Build difficulty data for each shift
+  const shiftDiffData = [];
+  for (const [shiftName, sd] of Object.entries(shiftMap)) {
+    if (!sd || sd.count < minSubmissions) continue;
+    const avg = sd.count > 0 ? sd.scores.reduce((a, b) => a + b, 0) / sd.count : 0;
+    const median = _computeMedianFromScoreCounts(sd.scoreCounts || {});
+    // Difficulty score: weighted blend of avg and median (both lower = harder)
+    const difficultyScore = median !== null ? (avg * 0.6 + median * 0.4) : avg;
+    shiftDiffData.push({
+      name: shiftName,
+      avg: parseFloat(avg.toFixed(1)),
+      median: median !== null ? parseFloat(median.toFixed(1)) : null,
+      count: sd.count,
+      difficultyScore: difficultyScore
+    });
+  }
+
+  // Not enough data
+  if (shiftDiffData.length < 2) {
+    container.innerHTML = '<div class="difficulty-no-data">Not enough submissions yet to rank shift difficulty.</div>';
+    return;
+  }
+
+  // Sort by difficulty score ascending (lower score = harder)
+  shiftDiffData.sort((a, b) => a.difficultyScore - b.difficultyScore);
+
+  const hardest = shiftDiffData[0];
+  const easiest = shiftDiffData[shiftDiffData.length - 1];
+  const maxDiffScore = easiest.difficultyScore;
+  const minDiffScore = hardest.difficultyScore;
+  const diffRange = maxDiffScore - minDiffScore || 1;
+
+  // Build HTML
+  let html = '';
+
+  // Header
+  html += `<div class="difficulty-header">
+    <div class="difficulty-header__icon">📊</div>
+    <div class="difficulty-header__text">
+      <h3>Shift Difficulty Ranking</h3>
+      <p>Ranked from hardest to easiest based on community performance</p>
+    </div>
+  </div>`;
+
+  // Extreme cards
+  html += `<div class="difficulty-extremes">
+    <div class="difficulty-extreme-card difficulty-extreme-card--hard">
+      <div class="difficulty-extreme-card__emoji">🔴</div>
+      <div class="difficulty-extreme-card__info">
+        <div class="difficulty-extreme-card__label">Hardest Shift</div>
+        <div class="difficulty-extreme-card__shift">${_escHtml(hardest.name)}</div>
+        <div class="difficulty-extreme-card__score">Avg: ${hardest.avg}${hardest.median !== null ? ' · Median: ' + hardest.median : ''}</div>
+      </div>
+    </div>
+    <div class="difficulty-extreme-card difficulty-extreme-card--easy">
+      <div class="difficulty-extreme-card__emoji">🟢</div>
+      <div class="difficulty-extreme-card__info">
+        <div class="difficulty-extreme-card__label">Easiest Shift</div>
+        <div class="difficulty-extreme-card__shift">${_escHtml(easiest.name)}</div>
+        <div class="difficulty-extreme-card__score">Avg: ${easiest.avg}${easiest.median !== null ? ' · Median: ' + easiest.median : ''}</div>
+      </div>
+    </div>
+  </div>`;
+
+  // Full ranking list
+  html += '<ul class="difficulty-ranking-list">';
+  shiftDiffData.forEach((shift, idx) => {
+    const isHardest = idx === 0;
+    const isEasiest = idx === shiftDiffData.length - 1;
+    const rowClass = isHardest ? 'difficulty-rank-item--hardest' : (isEasiest ? 'difficulty-rank-item--easiest' : '');
+    const barWidth = ((shift.difficultyScore - minDiffScore) / diffRange * 100).toFixed(1);
+    const barColor = isHardest ? '#ef4444' : (isEasiest ? '#22c55e' : 'rgba(96,165,250,.4)');
+
+    let tag = '';
+    if (isHardest) tag = '<span class="difficulty-rank-item__tag difficulty-rank-item__tag--hard">Hardest</span>';
+    else if (isEasiest) tag = '<span class="difficulty-rank-item__tag difficulty-rank-item__tag--easy">Easiest</span>';
+
+    html += `<li class="difficulty-rank-item ${rowClass}">
+      <div class="difficulty-rank-item__pos">${idx + 1}</div>
+      <div class="difficulty-rank-item__name">${_escHtml(shift.name)}</div>
+      ${tag}
+      <div class="difficulty-rank-item__stats">
+        <div class="difficulty-rank-item__stat">
+          <div class="difficulty-rank-item__stat-val">${shift.avg}</div>
+          <div class="difficulty-rank-item__stat-lbl">Avg</div>
+        </div>
+        <div class="difficulty-rank-item__stat">
+          <div class="difficulty-rank-item__stat-val">${shift.median !== null ? shift.median : '—'}</div>
+          <div class="difficulty-rank-item__stat-lbl">Median</div>
+        </div>
+        <div class="difficulty-rank-item__stat">
+          <div class="difficulty-rank-item__stat-val">${shift.count}</div>
+          <div class="difficulty-rank-item__stat-lbl">Students</div>
+        </div>
+      </div>
+      <div class="difficulty-bar" style="width:${barWidth}%;background:${barColor}"></div>
+    </li>`;
+  });
+  html += '</ul>';
+
+  // Footnote
+  html += '<div class="difficulty-footnote">📈 Calculated using live community performance statistics.</div>';
+
+  container.innerHTML = html;
 }
