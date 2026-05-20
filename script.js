@@ -579,10 +579,10 @@ function parsePortalText(text) {
   }
 
   try {
-    const _physicsCount  = (text.match(/\bPHYSICS\b/g)   || []).length;
-    const _chemistryCount= (text.match(/\bCHEMISTRY\b/g) || []).length;
-    const _mathsCount    = (text.match(/\bMATHS\b/g)     || []).length;
-    const _biologyCount  = (text.match(/\bBIOLOGY\b/g)   || []).length;
+    const _physicsCount  = (text.match(/PHYSICS/g)   || []).length;
+    const _chemistryCount= (text.match(/CHEMISTRY/g) || []).length;
+    const _mathsCount    = (text.match(/(MATHS|MATHEMATICS)/g) || []).length;
+    const _biologyCount  = (text.match(/BIOLOGY/g)   || []).length;
     window._isOldSheet = _physicsCount < 10 || _chemistryCount < 10 || (_mathsCount < 10 && _biologyCount < 10);
   } catch (e) {
     window._isOldSheet = true;
