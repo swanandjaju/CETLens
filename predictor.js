@@ -340,11 +340,9 @@ function populatePredictorShifts(rows) {
 function onPredictorMarksInput() {
   const input = document.getElementById('predictorMarksInput');
   if (!input) return;
-  const cleaned = String(input.value)
-    .replace(/[^\d.]/g, '')
-    .replace(/(\..*)\./g, '$1');
+  const cleaned = String(input.value).replace(/[^\d]/g, '');
   if (cleaned !== input.value) input.value = cleaned;
-  const n = Number(input.value);
+  const n = parseInt(input.value, 10);
   if (Number.isFinite(n) && n > 200) input.value = '200';
   onPredictorInputChange();
 }

@@ -21,7 +21,7 @@
     href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500&display=swap"
     rel="stylesheet">
   <!-- App stylesheet -->
-  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="style.css?v=20260521">
 
   <style>
     /* Scoped styles for the attempt and shift selectors */
@@ -279,6 +279,26 @@
           </div>
           <div class="community-cta__arrow">→</div>
         </div>
+
+        <!-- Percentile Predictor CTA -->
+        <div class="predictor-cta-banner" onclick="openPredictorDisclaimer()" role="button" tabindex="0"
+          onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openPredictorDisclaimer();}">
+          <div class="predictor-cta__icon" aria-hidden="true" style="overflow:hidden;">
+            <svg width="26" height="26" viewBox="0 0 24 24" fill="none">
+              <path d="M12 3 22 20H2L12 3Z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
+              <path d="M12 9v5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+              <path d="M12 17h.01" stroke="currentColor" stroke-width="3" stroke-linecap="round"/>
+            </svg>
+          </div>
+          <div class="predictor-cta__text">
+            <div class="predictor-cta__title">
+              Percentile Predictor
+              <span class="predictor-cta__badge">Experimental</span>
+            </div>
+            <div class="predictor-cta__sub">Estimate your percentile using live shift statistics and projection models</div>
+          </div>
+          <div class="predictor-cta__arrow">!</div>
+        </div>
       </div>
 
       <!-- RIGHT: about / credit panel -->
@@ -385,6 +405,34 @@
       <div class="restore-btns">
         <button class="btn-primary" onclick="restoreSession()">Restore Session</button>
         <button class="btn-ghost" onclick="dismissRestore()">Start Fresh</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Percentile Predictor Disclaimer Modal -->
+  <div class="predictor-warning-overlay" id="predictorDisclaimerOverlay" aria-hidden="true">
+    <div class="predictor-warning-modal" role="dialog" aria-modal="true" aria-labelledby="predictorDisclaimerTitle">
+      <div class="predictor-warning-modal__icon" aria-hidden="true" style="overflow:hidden;">
+        <svg width="40" height="40" viewBox="0 0 24 24" fill="none">
+          <path d="M12 3 22 20H2L12 3Z" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round"/>
+          <path d="M12 8.5v5.5" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/>
+          <path d="M12 17.5h.01" stroke="currentColor" stroke-width="3.2" stroke-linecap="round"/>
+        </svg>
+      </div>
+      <div class="predictor-warning-modal__kicker">Read before continuing</div>
+      <h2 class="predictor-warning-modal__title" id="predictorDisclaimerTitle">Experimental and Unofficial Predictor</h2>
+      <p class="predictor-warning-modal__lead">
+        Predictions may differ significantly from actual CET results. This tool is experimental, unofficial,
+        and for estimation/reference purposes only.
+      </p>
+      <div class="predictor-warning-modal__grid">
+        <div>Predictions may be highly inaccurate.</div>
+        <div>The displayed percentile should not be treated as final or reliable.</div>
+        <div>CETLens is not affiliated with CET authorities.</div>
+      </div>
+      <div class="predictor-warning-modal__actions">
+        <button class="btn-primary predictor-accept-btn" onclick="acceptPredictorDisclaimer()">I Understand &amp; Accept</button>
+        <button class="btn-ghost predictor-cancel-btn" onclick="closePredictorDisclaimer()">Cancel</button>
       </div>
     </div>
   </div>
@@ -837,6 +885,89 @@
 
     </div><!-- /section-spacing -->
   </div><!-- /landingPage -->
+
+<!-- Percentile Predictor Screen -->
+<div id="predictorScreen" style="display:none">
+  <div class="topbar">
+    <div class="topbar-left">
+      <button class="btn-ghost" onclick="closePredictorScreen()" style="min-height:36px;padding:.3rem .75rem;font-size:11px;border-radius:8px;">Back</button>
+      <div class="topbar-brand">CETLens</div>
+      <span class="topbar-mode">Percentile Predictor</span>
+    </div>
+    <div class="topbar-actions">
+      <button class="theme-toggle-btn" onclick="toggleTheme()" title="Toggle dark mode">
+        <svg class="theme-icon-sun" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/>
+          <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/>
+          <line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/>
+          <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
+        </svg>
+        <svg class="theme-icon-moon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/>
+        </svg>
+      </button>
+    </div>
+  </div>
+
+  <div class="analysis-body predictor-body">
+    <div class="analysis-inner predictor-inner">
+      <div class="analysis-page-header predictor-page-header">
+        <div>
+          <h1 class="analysis-title">Percentile Predictor</h1>
+          <p class="analysis-subtitle">Estimate your MHT-CET percentile using live shift statistics and projections</p>
+        </div>
+        <div class="predictor-experimental-badge">Experimental / Unofficial</div>
+      </div>
+
+      <div class="predictor-alert-band">
+        <strong>Warning:</strong> predictions may be highly inaccurate and can differ significantly from actual CET results.
+      </div>
+
+      <div class="predictor-layout">
+        <section class="analysis-card predictor-form-card">
+          <div class="analysis-card-label">Inputs</div>
+
+
+          <div class="predictor-field">
+            <label class="attempt-selector-label" for="predictorAttemptSelect">Attempt</label>
+            <select id="predictorAttemptSelect" class="select-dropdown" onchange="onPredictorAttemptChange()">
+              <option value="" disabled selected>Select attempt...</option>
+            </select>
+          </div>
+
+          <div class="predictor-field">
+            <label class="attempt-selector-label" for="predictorShiftSelect">Shift</label>
+            <select id="predictorShiftSelect" class="select-dropdown" onchange="onPredictorInputChange()">
+              <option value="" disabled selected>Select shift...</option>
+            </select>
+          </div>
+
+          <div class="predictor-field">
+            <label class="attempt-selector-label" for="predictorMarksInput">Marks</label>
+            <input id="predictorMarksInput" class="predictor-marks-input" type="number" inputmode="numeric" min="0" max="200" step="1"
+              placeholder="0-200" oninput="onPredictorMarksInput()">
+          </div>
+
+
+          <div class="predictor-status" id="predictorStatus"></div>
+        </section>
+
+        <section class="analysis-card predictor-result-card">
+          <div class="analysis-card-label">Predicted Percentile</div>
+          <div class="predictor-result-value" id="predictorResult">--</div>
+          <div class="predictor-result-danger">
+            The prediction may be highly inaccurate. This predictor is experimental and unofficial. The displayed percentile should not be treated as final or reliable.
+          </div>
+          <div class="predictor-result-meta" id="predictorResultMeta">Select stream, attempt, shift, and marks.</div>
+          <div class="predictor-persistent-warning">
+            <strong>Unofficial estimate only.</strong>
+            Experimental tool. Not affiliated with CET authorities.
+          </div>
+        </section>
+      </div>
+    </div>
+  </div>
+</div>
 
 <!-- ═══════════════════════════════════════════════════════════════
      DETAILED ANALYSIS SCREEN
@@ -1308,8 +1439,10 @@
   <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.3/dist/confetti.browser.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <!-- App logic -->
   <script src="script.js"></script>
+  <script src="predictor.js"></script>
   <script src="router.js"></script>
 
 </body>
