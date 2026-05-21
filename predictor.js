@@ -537,7 +537,14 @@ async function updatePredictorPrediction(seq, stream, attempt, shift, marks) {
     const rawPMin = rawPercentiles[Math.min(mappedIndex + 1, rawPercentiles.length - 1)];
     const rawPMax = rawPercentiles[Math.max(mappedIndex - 1, 0)];
 
-    const margin = Math.max(Math.abs(percentile - rawPMin), Math.abs(rawPMax - percentile));
+    let margin = Math.max(Math.abs(percentile - rawPMin), Math.abs(rawPMax - percentile));
+    
+    // If the data curves perfectly flatline (e.g. due to monotonicity smoothing),
+    // enforce a minimum ±0.1 margin so the UI doesn't randomly disappear.
+    if (margin < 0.1) {
+      margin = 0.1;
+    }
+
     const finalPMin = Math.max(0, percentile - margin);
     const finalPMax = Math.min(100, percentile + margin);
 
@@ -545,12 +552,8 @@ async function updatePredictorPrediction(seq, stream, attempt, shift, marks) {
     let metaText = '';
     
     const metaEl = document.getElementById('predictorResultMeta');
-    if (margin > 0.0001) {
-      metaText = 'Expected Range: ' + finalPMin.toFixed(4) + ' - ' + finalPMax.toFixed(4);
-      if (metaEl) metaEl.style.display = 'block';
-    } else {
-      if (metaEl) metaEl.style.display = 'none';
-    }
+    metaText = 'Expected Range: ' + finalPMin.toFixed(4) + ' - ' + finalPMax.toFixed(4);
+    if (metaEl) metaEl.style.display = 'block';
 
     setPredictorResult(formatted, metaText);
     setPredictorStatus('', '');
