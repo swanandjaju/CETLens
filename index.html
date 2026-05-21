@@ -412,26 +412,34 @@
   <!-- Percentile Predictor Disclaimer Modal -->
   <div class="predictor-warning-overlay" id="predictorDisclaimerOverlay" aria-hidden="true">
     <div class="predictor-warning-modal" role="dialog" aria-modal="true" aria-labelledby="predictorDisclaimerTitle">
-      <div class="predictor-warning-modal__icon" aria-hidden="true" style="overflow:hidden;">
-        <svg width="40" height="40" viewBox="0 0 24 24" fill="none">
+      <div class="predictor-warning-modal__icon" aria-hidden="true" style="overflow:hidden; width: 44px; height: 44px; margin-bottom: 0.6rem; border-radius: 12px;">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
           <path d="M12 3 22 20H2L12 3Z" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round"/>
           <path d="M12 8.5v5.5" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/>
           <path d="M12 17.5h.01" stroke="currentColor" stroke-width="3.2" stroke-linecap="round"/>
         </svg>
       </div>
-      <div class="predictor-warning-modal__kicker">Read before continuing</div>
-      <h2 class="predictor-warning-modal__title" id="predictorDisclaimerTitle">Experimental and Unofficial Predictor</h2>
-      <p class="predictor-warning-modal__lead">
-        Predictions may differ significantly from actual CET results. This tool is experimental, unofficial,
-        and for estimation/reference purposes only.
-      </p>
-      <div class="predictor-warning-modal__grid">
-        <div>Predictions may be highly inaccurate.</div>
-        <div>The displayed percentile should not be treated as final or reliable.</div>
-        <div>CETLens is not affiliated with CET authorities.</div>
+      <div class="predictor-warning-modal__kicker" style="margin-bottom: 0.2rem;">Read before continuing / पुढे जाण्यापूर्वी वाचा</div>
+      <h2 class="predictor-warning-modal__title" id="predictorDisclaimerTitle" style="font-size: 20px; margin-bottom: 0.5rem; line-height: 1.1;">Experimental and Unofficial Predictor</h2>
+
+      <div style="margin: 1rem 0; padding: 1.15rem; border-radius: var(--radius); background: rgba(0,0,0,0.15); border: 1px solid rgba(255,255,255,0.05); max-height: 200px; overflow-y: auto;">
+        <h3 style="color: var(--danger); font-size: 11px; text-transform: uppercase; letter-spacing: 0.1em; font-weight: 800; margin-bottom: 0.65rem;">Important Disclaimer</h3>
+        <p style="font-size: 12.5px; color: var(--text-muted); line-height: 1.65; text-align: justify; font-weight: 500; margin: 0;">
+          This predictor is experimental and based only on marks data generated from response sheets voluntarily uploaded and checked through CETLens. The displayed percentile is not calculated using official CET authority data and may differ significantly from actual results. Prediction accuracy heavily depends on the number of users using the platform, the ratio of top scorers to low scorers, shift-wise participation imbalance, topper distribution, incomplete datasets, and overall sample representation across different score ranges. Since percentile calculation is relative in nature, even a small variation in the number of high scorers using the platform can substantially affect the predicted percentile, especially at higher score ranges. CETLens cannot guarantee the reliability, stability, or final accuracy of the displayed percentile, and users should not treat it as official, final, or admission-safe data.
+        </p>
+        <div style="margin: 1rem 0; border-top: 1px dashed rgba(255,255,255,0.1);"></div>
+        <h3 style="color: var(--danger); font-size: 11px; text-transform: uppercase; letter-spacing: 0.1em; font-weight: 800; margin-bottom: 0.65rem;">महत्त्वाची सूचना</h3>
+        <p style="font-size: 12.5px; color: var(--text-muted); line-height: 1.65; text-align: justify; font-weight: 500; margin: 0;">
+          हा प्रेडिक्टर प्रायोगिक आहे आणि केवळ विद्यार्थ्यांद्वारे स्वेच्छेने अपलोड केलेल्या आणि CETLens वर तपासलेल्या रिस्पॉन्स शीटच्या डेटावर आधारित आहे. दर्शविलेले पर्सेंटाईल अधिकृत CET प्राधिकरणाच्या डेटाचा वापर करून मोजलेले नाही आणि ते प्रत्यक्ष निकालांपेक्षा लक्षणीयरीत्या वेगळे असू शकते. अंदाजाची अचूकता ही प्लॅटफॉर्म वापरणाऱ्या विद्यार्थ्यांची संख्या, टॉप स्कोअरर्स आणि कमी स्कोअरर्सचे प्रमाण, शिफ्टनुसार विद्यार्थ्यांच्या संख्येतील तफावत, अपूर्ण डेटा आणि एकंदर सॅम्पल रिप्रेझेंटेशन यांवर खूप अवलंबून असते. पर्सेंटाईल कॅल्क्युलेशन ही एक सापेक्ष (Relative) प्रक्रिया असल्याने, प्लॅटफॉर्म वापरणाऱ्या हाय स्कोअरर्सच्या संख्येत थोडासा बदल झाला तरी अंदाजित पर्सेंटाईलवर मोठा परिणाम होऊ शकतो. CETLens दर्शविलेल्या पर्सेंटाईलची विश्वासार्हता किंवा अचूकतेची हमी देऊ शकत नाही. विद्यार्थ्यांनी याला अधिकृत, अंतिम किंवा प्रवेशासाठी (Admission) सुरक्षित डेटा मानू नये.
+        </p>
+      </div>
+
+      <div style="margin-bottom: 1.4rem; color: var(--danger); font-weight: 800; font-size: 13.5px; text-align: center; line-height: 1.5;">
+        Do not make admission decisions based solely on this prediction.<br>
+        केवळ या अंदाजाच्या आधारावर प्रवेशाचे (Admission) निर्णय घेऊ नका.
       </div>
       <div class="predictor-warning-modal__actions">
-        <button class="btn-primary predictor-accept-btn" onclick="acceptPredictorDisclaimer()">I Understand &amp; Accept</button>
+        <button class="btn-primary predictor-accept-btn" onclick="acceptPredictorDisclaimer()">ACCEPT / स्वीकारा</button>
         <button class="btn-ghost predictor-cancel-btn" onclick="closePredictorDisclaimer()">Cancel</button>
       </div>
     </div>

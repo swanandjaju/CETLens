@@ -2937,7 +2937,8 @@ textarea.neu-input {
   transform: translateY(16px) scale(.97);
   transition: transform .25s ease;
   position: relative;
-  overflow: hidden;
+  max-height: 90vh;
+  overflow-y: auto;
 }
 .predictor-warning-overlay.open .predictor-warning-modal {
   transform: translateY(0) scale(1);
