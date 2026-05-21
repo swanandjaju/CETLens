@@ -1879,8 +1879,6 @@ function showLoading() {
   document.getElementById('uploadScreen').style.display  = 'none';
   document.getElementById('loadingScreen').style.display = 'flex';
   document.getElementById('dashboard').style.display     = 'none';
-  const predictor = document.getElementById('predictorScreen');
-  if (predictor) predictor.style.display = 'none';
   const lp = document.getElementById('landingPage');
   if (lp) lp.style.display = 'none';
 }
@@ -1893,8 +1891,6 @@ function setStep(label, sub) {
 function showDash(qs) {
   document.getElementById('loadingScreen').style.display = 'none';
   document.getElementById('dashboard').style.display     = 'flex';
-  const predictor = document.getElementById('predictorScreen');
-  if (predictor) predictor.style.display = 'none';
 
   document.body.classList.remove('upload-active');
   document.getElementById('uploadThemeBtn').style.display = 'none'; // hide upload screen toggle
@@ -1911,8 +1907,6 @@ function showDashRestored(qs) {
   document.getElementById('loadingScreen').style.display = 'none';
   document.getElementById('uploadScreen').style.display  = 'none';
   document.getElementById('dashboard').style.display     = 'flex';
-  const predictor = document.getElementById('predictorScreen');
-  if (predictor) predictor.style.display = 'none';
 
   document.body.classList.remove('upload-active');
   document.getElementById('uploadThemeBtn').style.display = 'none';
@@ -1953,15 +1947,6 @@ function resetApp() {
   if (subGrid) { subGrid.innerHTML = ''; subGrid.style.display = 'none'; }
   document.getElementById('dashboard').style.display     = 'none';
   document.getElementById('analysisScreen').style.display = 'none';
-  const predictor = document.getElementById('predictorScreen');
-  if (predictor) predictor.style.display = 'none';
-  const predictorOverlay = document.getElementById('predictorDisclaimerOverlay');
-  if (predictorOverlay) {
-    predictorOverlay.classList.remove('open');
-    predictorOverlay.setAttribute('aria-hidden', 'true');
-  }
-  if (typeof resetPredictorInputs === 'function') resetPredictorInputs();
-  document.body.style.overflow = '';
   document.getElementById('uploadScreen').style.display  = 'flex';
   document.getElementById('uploadThemeBtn').style.display = ''; // restore upload screen toggle
   const lp = document.getElementById('landingPage');
@@ -1983,8 +1968,6 @@ let _analysisCharts = {};
 function openAnalysisScreen() {
   document.getElementById('dashboard').style.display   = 'none';
   document.getElementById('analysisScreen').style.display = 'flex';
-  const predictor = document.getElementById('predictorScreen');
-  if (predictor) predictor.style.display = 'none';
   document.getElementById('analysisModeTag').textContent = examMode;
 
   // Reset content state
@@ -2016,8 +1999,6 @@ function openCommunityScreen() {
   if (lp) lp.style.display = 'none';
   const up = document.getElementById('uploadScreen');
   if (up) up.style.display = 'none';
-  const predictor = document.getElementById('predictorScreen');
-  if (predictor) predictor.style.display = 'none';
 
   document.getElementById('communityScreen').style.display = 'flex';
 

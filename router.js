@@ -59,18 +59,6 @@ closeCommunityScreen = function () {
   history.pushState(null, '', location.pathname);
 };
 
-const _origOpenPredictorScreen = openPredictorScreen;
-openPredictorScreen = function () {
-  _origOpenPredictorScreen();
-  history.pushState(null, '', '#predictor');
-};
-
-const _origClosePredictorScreen = closePredictorScreen;
-closePredictorScreen = function () {
-  _origClosePredictorScreen();
-  history.pushState(null, '', location.pathname);
-};
-
 
 // ─────────────────────────────────────────────────────────────────────────────
 // PART 2: Override checkStoredSession — controls when the popup shows
@@ -93,10 +81,6 @@ checkStoredSession = function () {
 
   // Community — no session needed, popup would be irrelevant
   if (hash === '#community') return;
-  if (hash === '#predictor') {
-    _origOpenPredictorScreen();
-    return;
-  }
 
   // Dashboard or Analysis — silently restore without popup
   if (hash === '#dashboard' || hash === '#analysis') {
@@ -161,12 +145,6 @@ function handleRoute() {
     return;
   }
 
-  if (hash === '#predictor') {
-    const ps = document.getElementById('predictorScreen');
-    if (ps && ps.style.display !== 'flex') _origOpenPredictorScreen();
-    return;
-  }
-
   if (hash === '#dashboard') {
     const dash = document.getElementById('dashboard');
     if (dash && dash.style.display === 'flex') return; // already showing
@@ -189,9 +167,6 @@ function handleRoute() {
         _origShowDashRestored(session.questions);
       });
     } else {
-      if (document.getElementById('predictorScreen')?.style.display === 'flex') {
-        _origClosePredictorScreen();
-      }
       history.replaceState(null, '', location.pathname);
     }
     return;
@@ -222,9 +197,6 @@ function handleRoute() {
         setTimeout(() => _origOpenAnalysisScreen(), 100);
       });
     } else {
-      if (document.getElementById('predictorScreen')?.style.display === 'flex') {
-        _origClosePredictorScreen();
-      }
       history.replaceState(null, '', location.pathname);
     }
     return;
@@ -232,12 +204,10 @@ function handleRoute() {
 
   // Hash is empty → home. Close any open screen.
   const communityOpen = document.getElementById('communityScreen')?.style.display === 'flex';
-  const predictorOpen = document.getElementById('predictorScreen')?.style.display === 'flex';
   const dashOpen      = document.getElementById('dashboard')?.style.display === 'flex';
   const analysisOpen  = document.getElementById('analysisScreen')?.style.display === 'flex';
 
-  if (predictorOpen) _origClosePredictorScreen();
-  else if (communityOpen) _origCloseCommunityScreen();
+  if (communityOpen) _origCloseCommunityScreen();
   else if (analysisOpen) _origCloseAnalysisScreen();
   else if (dashOpen) _origResetApp();
 }
