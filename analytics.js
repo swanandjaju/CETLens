@@ -412,10 +412,15 @@ function fetchFullAnalysis() {
 
       if (e.stream !== stream || e.attempt !== attempt) continue;
 
-      if (!shiftMap[e.shift]) shiftMap[e.shift] = { scores: [], subjectSums: {}, count: 0, highest: -Infinity };
+      if (!shiftMap[e.shift]) shiftMap[e.shift] = { scores: [], subjectSums: {}, count: 0, highest: -Infinity, scoreCounts: {} };
       const sd = shiftMap[e.shift];
       sd.scores.push(e.score);
       sd.count++;
+      
+      const sStr = String(e.score);
+      if (!sd.scoreCounts[sStr]) sd.scoreCounts[sStr] = 0;
+      sd.scoreCounts[sStr]++;
+
       if (e.score > sd.highest) sd.highest = e.score;
       if (e.subjects) {
         for (const subj in e.subjects) {
@@ -1092,7 +1097,7 @@ function renderDifficultyRanking(containerId, shiftMap, minSubmissions) {
   container._shiftMapRef = shiftMap;
 
   // Current mode
-  const mode = _difficultyModeState[containerId] || 'score';
+  const mode = _difficultyModeState[containerId] || 'balanced';
 
   // Build difficulty data for each shift
   const shiftDiffData = [];
@@ -1103,10 +1108,26 @@ function renderDifficultyRanking(containerId, shiftMap, minSubmissions) {
     const median = _computeMedianFromScoreCounts(sd.scoreCounts || {});
     globalTotalScore += sd.scores.reduce((a, b) => a + b, 0);
     globalTotalCount += sd.count;
+
+    let above120Count = 0;
+    let below80Count = 0;
+    for (const [scoreStr, cStr] of Object.entries(sd.scoreCounts || {})) {
+      const score = Number(scoreStr);
+      const c = Number(cStr);
+      if (Number.isFinite(score) && Number.isFinite(c)) {
+        if (score >= 120) above120Count += c;
+        if (score < 80) below80Count += c;
+      }
+    }
+    const pctAbove120 = sd.count > 0 ? (above120Count / sd.count) * 100 : 0;
+    const pctBelow80 = sd.count > 0 ? (below80Count / sd.count) * 100 : 0;
+
     shiftDiffData.push({
       name: shiftName,
       avg: parseFloat(avg.toFixed(1)),
       median: median !== null ? parseFloat(median.toFixed(1)) : null,
+      pctAbove120: parseFloat(pctAbove120.toFixed(1)),
+      pctBelow80: parseFloat(pctBelow80.toFixed(1)),
       count: sd.count,
       rawScore: median !== null ? (avg * 0.6 + median * 0.4) : avg
     });
@@ -1118,32 +1139,47 @@ function renderDifficultyRanking(containerId, shiftMap, minSubmissions) {
     return;
   }
 
-  // Global average for Bayesian shrinkage
-  const globalAvg = globalTotalCount > 0 ? globalTotalScore / globalTotalCount : 0;
-  const maxCount = Math.max(...shiftDiffData.map(s => s.count));
-
   // Calculate difficulty scores based on mode
-  shiftDiffData.forEach(shift => {
-    if (mode === 'balanced') {
-      // Bayesian approach: small samples shrink toward global average
-      // confidence = count / (count + k), where k controls shrinkage strength
-      const k = maxCount * 0.3; // shifts need ~30% of max count for full confidence
-      const confidence = shift.count / (shift.count + k);
-      const adjustedScore = confidence * shift.rawScore + (1 - confidence) * globalAvg;
-      shift.difficultyScore = adjustedScore;
-    } else {
-      shift.difficultyScore = shift.rawScore;
-    }
-  });
+  if (mode === 'balanced') {
+    const minAvg = Math.min(...shiftDiffData.map(r => r.avg));
+    const maxAvg = Math.max(...shiftDiffData.map(r => r.avg));
+    const minMedian = Math.min(...shiftDiffData.map(r => r.median !== null ? r.median : r.avg));
+    const maxMedian = Math.max(...shiftDiffData.map(r => r.median !== null ? r.median : r.avg));
+    const minAbove120 = Math.min(...shiftDiffData.map(r => r.pctAbove120));
+    const maxAbove120 = Math.max(...shiftDiffData.map(r => r.pctAbove120));
+    const minBelow80 = Math.min(...shiftDiffData.map(r => r.pctBelow80));
+    const maxBelow80 = Math.max(...shiftDiffData.map(r => r.pctBelow80));
 
-  // Sort by difficulty score ascending (lower = harder)
-  shiftDiffData.sort((a, b) => a.difficultyScore - b.difficultyScore);
+    shiftDiffData.forEach(shift => {
+      const m = shift.median !== null ? shift.median : shift.avg;
+      const normalizedAvg = maxAvg > minAvg ? (shift.avg - minAvg) / (maxAvg - minAvg) : 0.5;
+      const normalizedMedian = maxMedian > minMedian ? (m - minMedian) / (maxMedian - minMedian) : 0.5;
+      const normalizedAbove120 = maxAbove120 > minAbove120 ? (shift.pctAbove120 - minAbove120) / (maxAbove120 - minAbove120) : 0.5;
+      const normalizedBelow80 = maxBelow80 > minBelow80 ? (shift.pctBelow80 - minBelow80) / (maxBelow80 - minBelow80) : 0.5;
+
+      shift.difficultyScore = (
+        (1 - normalizedAvg) * 0.25 +
+        (1 - normalizedMedian) * 0.25 +
+        (1 - normalizedAbove120) * 0.30 +
+        normalizedBelow80 * 0.20
+      );
+    });
+
+    // Hardest first: higher difficultyScore first
+    shiftDiffData.sort((a, b) => b.difficultyScore - a.difficultyScore);
+  } else {
+    shiftDiffData.forEach(shift => {
+      shift.difficultyScore = shift.rawScore;
+    });
+    // Hardest first: lower raw score first
+    shiftDiffData.sort((a, b) => a.difficultyScore - b.difficultyScore);
+  }
 
   const hardest = shiftDiffData[0];
   const easiest = shiftDiffData[shiftDiffData.length - 1];
-  const maxDiffScore = easiest.difficultyScore;
-  const minDiffScore = hardest.difficultyScore;
-  const diffRange = maxDiffScore - minDiffScore || 1;
+  const maxDiffScore = Math.max(...shiftDiffData.map(s => s.difficultyScore));
+  const minDiffScore = Math.min(...shiftDiffData.map(s => s.difficultyScore));
+  const diffRange = (maxDiffScore - minDiffScore) || 1;
 
   // Build HTML
   let html = '';
@@ -1158,17 +1194,17 @@ function renderDifficultyRanking(containerId, shiftMap, minSubmissions) {
       <h3>Shift Difficulty Ranking</h3>
       <p>${mode === 'score'
         ? 'Ranked by average & median scores only'
-        : 'Ranked by scores balanced with sample size'}</p>
+        : 'Ranked by balanced difficulty scoring'}</p>
     </div>
   </div>`;
 
   // Toggle buttons
   html += `<div class="difficulty-toggle">
-    <button class="difficulty-toggle__btn ${scoreActive}" onclick="_switchDifficultyMode('${containerId}', 'score', document.getElementById('${containerId}')._shiftMapRef)">
-      Score Based
-    </button>
     <button class="difficulty-toggle__btn ${balancedActive}" onclick="_switchDifficultyMode('${containerId}', 'balanced', document.getElementById('${containerId}')._shiftMapRef)">
       Balanced
+    </button>
+    <button class="difficulty-toggle__btn ${scoreActive}" onclick="_switchDifficultyMode('${containerId}', 'score', document.getElementById('${containerId}')._shiftMapRef)">
+      Score Based
     </button>
   </div>`;
 
@@ -1198,7 +1234,14 @@ function renderDifficultyRanking(containerId, shiftMap, minSubmissions) {
     const isHardest = idx === 0;
     const isEasiest = idx === shiftDiffData.length - 1;
     const rowClass = isHardest ? 'difficulty-rank-item--hardest' : (isEasiest ? 'difficulty-rank-item--easiest' : '');
-    const barWidth = ((shift.difficultyScore - minDiffScore) / diffRange * 100).toFixed(1);
+    
+    let barWidth;
+    if (mode === 'balanced') {
+      barWidth = ((maxDiffScore - shift.difficultyScore) / diffRange * 100).toFixed(1);
+    } else {
+      barWidth = ((shift.difficultyScore - minDiffScore) / diffRange * 100).toFixed(1);
+    }
+    
     const barColor = isHardest ? '#ef4444' : (isEasiest ? '#22c55e' : 'rgba(96,165,250,.4)');
 
     let tag = '';
@@ -1231,7 +1274,7 @@ function renderDifficultyRanking(containerId, shiftMap, minSubmissions) {
   // Footnote
   html += `<div class="difficulty-footnote">📈 ${mode === 'score'
     ? 'Ranked using average & median scores only.'
-    : 'Ranked using scores weighted by number of submissions for reliability.'}</div>`;
+    : 'Ranked using a balanced calculation to determine shift difficulty.'}</div>`;
 
   container.innerHTML = html;
 }
