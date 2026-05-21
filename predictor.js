@@ -16,6 +16,33 @@ let _predictorOptionsSeq = 0;
 let _predictorLiveRows = [];
 let _predictorRefreshTimer = null;
 
+// ─── MANUAL OVERRIDE (ANTI-TROLL PROTECTION) ───
+// If trolls spam fake 200/200 scores, it will inflate averages and crash genuine percentiles.
+// Set PREDICTOR_USE_LIVE_DATA to false to freeze the predictor and use your manually verified rankings below.
+const PREDICTOR_USE_LIVE_DATA = false;
+
+// When PREDICTOR_USE_LIVE_DATA is false, the predictor will use this array.
+// Simply list the shifts in order from HARDEST (index 0) to EASIEST (last index).
+// You only need to provide the 'shift' name. The predictor will map them sequentially.
+const MANUAL_DIFFICULTY_RANKING = [
+  { shift: '11 April - Evening' },
+  { shift: '20 April - Morning' },
+  { shift: '18 April - Evening' },
+  { shift: '16 April - Morning' },
+  { shift: '18 April - Morning' },
+  { shift: '19 April - Evening' },
+  { shift: '15 April - Morning' },
+  { shift: '20 April - Evening' },
+  { shift: '17 April - Evening' },
+  { shift: '13 April - Morning' },
+  { shift: '13 April - Evening' },
+  { shift: '17 April - Morning' },
+  { shift: '19 April - Morning' },
+  { shift: '16 April - Evening' },
+  { shift: '15 April - Evening' },
+  { shift: '11 April - Morning' },
+];
+
 // ─── 2025 REFERENCE RANKING (hardest → easiest by % scoring ≥120) ───
 const PREDICTOR_REFERENCE_RANKING = [
   '21st April S2',   // 6.80%  — Hardest
@@ -536,6 +563,20 @@ async function updatePredictorPrediction(seq, stream, attempt, shift, marks) {
 }
 
 async function fetchPredictorCurrentRanking(stream, attempt) {
+  if (!PREDICTOR_USE_LIVE_DATA) {
+    if (!MANUAL_DIFFICULTY_RANKING || MANUAL_DIFFICULTY_RANKING.length === 0) {
+      throw new Error('Predictor is frozen but MANUAL_DIFFICULTY_RANKING is empty.');
+    }
+    // Provide dummy difficulty scores so the UI still displays them, evenly spaced from 0.95 to 0.05
+    return MANUAL_DIFFICULTY_RANKING.map((row, index) => {
+      const difficultyScore = 0.95 - (index * (0.90 / Math.max(1, MANUAL_DIFFICULTY_RANKING.length - 1)));
+      return {
+        shift: row.shift,
+        difficultyScore: difficultyScore
+      };
+    });
+  }
+
   const sb = window._supabaseClient;
   if (!sb) throw new Error('Supabase client is unavailable.');
 
