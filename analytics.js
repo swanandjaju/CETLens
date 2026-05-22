@@ -129,12 +129,13 @@ function expandScoreCounts(scoreCounts) {
 function buildShiftMapFromStats(statsByShift) {
   const shiftMap = {};
   Object.entries(statsByShift || {}).forEach(([shiftName, stat]) => {
+    const expandedScores = expandScoreCounts(stat.scoreCounts);
     shiftMap[shiftName] = {
-      scores: expandScoreCounts(stat.scoreCounts),
+      scores: expandedScores,
       scoreCounts: stat.scoreCounts || {},
       subjectSums: stat.subjectSums || {},
-      count: stat.count || 0,
-      sum: stat.sum || 0,
+      count: expandedScores.length,
+      sum: expandedScores.reduce((a, b) => a + b, 0),
       highest: stat.highest === undefined ? -Infinity : stat.highest,
       min: stat.min === undefined ? null : stat.min
     };
@@ -1196,6 +1197,20 @@ function renderDifficultyRanking(containerId, shiftMap, minSubmissions) {
         ? 'Ranked by average & median scores only'
         : 'Ranked by balanced difficulty scoring'}</p>
     </div>
+  </div>`;
+
+  const enDisclaimer = "This ranking depends entirely on how many students have checked their response sheets on CETLens, and specifically *who* is checking. If a shift has more high scorers checking their marks and fewer low scorers, the average will appear artificially high. If more low scorers check, the average will drop. Basically, it depends heavily on the ratio of high scorers vs. low scorers who actually used the site. This is not the full picture—it is a sample, and the sample may be biased. The number of students sampled is listed next to every shift. Look at the data, think critically, and draw your own conclusions. <br><br><b>This is just an analysis, not a 'prediction'.</b>";
+  const mrDisclaimer = "हे रँकिंग पूर्णपणे किती विद्यार्थ्यांनी CETLens वर त्यांच्या रिस्पॉन्स शीट तपासल्या आहेत आणि विशेषतः *कोण* तपासत आहे यावर अवलंबून आहे. जर एखाद्या शिफ्टमध्ये जास्त हाय स्कोअरर्सनी मार्क्स तपासले असतील आणि कमी स्कोअरर्सनी तपासले नसतील, तर सरासरी जास्त दिसेल. जर जास्त कमी स्कोअरर्सनी तपासले आणि टॉपर्सनी नाही, तर सरासरी कमी दिसेल. थोडक्यात, हे प्लॅटफॉर्म वापरणाऱ्या हाय स्कोअरर्स विरुद्ध कमी स्कोअरर्सच्या प्रमाणावर अवलंबून आहे. हे संपूर्ण चित्र नाही—हे एक सॅम्पल आहे, आणि सॅम्पल बायस्ड असू शकते. प्रत्येक शिफ्टसमोर विद्यार्थ्यांची संख्या दिलेली आहे. डेटा पहा, विचार करा आणि स्वतःचे निष्कर्ष काढा. <br><br><b>हे केवळ एक विश्लेषण आहे, 'अंदाज (prediction)' नाही.</b>";
+
+  html += `<div style="margin: 1rem 0; padding: 1.15rem; border-radius: var(--radius); background: rgba(239, 68, 68, 0.08); border: 1px solid rgba(239, 68, 68, 0.2);">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem;">
+      <strong style="color: var(--danger); font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.5px;">⚠️ Important Disclaimer</strong>
+      <div style="display: flex; gap: 0.5rem; background: rgba(0,0,0,0.2); padding: 0.25rem; border-radius: 6px;">
+        <button onclick="this.parentElement.parentElement.nextElementSibling.innerHTML = \`${enDisclaimer}\`; this.style.background='rgba(255,255,255,0.1)'; this.style.color='#fff'; this.nextElementSibling.style.background='none'; this.nextElementSibling.style.color='rgba(255,255,255,0.5)'; this.parentElement.previousElementSibling.innerText='⚠️ Important Disclaimer';" style="background: rgba(255,255,255,0.1); border: none; color: #fff; font-size: 0.75rem; font-weight: 600; padding: 0.25rem 0.6rem; border-radius: 4px; cursor: pointer; transition: 0.2s;">EN</button>
+        <button onclick="this.parentElement.parentElement.nextElementSibling.innerHTML = \`${mrDisclaimer}\`; this.style.background='rgba(255,255,255,0.1)'; this.style.color='#fff'; this.previousElementSibling.style.background='none'; this.previousElementSibling.style.color='rgba(255,255,255,0.5)'; this.parentElement.previousElementSibling.innerText='⚠️ महत्त्वाची सूचना';" style="background: none; border: none; color: rgba(255,255,255,0.5); font-size: 0.75rem; font-weight: 600; padding: 0.25rem 0.6rem; border-radius: 4px; cursor: pointer; transition: 0.2s;">मराठी</button>
+      </div>
+    </div>
+    <p style="font-size: 0.85rem; color: var(--text-muted); line-height: 1.6; margin: 0;">${enDisclaimer}</p>
   </div>`;
 
   // Toggle buttons

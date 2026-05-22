@@ -538,7 +538,7 @@ async function updatePredictorPrediction(seq, stream, attempt, shift, marks) {
     const rawPMax = rawPercentiles[Math.max(mappedIndex - 1, 0)];
 
     let margin = Math.max(Math.abs(percentile - rawPMin), Math.abs(rawPMax - percentile));
-    
+
     // If the data curves perfectly flatline (e.g. due to monotonicity smoothing),
     // enforce a minimum ±0.1 margin so the UI doesn't randomly disappear.
     if (margin < 0.1) {
