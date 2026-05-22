@@ -261,37 +261,37 @@ async function saveSubmissionToSupabase(qs, st, filename) {
   try {
     const p_hash = await generateAnswerHash(qs);
 
-
-
-    const { data, error } = await sb.rpc('record_submission', {
-      p_stream,
-      p_attempt,
-      p_shift,
-      p_score,
-      p_subjects,
-      p_hash
-    });
-
-    if (error) { console.error('Supabase RPC error:', error); return; }
-
-
-
-    // Check for application-level errors returned by the RPC
-    if (data && data.error) {
-      console.error('Submission rejected by server:', data.error);
-      return;
-    }
-
-    if (data.duplicate) {
-      console.log('Score already recorded (duplicate detected).');
-      return;
+    if (p_attempt === 'Attempt 1') {
+      console.log('Attempt 1 submissions are paused. Skipped recording hash and score.');
     } else {
-      console.log('Score saved!');
-    }
+      const { data, error } = await sb.rpc('record_submission', {
+        p_stream,
+        p_attempt,
+        p_shift,
+        p_score,
+        p_subjects,
+        p_hash
+      });
 
-    // Invalidate stale caches
-    _cacheInvalidate(`analysisRaw:${p_stream}:${p_attempt}`);
-    _cacheInvalidate('community');
+      if (error) { console.error('Supabase RPC error:', error); return; }
+
+      // Check for application-level errors returned by the RPC
+      if (data && data.error) {
+        console.error('Submission rejected by server:', data.error);
+        return;
+      }
+
+      if (data.duplicate) {
+        console.log('Score already recorded (duplicate detected).');
+        return;
+      } else {
+        console.log('Score saved!');
+      }
+
+      // Invalidate stale caches
+      _cacheInvalidate(`analysisRaw:${p_stream}:${p_attempt}`);
+      _cacheInvalidate('community');
+    }
 
     // Render brief strip directly from RPC result — no second network fetch
     const clamped = normalizeScore(p_score, p_stream);
