@@ -736,7 +736,25 @@ function renderShiftDrillDown(shiftName) {
 
 let _communityCharts = {};
 let _selectedCommunityStream = 'PCM';  // default stream filter
+let _selectedCommunityAttempt = 'Attempt 1'; // default attempt
 let _communityPayloadCache = null;     // stores fetched payload for re-render on stream switch
+
+function switchCommunityAttempt(attempt) {
+  if (attempt !== 'Attempt 1' && attempt !== 'Attempt 2') return;
+  if (_selectedCommunityAttempt === attempt) return;
+  _selectedCommunityAttempt = attempt;
+
+  const btn1 = document.getElementById('commAttemptBtn1');
+  const btn2 = document.getElementById('commAttemptBtn2');
+  if (btn1) btn1.classList.toggle('active', attempt === 'Attempt 1');
+  if (btn2) btn2.classList.toggle('active', attempt === 'Attempt 2');
+
+  // Need to re-fetch because the attempt changed
+  _communityPayloadCache = null;
+  document.getElementById('commLoading').style.display = 'flex';
+  document.getElementById('commContent').style.display = 'none';
+  fetchCommunityFullAnalysis();
+}
 
 function switchCommunityStream(stream) {
   if (stream !== 'PCM' && stream !== 'PCB') return;
@@ -747,6 +765,17 @@ function switchCommunityStream(stream) {
   const btnPCB = document.getElementById('commStreamBtnPCB');
   if (btnPCM) btnPCM.classList.toggle('active', stream === 'PCM');
   if (btnPCB) btnPCB.classList.toggle('active', stream === 'PCB');
+
+  const attemptSelector = document.getElementById('commAttemptSelector');
+  if (stream === 'PCB') {
+    if (attemptSelector) attemptSelector.style.display = 'flex';
+  } else {
+    if (attemptSelector) attemptSelector.style.display = 'none';
+    if (_selectedCommunityAttempt !== 'Attempt 1') {
+      switchCommunityAttempt('Attempt 1'); // Switch back to Attempt 1
+      return; // switchCommunityAttempt will trigger re-fetch
+    }
+  }
 
   // Re-render with cached data if available
   if (_communityPayloadCache) {
@@ -763,7 +792,7 @@ function fetchCommunityFullAnalysis() {
   }
 
   // Serve from cache if available
-  const cacheKey = 'community';
+  const cacheKey = `community:${_selectedCommunityAttempt}`;
   const cached = _cacheGet(cacheKey);
   if (cached) {
     _communityPayloadCache = cached;
@@ -772,16 +801,18 @@ function fetchCommunityFullAnalysis() {
   }
 
   Promise.all([
-    sb.from('shift_stats').select('*').eq('attempt', 'Attempt 1'),
+    sb.from('shift_stats').select('*').eq('stream', 'PCM').eq('attempt', 'Attempt 1'),
+    sb.from('shift_stats').select('*').eq('stream', 'PCB').eq('attempt', _selectedCommunityAttempt),
     sb.from('submission_summary').select('*')
-  ]).then(([statsRes, summaryRes]) => {
-    if (statsRes.error) { console.error('Supabase community stats error:', statsRes.error); return; }
+  ]).then(([pcmStatsRes, pcbStatsRes, summaryRes]) => {
+    if (pcmStatsRes.error) { console.error('Supabase community PCM stats error:', pcmStatsRes.error); return; }
+    if (pcbStatsRes.error) { console.error('Supabase community PCB stats error:', pcbStatsRes.error); return; }
 
     // Separate rows by stream into { shiftName: stat } maps
     const pcmStats = {};
     const pcbStats = {};
-    (statsRes.data || []).forEach(row => {
-      const obj = {
+    (pcmStatsRes.data || []).forEach(row => {
+      pcmStats[row.shift] = {
         count: row.count,
         sum: Number(row.total_score),
         highest: row.highest,
@@ -789,8 +820,16 @@ function fetchCommunityFullAnalysis() {
         scoreCounts: row.score_counts || {},
         subjectSums: row.subject_sums || {}
       };
-      if (row.stream === 'PCM') pcmStats[row.shift] = obj;
-      else pcbStats[row.shift] = obj;
+    });
+    (pcbStatsRes.data || []).forEach(row => {
+      pcbStats[row.shift] = {
+        count: row.count,
+        sum: Number(row.total_score),
+        highest: row.highest,
+        min: row.lowest,
+        scoreCounts: row.score_counts || {},
+        subjectSums: row.subject_sums || {}
+      };
     });
 
     // Reshape summary

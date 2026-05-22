@@ -133,6 +133,19 @@ function updateShifts() {
       `;
     }
     shiftContainer.style.display = 'block';
+  } else if (attempt === 'Attempt 2') {
+    if (examMode === 'PCB') {
+      shiftSelect.innerHTML = `
+        <option value="" disabled selected>Select shift...</option>
+        <option value="11 May - Morning">11 May - Morning</option>
+        <option value="11 May - Evening">11 May - Evening</option>
+        <option value="12 May - Morning">12 May - Morning</option>
+        <option value="12 May - Evening">12 May - Evening</option>
+      `;
+      shiftContainer.style.display = 'block';
+    } else {
+      shiftContainer.style.display = 'none';
+    }
   } else {
     shiftContainer.style.display = 'none';
   }
@@ -470,7 +483,7 @@ function validateSelection() {
     document.getElementById('selectorError').style.display = 'block';
     return false;
   }
-  if (selectedAttempt === 'Attempt 1') {
+  if (selectedAttempt === 'Attempt 1' || selectedAttempt === 'Attempt 2') {
     if (!selectedShift) {
       document.getElementById('selectorError').style.display = 'block';
       return false;
@@ -1282,7 +1295,18 @@ function showMismatchPopup(filename, qs, correctMode) {
     '25 April - Morning', '25 April - Evening',
     '26 April - Morning', '26 April - Evening'
   ];
-  const shifts = correctMode === 'PCM' ? PCM_SHIFTS : PCB_SHIFTS;
+  const PCB_SHIFTS_ATT2 = [
+    '11 May - Morning', '11 May - Evening',
+    '12 May - Morning', '12 May - Evening'
+  ];
+  
+  let shifts;
+  if (correctMode === 'PCM') {
+    shifts = PCM_SHIFTS;
+  } else {
+    shifts = selectedAttempt === 'Attempt 2' ? PCB_SHIFTS_ATT2 : PCB_SHIFTS;
+  }
+  
   shiftSelect.innerHTML = '<option value="" disabled selected>Select shift...</option>' +
     shifts.map(s => `<option value="${s}">${s}</option>`).join('');
   document.getElementById('mismatchStreamLabel').textContent = correctMode;
@@ -1310,9 +1334,8 @@ function mismatchSwitchAndContinue() {
   document.getElementById('btnPCM').classList.toggle('active', correctMode === 'PCM');
   document.getElementById('btnPCB').classList.toggle('active', correctMode === 'PCB');
 
-  // Set the correct attempt and shift from the popup selection
-  selectedAttempt = 'Attempt 1';
-  selectedShift   = mismatchShift;
+  // Set the correct shift from the popup selection (attempt is preserved)
+  selectedShift = mismatchShift;
 
   // Reassign the third subject (Biology ↔ Mathematics) and recalculate marks.
   // During parsing, the 3rd subject was assigned based on the WRONG examMode,

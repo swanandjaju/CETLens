@@ -2951,9 +2951,9 @@ textarea.neu-input {
   background: repeating-linear-gradient(90deg, #ef4444 0 18px, #7f1d1d 18px 36px);
 }
 .predictor-warning-modal__icon {
-  width: 72px;
-  height: 72px;
-  border-radius: 18px;
+  width: 52px;
+  height: 52px;
+  border-radius: 14px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -2961,9 +2961,9 @@ textarea.neu-input {
   background: #b91c1c;
   border: 1px solid #f87171;
   box-shadow: 0 12px 35px rgba(239,68,68,.32);
-  margin-bottom: 1.2rem;
+  margin-bottom: .8rem;
 }
-.predictor-warning-modal__icon svg { width: 46px; height: 46px; }
+.predictor-warning-modal__icon svg { width: 32px; height: 32px; }
 .predictor-warning-modal__kicker {
   font-size: 10px;
   font-weight: 900;
@@ -2973,11 +2973,11 @@ textarea.neu-input {
   margin-bottom: .45rem;
 }
 .predictor-warning-modal__title {
-  font-size: 28px;
-  line-height: 1.05;
+  font-size: 24px;
+  line-height: 1.1;
   font-weight: 900;
   color: var(--text);
-  margin-bottom: .85rem;
+  margin-bottom: .6rem;
 }
 .predictor-warning-modal__lead {
   font-size: 14px;
@@ -3157,7 +3157,7 @@ textarea.neu-input {
   .predictor-cta-banner { align-items: flex-start; padding: 1rem; }
   .predictor-cta__arrow { display: none; }
   .predictor-warning-modal { padding: 1.55rem; }
-  .predictor-warning-modal__title { font-size: 23px; }
+  .predictor-warning-modal__title { font-size: 20px; }
   .predictor-warning-modal__actions { flex-direction: column; }
   .predictor-warning-modal__actions button { width: 100%; }
   .predictor-layout { grid-template-columns: 1fr; }
@@ -3648,6 +3648,33 @@ textarea.neu-input {
 }
 #commStreamBtnPCB.active .comm-stream-btn__text {
   color: #60a5fa;
+}
+
+/* ─── Community Attempt Toggle ─── */
+.comm-attempt-btn {
+  padding: 10px 20px;
+  font-family: var(--font-display, var(--font-mono));
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  color: var(--pewter);
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  cursor: pointer;
+  transition: all .2s ease;
+  white-space: nowrap;
+}
+.comm-attempt-btn:hover {
+  border-color: var(--pewter);
+  color: var(--text);
+}
+.comm-attempt-btn.active {
+  background: rgba(255, 71, 87, 0.1);
+  border-color: var(--accent);
+  color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent), 0 2px 8px rgba(255,71,87,.1);
 }
 
 /* ─── Shift Difficulty Analysis ─── */
