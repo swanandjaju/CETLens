@@ -137,10 +137,10 @@ function updateShifts() {
     if (examMode === 'PCB') {
       shiftSelect.innerHTML = `
         <option value="" disabled selected>Select shift...</option>
+        <option value="10 May - Morning">10 May - Morning</option>
+        <option value="10 May - Evening">10 May - Evening</option>
         <option value="11 May - Morning">11 May - Morning</option>
         <option value="11 May - Evening">11 May - Evening</option>
-        <option value="12 May - Morning">12 May - Morning</option>
-        <option value="12 May - Evening">12 May - Evening</option>
       `;
       shiftContainer.style.display = 'block';
     } else {
@@ -1296,8 +1296,8 @@ function showMismatchPopup(filename, qs, correctMode) {
     '26 April - Morning', '26 April - Evening'
   ];
   const PCB_SHIFTS_ATT2 = [
-    '11 May - Morning', '11 May - Evening',
-    '12 May - Morning', '12 May - Evening'
+    '10 May - Morning', '10 May - Evening',
+    '11 May - Morning', '11 May - Evening'
   ];
   
   let shifts;

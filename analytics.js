@@ -880,10 +880,6 @@ function _renderCommunityData({ pcmStats, pcbStats, summary }) {
   const pcbShiftMap = buildShiftMapFromStats(pcbStats || {});
   Object.values(pcmShiftMap).forEach(s => { pcmTotal += s.count; });
   Object.values(pcbShiftMap).forEach(s => { pcbTotal += s.count; });
-  if (summary && summary.streams) {
-    pcmTotal = summary.streams.PCM || pcmTotal;
-    pcbTotal = summary.streams.PCB || pcbTotal;
-  }
   const streamTotal = stream === 'PCM' ? pcmTotal : pcbTotal;
 
   // Scores for the selected stream only
