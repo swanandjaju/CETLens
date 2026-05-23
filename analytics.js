@@ -279,8 +279,7 @@ async function saveSubmissionToSupabase(qs, st, filename, signature) {
       // Check for application-level errors returned by the RPC
       if (data && data.error) {
         if (data.error === 'wrong_shift_detected') {
-          // Show the wrong-shift popup with auto-correct option
-          _showWrongShiftPopup(data.correct_shift || null, qs, st, filename, signature);
+          console.warn('Silent rejection: Shift signature mismatch.', data.correct_shift ? `(True shift: ${data.correct_shift})` : '');
           return;
         }
         console.error('Submission rejected by server:', data.error);
@@ -315,63 +314,6 @@ async function saveSubmissionToSupabase(qs, st, filename, signature) {
   } catch (err) {
     console.error('Supabase save error:', err);
   }
-}
-
-// ── Wrong Shift Detected Popup ──────────────────────────────────────────────
-// Shows a popup when the database detects the student selected the wrong shift.
-// If the correct shift is known, offers to auto-correct and re-submit.
-function _showWrongShiftPopup(correctShift, qs, st, filename, signature) {
-  const overlay = document.getElementById('wrongShiftOverlay');
-  if (!overlay) return;
-
-  const msgEl    = document.getElementById('wrongShiftMsg');
-  const badgeEl  = document.getElementById('wrongShiftBadge');
-  const switchBtn = document.getElementById('wrongShiftSwitchBtn');
-  const reuploadBtn = document.getElementById('wrongShiftReuploadBtn');
-
-  if (correctShift) {
-    msgEl.textContent =
-      `The questions in your response sheet actually belong to "${correctShift}", but you selected "${selectedShift}". ` +
-      `Would you like to switch to the correct shift and save your score?`;
-    badgeEl.textContent = `Detected: ${correctShift}  ·  Selected: ${selectedShift}`;
-    switchBtn.textContent = `Switch to ${correctShift} & Continue →`;
-    switchBtn.style.display = '';
-    switchBtn.onclick = function () {
-      overlay.classList.remove('open');
-      // Auto-correct the shift
-      selectedShift = correctShift;
-      // Update the shift dropdown if visible
-      const shiftSelect = document.getElementById('shiftSelect');
-      if (shiftSelect) {
-        // Add the correct shift option if it doesn't exist
-        let found = false;
-        for (const opt of shiftSelect.options) {
-          if (opt.value === correctShift) { found = true; break; }
-        }
-        if (!found) {
-          const newOpt = document.createElement('option');
-          newOpt.value = correctShift;
-          newOpt.textContent = correctShift;
-          shiftSelect.appendChild(newOpt);
-        }
-        shiftSelect.value = correctShift;
-      }
-      // Re-submit with the corrected shift
-      saveSubmissionToSupabase(qs, st, filename, signature);
-    };
-  } else {
-    msgEl.textContent =
-      `The questions in your response sheet do not match the shift you selected ("${selectedShift}"). ` +
-      `Please re-upload and select the correct shift.`;
-    badgeEl.textContent = `Selected shift: ${selectedShift}  ·  Questions don't match`;
-    switchBtn.style.display = 'none';
-  }
-
-  reuploadBtn.onclick = function () {
-    overlay.classList.remove('open');
-  };
-
-  overlay.classList.add('open');
 }
 
 // Backward-compatible alias — script.js calls saveSubmissionToFirebase()
