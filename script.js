@@ -1743,6 +1743,7 @@ function setStep(label, sub) {
 }
 
 function showDash(qs) {
+  if (window._blockShowDash) return;
   document.getElementById('loadingScreen').style.display = 'none';
   document.getElementById('dashboard').style.display     = 'flex';
   const predictor = document.getElementById('predictorScreen');
@@ -1828,6 +1829,7 @@ function showDashRestored(qs) {
 }
 
 function resetApp() {
+  window._blockShowDash = false;
   _isProcessing = false;
   questions = []; filteredQs = []; currentQ = 0;
   _pendingQs = null; _pendingFile = '';

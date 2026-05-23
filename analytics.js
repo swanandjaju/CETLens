@@ -294,14 +294,28 @@ async function saveSubmissionToSupabase(qs, st, filename, signature) {
       // Check for application-level errors returned by the RPC
       if (data && data.error) {
         if (data.error === 'wrong_shift_detected') {
+          window._blockShowDash = true; // Prevent race condition with showDash() timeout
           if (data.correct_shift && !_isAutoCorrecting) {
             _showWrongShiftPopup(data.correct_shift, qs, st, filename, signature, data.correct_stream || null, data.correct_attempt || null);
           } else {
             console.warn('Silent rejection: Shift signature mismatch.', data.correct_shift ? `(True shift: ${data.correct_shift})` : '');
+            
+            // Show a generic mismatch popup since we don't know the exact shift
+            document.getElementById('mismatchOverlay').querySelector('.mismatch-title').textContent = "Shift Mismatch Detected";
+            document.getElementById('mismatchMsg').textContent = "This response sheet does not match the shift you selected. Please double check and select the correct attempt/shift, then re-upload.";
+            document.getElementById('mismatchBadge').textContent = "Unrecognized Response Sheet";
+            document.getElementById('mismatchOverlay').classList.add('open');
+            
+            // Hide the dashboard and send them back to the upload screen
+            document.getElementById('dashboard').style.display = 'none';
+            document.getElementById('uploadScreen').style.display = 'flex';
+            document.body.classList.add('upload-active');
+            document.getElementById('uploadThemeBtn').style.display = 'flex';
           }
           return;
         }
         console.error('Submission rejected by server:', data.error);
+        window._blockShowDash = true;
         return;
       }
 
