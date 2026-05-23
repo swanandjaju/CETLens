@@ -245,6 +245,8 @@ async function generateAnswerHash(qs) {
 // The `submissions` collection write has been removed. All analytics rely on
 // the aggregated `stats` node, so raw submissions were redundant storage.
 
+let _isAutoCorrecting = false;
+
 async function saveSubmissionToSupabase(qs, st, filename, signature) {
   if (window._isOldSheet) return;
   const sb = window._supabaseClient;
@@ -260,6 +262,19 @@ async function saveSubmissionToSupabase(qs, st, filename, signature) {
 
   try {
     const p_hash = await generateAnswerHash(qs);
+
+    // ── GLOBAL SIGNATURE CHECK (runs before Attempt 1 freeze) ────────────
+    // If the user selected the wrong stream/attempt/shift, we can detect it
+    // here by calling the identify_sheet RPC which searches ALL locked signatures.
+    if (signature && signature.length > 0 && !_isAutoCorrecting) {
+      const { data: locked, error: sigErr } = await sb.rpc('identify_sheet', { p_signature: signature });
+
+      if (!sigErr && locked && (locked.stream !== p_stream || locked.attempt !== p_attempt || locked.shift !== p_shift)) {
+        // This sheet belongs somewhere else entirely!
+        _showWrongShiftPopup(locked.shift, qs, st, filename, signature, locked.stream, locked.attempt);
+        return;
+      }
+    }
 
     if (p_attempt === 'Attempt 1') {
       console.log('Attempt 1 submissions are paused. Skipped recording hash and score.');
@@ -279,7 +294,11 @@ async function saveSubmissionToSupabase(qs, st, filename, signature) {
       // Check for application-level errors returned by the RPC
       if (data && data.error) {
         if (data.error === 'wrong_shift_detected') {
-          console.warn('Silent rejection: Shift signature mismatch.', data.correct_shift ? `(True shift: ${data.correct_shift})` : '');
+          if (data.correct_shift && !_isAutoCorrecting) {
+            _showWrongShiftPopup(data.correct_shift, qs, st, filename, signature, data.correct_stream || null, data.correct_attempt || null);
+          } else {
+            console.warn('Silent rejection: Shift signature mismatch.', data.correct_shift ? `(True shift: ${data.correct_shift})` : '');
+          }
           return;
         }
         console.error('Submission rejected by server:', data.error);
@@ -316,6 +335,120 @@ async function saveSubmissionToSupabase(qs, st, filename, signature) {
   }
 }
 
+// ── Auto-Detect Shift Popup ─────────────────────────────────────────────────
+// Shows a popup when the system detects the student selected the wrong
+// stream/attempt/shift. Offers a one-click button to auto-correct everything
+// and re-submit to the correct location.
+function _showWrongShiftPopup(correctShift, qs, st, filename, signature, correctStream, correctAttempt) {
+  const overlay = document.getElementById('wrongShiftOverlay');
+  if (!overlay) return;
+
+  // Fall back to current values if not provided
+  const targetStream  = correctStream  || (typeof examMode !== 'undefined' ? examMode : 'PCM');
+  const targetAttempt = correctAttempt || (typeof selectedAttempt !== 'undefined' ? selectedAttempt : '');
+  const targetShift   = correctShift;
+
+  const currentStream  = typeof examMode !== 'undefined' ? examMode : 'PCM';
+  const currentAttempt = typeof selectedAttempt !== 'undefined' ? selectedAttempt : '';
+  const currentShift   = typeof selectedShift !== 'undefined' ? selectedShift : '';
+
+  // Build a human-readable label for what was detected
+  const detectedLabel = `${targetStream} ${targetAttempt} — ${targetShift}`;
+  const selectedLabel = `${currentStream} ${currentAttempt} — ${currentShift || '(no shift)'}`;
+
+  const msgEl     = document.getElementById('wrongShiftMsg');
+  const badgeEl   = document.getElementById('wrongShiftBadge');
+  const switchBtn = document.getElementById('wrongShiftSwitchBtn');
+
+  msgEl.textContent =
+    `We mathematically analyzed your response sheet and detected that it belongs to "${detectedLabel}". ` +
+    `Don't worry — click below and we'll route your data to the correct place automatically!`;
+  badgeEl.textContent = `Auto-Detected: ${detectedLabel}  ·  You selected: ${selectedLabel}`;
+  switchBtn.textContent = `Move to ${detectedLabel} →`;
+
+  switchBtn.onclick = function () {
+    overlay.classList.remove('open');
+
+    // ── Auto-correct stream if needed ──
+    if (targetStream !== currentStream) {
+      examMode = targetStream;
+      const btnPCM = document.getElementById('btnPCM');
+      const btnPCB = document.getElementById('btnPCB');
+      if (btnPCM) btnPCM.classList.toggle('active', targetStream === 'PCM');
+      if (btnPCB) btnPCB.classList.toggle('active', targetStream === 'PCB');
+
+      // Re-assign 3rd subject (Biology ↔ Mathematics) and recalculate marks
+      const oldSubject = targetStream === 'PCM' ? 'Biology' : 'Mathematics';
+      const newSubject = targetStream === 'PCM' ? 'Mathematics' : 'Biology';
+      let newSubjectNum = 0;
+      qs.forEach(q => {
+        if (q.section === oldSubject) {
+          q.section = newSubject;
+          newSubjectNum++;
+          q.sectionNum = newSubjectNum;
+        }
+        q.marks = q.status === 'correct'
+          ? (targetStream === 'PCM' && q.section === 'Mathematics' ? 2 : 1)
+          : 0;
+      });
+      // Recompute stats with correct scoring
+      st = computeStats(qs);
+    }
+
+    // ── Auto-correct attempt ──
+    selectedAttempt = targetAttempt;
+
+    // ── Auto-correct shift ──
+    selectedShift = targetShift;
+
+    // Update the shift dropdown if visible
+    const shiftSelect = document.getElementById('shiftSelect');
+    if (shiftSelect) {
+      let found = false;
+      for (const opt of shiftSelect.options) {
+        if (opt.value === targetShift) { found = true; break; }
+      }
+      if (!found) {
+        const newOpt = document.createElement('option');
+        newOpt.value = targetShift;
+        newOpt.textContent = targetShift;
+        shiftSelect.appendChild(newOpt);
+      }
+      shiftSelect.value = targetShift;
+    }
+
+    // Update the cached firebase data
+    if (window._lastFirebaseData) {
+      window._lastFirebaseData.stream = targetStream;
+      window._lastFirebaseData.attempt = targetAttempt;
+      window._lastFirebaseData.shift = targetShift;
+    }
+
+    // Re-submit with the corrected everything (with safety flag)
+    _isAutoCorrecting = true;
+    saveSubmissionToSupabase(qs, st, filename, signature).then(() => {
+      // Explicitly refresh the brief strip with correct data
+      if (typeof fetchAndRenderBriefStrip === 'function') {
+        fetchAndRenderBriefStrip(targetStream, targetAttempt, targetShift, st.earned, st.subStats || []);
+      }
+      // Re-save session so restore works correctly
+      if (typeof saveSession === 'function') {
+        const fname = document.getElementById('topbarFile')
+          ? document.getElementById('topbarFile').textContent : filename;
+        saveSession(fname, qs);
+      }
+      // Re-render the dashboard with correct stream/marks
+      if (typeof renderDashboard === 'function') {
+        renderDashboard(qs);
+      }
+    }).finally(() => {
+      _isAutoCorrecting = false;
+    });
+  };
+
+  overlay.classList.add('open');
+}
+
 // Backward-compatible alias — script.js calls saveSubmissionToFirebase()
 const saveSubmissionToFirebase = saveSubmissionToSupabase;
 
@@ -324,6 +457,7 @@ const saveSubmissionToFirebase = saveSubmissionToSupabase;
 // submissions collection (which could be thousands of records at scale).
 
 function fetchAndRenderBriefStrip(stream, attempt, shift, userScore, userSubStats) {
+  if (window._isOldSheet) return;
   const sb = window._supabaseClient;
   if (!sb) return;
   return sb.from('shift_stats').select('*')

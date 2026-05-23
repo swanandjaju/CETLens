@@ -675,63 +675,14 @@ function parsePortalText(text) {
 }
 
 
-// pipe-delimited parser
-function parseRawData(raw) {
-  const lines = raw.trim().split('\n');
-  const qs = [];
-  let physN = 0, chemN = 0, mathN = 0, bioN = 0;
 
-  lines.forEach(line => {
-    const parts = line.split('|');
-    if (parts.length < 8) return;
-    let [qid, section, text, ...rest] = parts;
-    const secLower = section.trim().toLowerCase();
-    if (secLower === 'physics') section = 'Physics';
-    else if (secLower === 'chemistry') section = 'Chemistry';
-    else if (secLower === 'mathematics') section = 'Mathematics';
-    else if (secLower === 'biology') section = 'Biology';
-    const correctOptId   = rest[rest.length - 2];
-    const candidateOptId = rest[rest.length - 1].trim();
-    const optionParts    = rest.slice(0, rest.length - 2);
-    const options = optionParts.map((op, i) => {
-      const ci = op.indexOf(':');
-      return { id: op.substring(0, ci), text: op.substring(ci + 1), label: ['A','B','C','D'][i] };
-    });
-
-    let sectionNum;
-    if      (section === 'Physics')   { physN++; sectionNum = physN; }
-    else if (section === 'Chemistry') { chemN++; sectionNum = chemN; }
-    else if (section === 'Biology')   { bioN++;  sectionNum = bioN;  }
-    else                              { mathN++; sectionNum = mathN; }
-
-    const correctOpt   = options.find(o => o.id === correctOptId);
-    const candidateOpt = candidateOptId === 'null' ? null : options.find(o => o.id === candidateOptId);
-
-    let status;
-    if (!candidateOpt)                                           status = 'unattempted';
-    else if (candidateOpt && correctOpt && candidateOpt.id === correctOpt.id) status = 'correct';
-    else                                                         status = 'incorrect';
-
-    const marks = status === 'correct' ? (examMode === 'PCM' && section === 'Mathematics' ? 2 : 1) : 0;
-
-    qs.push({
-      id: qs.length + 1, qid: qid.trim(), section, sectionNum, text,
-      correctLabel:   correctOpt   ? correctOpt.label   : null,
-      candidateLabel: candidateOpt ? candidateOpt.label : null,
-      correctOptId,
-      candidateOptId: candidateOptId === 'null' ? null : candidateOptId,
-      status, marks
-    });
-  });
-  return qs;
-}
 
 
 // improved error messages
 function classifyUploadError(file, err) {
   const name = file.name.toLowerCase();
-  if (!name.match(/\.(html?|mhtml?|mht|pdf|txt)$/)) {
-    return `Unsupported file type: "${file.name}".\n\nPlease upload one of:\n• .html / .htm — MHT-CET portal response sheet\n• .mhtml / .mht — MHTML saved page\n• .pdf — PDF version of the portal sheet\n• .txt — Pipe-delimited export`;
+  if (!name.match(/\.(html?|mhtml?|mht|pdf)$/)) {
+    return `Unsupported file type: "${file.name}".\n\nPlease upload one of:\n• .html / .htm — MHT-CET portal response sheet\n• .mhtml / .mht — MHTML saved page\n• .pdf — PDF version of the portal sheet`;
   }
   if (name.endsWith('.pdf') && err.message.includes('No questions')) {
     return `No questions found in your PDF.\n\nPossible reasons:\n• The PDF may be scanned (image-only), try the HTML version instead\n• This doesn't appear to be an MHT-CET Objection Portal response sheet\n• The PDF may be password-protected`;
@@ -739,9 +690,7 @@ function classifyUploadError(file, err) {
   if ((name.endsWith('.html') || name.endsWith('.htm') || name.endsWith('.mhtml') || name.endsWith('.mht')) && err.message.includes('No questions')) {
     return `No questions found in your HTML/MHTML file.\n\nPossible reasons:\n• Make sure you saved the full page from the MHT-CET Objection Tracker Portal\n• The page may have been saved incorrectly — try "Save As > Webpage, Complete" or MHTML format`;
   }
-  if (name.endsWith('.txt') && err.message.includes('pipe')) {
-    return `Could not read the .txt file.\n\nExpected pipe-delimited format:\nqid|section|text|optId:text|...|correctOptId|candidateOptId`;
-  }
+
   return '❌ ' + (err.message || 'An unknown error occurred.');
 }
 
@@ -757,18 +706,11 @@ async function processFile(file) {
 
   const name  = file.name.toLowerCase();
   const isPDF = file.type === 'application/pdf' || name.endsWith('.pdf');
-  const isTXT = name.endsWith('.txt');
   const isMHTML = name.endsWith('.mhtml') || name.endsWith('.mht');
 
   try {
     if (isPDF) {
       await processPDF(file);
-    } else if (isTXT) {
-      setStep('Reading file…', '');
-      const text = await file.text();
-      const qs   = parseRawData(text);
-      if (!qs.length) throw new Error('No pipe-delimited rows found in the .txt file.');
-      finish(file.name, qs);
     } else {
       // HTML or MHTML
       let htmlContent;
@@ -792,13 +734,8 @@ async function processFile(file) {
       const qs   = parsePortalText(text);
       if (!qs.length) throw new Error('No questions found.\n\nMake sure you uploaded the MHT-CET Objection Tracker Portal response sheet.');
 
-      // Extract question images from the HTML/MHTML content
-      setStep('Rendering question images…', 'This may take a moment');
-      try {
-        await extractHTMLQuestionImages(htmlContent, mhtmlImages, qs);
-      } catch (imgErr) {
-        console.warn('HTML image extraction failed (non-fatal):', imgErr);
-      }
+      // Image extraction for HTML is disabled as it produces blank squares.
+      // The UI will naturally fallback to the 'Please upload PDF' placeholder.
 
       finish(file.name, qs);
     }
@@ -890,195 +827,6 @@ function parseMHTML(raw) {
 
   return result;
 }
-
-/**
- * extractHTMLQuestionImages — Render the portal HTML in a hidden iframe,
- * find "Correct Option" text boundaries, and crop individual question images.
- *
- * Key design: html2canvas is injected as a <script> tag INSIDE the iframe.
- * This is critical because:
- * 1) html2canvas from the parent window cannot render iframe content
- * 2) Injecting HTML into a div in the parent page causes parent CSS
- *    (dark theme) to bleed in and make text invisible
- */
-async function extractHTMLQuestionImages(htmlContent, mhtmlImages, qs) {
-  if (!qs || qs.length === 0) return;
-
-  // Replace MHTML image references with data URIs
-  let processedHtml = htmlContent;
-  if (mhtmlImages && Object.keys(mhtmlImages).length > 0) {
-    for (const [ref, dataUri] of Object.entries(mhtmlImages)) {
-      // Escape special regex characters in the reference URL
-      const escaped = ref.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-      processedHtml = processedHtml.replace(new RegExp(escaped, 'g'), dataUri);
-    }
-  }
-
-  return new Promise((resolve, reject) => {
-    const iframe = document.createElement('iframe');
-    iframe.style.cssText = 'position:fixed;left:-9999px;top:0;width:1200px;height:800px;border:none;visibility:hidden;';
-    document.body.appendChild(iframe);
-
-    const cleanup = () => {
-      try { document.body.removeChild(iframe); } catch (e) {}
-    };
-
-    // Set a timeout to prevent infinite hangs
-    const timeout = setTimeout(() => {
-      cleanup();
-      reject(new Error('HTML image extraction timed out'));
-    }, 30000);
-
-    try {
-      const iframeDoc = iframe.contentDocument || iframe.contentWindow.document;
-      iframeDoc.open();
-      iframeDoc.write(processedHtml);
-      iframeDoc.close();
-
-      // Wait for document and images to load
-      const waitForLoad = () => new Promise((res) => {
-        const imgs = iframeDoc.querySelectorAll('img');
-        let pending = 0;
-        imgs.forEach(img => {
-          if (!img.complete) {
-            pending++;
-            img.onload = img.onerror = () => { pending--; if (pending <= 0) res(); };
-          }
-        });
-        if (pending === 0) {
-          // Give a brief delay for rendering
-          setTimeout(res, 500);
-        }
-      });
-
-      waitForLoad().then(() => {
-        // Walk the iframe DOM to find all "Correct Option" text nodes as boundaries
-        const boundaries = [];
-        const walker = iframeDoc.createTreeWalker(
-          iframeDoc.body,
-          NodeFilter.SHOW_TEXT,
-          null,
-          false
-        );
-        let node;
-        while ((node = walker.nextNode())) {
-          if (/Correct\s+Option/i.test(node.textContent)) {
-            // Find the element containing this text
-            let el = node.parentElement;
-            if (el) {
-              const rect = el.getBoundingClientRect();
-              if (rect.height > 0) {
-                boundaries.push({
-                  element: el,
-                  y: rect.top + iframeDoc.documentElement.scrollTop
-                });
-              }
-            }
-          }
-        }
-
-        if (boundaries.length === 0) {
-          clearTimeout(timeout);
-          cleanup();
-          resolve();
-          return;
-        }
-
-        // Sort boundaries by Y position
-        boundaries.sort((a, b) => a.y - b.y);
-
-        // Inject html2canvas into the iframe
-        const h2cScript = iframeDoc.createElement('script');
-        h2cScript.src = 'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js';
-        h2cScript.onload = async () => {
-          try {
-            const iframeH2C = iframe.contentWindow.html2canvas;
-            if (!iframeH2C) {
-              clearTimeout(timeout);
-              cleanup();
-              resolve();
-              return;
-            }
-
-            // Render the full scrollable page
-            const fullCanvas = await iframeH2C(iframeDoc.body, {
-              scale: 1.5,
-              useCORS: true,
-              allowTaint: true,
-              logging: false,
-              backgroundColor: '#ffffff',
-              width: iframeDoc.body.scrollWidth,
-              height: iframeDoc.body.scrollHeight,
-              windowWidth: iframeDoc.body.scrollWidth,
-              windowHeight: iframeDoc.body.scrollHeight
-            });
-
-            // Scale factor between DOM coords and canvas pixels
-            const scaleX = fullCanvas.width / iframeDoc.body.scrollWidth;
-            const scaleY = fullCanvas.height / iframeDoc.body.scrollHeight;
-
-            // Crop individual question images between consecutive boundaries
-            for (let i = 0; i < boundaries.length && i < qs.length; i++) {
-              const endY = boundaries[i].y;
-              const startY = i > 0 ? boundaries[i - 1].y : 0;
-
-              const cropTop = Math.round(startY * scaleY);
-              const cropBottom = Math.round(endY * scaleY) + Math.round(20 * scaleY);
-              const cropH = Math.max(1, Math.min(cropBottom, fullCanvas.height) - cropTop);
-
-              if (cropH <= 0) continue;
-
-              const qCanvas = document.createElement('canvas');
-              qCanvas.width = fullCanvas.width;
-              qCanvas.height = cropH;
-              const ctx = qCanvas.getContext('2d');
-              ctx.fillStyle = '#fff';
-              ctx.fillRect(0, 0, qCanvas.width, cropH);
-              ctx.drawImage(fullCanvas,
-                0, cropTop, fullCanvas.width, cropH,
-                0, 0, fullCanvas.width, cropH
-              );
-
-              questionImages[qs[i].id] = qCanvas.toDataURL('image/jpeg', 0.85);
-              qCanvas.width = 0;
-              qCanvas.height = 0;
-            }
-
-            // Free memory
-            fullCanvas.width = 0;
-            fullCanvas.height = 0;
-
-            clearTimeout(timeout);
-            cleanup();
-            resolve();
-          } catch (renderErr) {
-            clearTimeout(timeout);
-            cleanup();
-            reject(renderErr);
-          }
-        };
-
-        h2cScript.onerror = () => {
-          clearTimeout(timeout);
-          cleanup();
-          reject(new Error('Failed to load html2canvas in iframe'));
-        };
-
-        iframeDoc.head.appendChild(h2cScript);
-      });
-    } catch (e) {
-      clearTimeout(timeout);
-      cleanup();
-      reject(e);
-    }
-  });
-}
-
-// Legacy stub kept for compatibility
-function extractHTMLImages(htmlText) {
-  // No-op — replaced by extractHTMLQuestionImages
-}
-
 
 // pdf processing
 async function processPDF(file) {
@@ -1225,14 +973,120 @@ function finish(filename, qs) {
   const PCM_COUNT = 150;
   const PCB_COUNT = 200;
 
+  // ── Old sheet check: show warning popup for 2025 response sheets ──
+  if (window._isOldSheet) {
+    document.getElementById('loadingScreen').style.display = 'none';
+    const overlay = document.getElementById('oldSheetOverlay');
+    if (overlay) {
+      document.getElementById('oldSheetContinueBtn').onclick = function () {
+        overlay.classList.remove('open');
+        // Proceed with local-only analysis (saveSubmissionToSupabase will skip due to _isOldSheet)
+        _finishInner(filename, qs, PCM_COUNT, PCB_COUNT);
+      };
+      overlay.classList.add('open');
+      return;
+    }
+  }
+
+  _finishInner(filename, qs, PCM_COUNT, PCB_COUNT);
+}
+
+function oldSheetReupload() {
+  document.getElementById('oldSheetOverlay').classList.remove('open');
+  resetApp();
+}
+
+function _finishInner(filename, qs, PCM_COUNT, PCB_COUNT) {
+
   if (qs.length === PCM_COUNT || qs.length === PCB_COUNT) {
     // Valid count — check if the stream matches
     const detectedStream = qs.length === PCB_COUNT ? 'PCB' : 'PCM';
-    if (detectedStream !== examMode) {
-      showMismatchPopup(filename, qs, detectedStream);
-      return;
+
+    // ── Build signature early so we can do a global lookup ──
+    const physicsQids = qs
+      .filter(q => q.section === 'Physics')
+      .map(q => q.qid.trim())
+      .sort();
+    const signature = physicsQids.length > 0 ? physicsQids.join(',') : '';
+
+    // ── Global signature lookup: show auto-detect popup if we know the answer ──
+    const sb = window._supabaseClient;
+    if (sb && signature.length > 0) {
+      sb.rpc('identify_sheet', { p_signature: signature })
+        .then(({ data: locked, error }) => {
+          if (!error && locked && (locked.stream !== examMode || locked.attempt !== selectedAttempt || locked.shift !== selectedShift)) {
+            // We know exactly where this sheet belongs — show the auto-detect popup!
+            const detectedLabel = `${locked.stream} ${locked.attempt} — ${locked.shift}`;
+            const selectedLabel = `${examMode} ${selectedAttempt} — ${selectedShift || '(no shift)'}`;
+
+            document.getElementById('loadingScreen').style.display = 'none';
+
+            const overlay   = document.getElementById('wrongShiftOverlay');
+            const msgEl     = document.getElementById('wrongShiftMsg');
+            const badgeEl   = document.getElementById('wrongShiftBadge');
+            const switchBtn = document.getElementById('wrongShiftSwitchBtn');
+
+            msgEl.textContent =
+              `We mathematically analyzed your response sheet and detected that it belongs to "${detectedLabel}". ` +
+              `Don't worry — click below and we'll take you to the correct dashboard automatically!`;
+            badgeEl.textContent = `Auto-Detected: ${detectedLabel}  ·  You selected: ${selectedLabel}`;
+            switchBtn.textContent = `Move to ${detectedLabel} →`;
+
+            switchBtn.onclick = function () {
+              overlay.classList.remove('open');
+              // Auto-correct stream if needed (re-assign subjects + marks)
+              if (locked.stream !== examMode) {
+                examMode = locked.stream;
+                document.getElementById('btnPCM').classList.toggle('active', locked.stream === 'PCM');
+                document.getElementById('btnPCB').classList.toggle('active', locked.stream === 'PCB');
+                const oldSubject = locked.stream === 'PCM' ? 'Biology' : 'Mathematics';
+                const newSubject = locked.stream === 'PCM' ? 'Mathematics' : 'Biology';
+                let newSubjectNum = 0;
+                qs.forEach(q => {
+                  if (q.section === oldSubject) {
+                    q.section = newSubject;
+                    newSubjectNum++;
+                    q.sectionNum = newSubjectNum;
+                  }
+                  q.marks = q.status === 'correct'
+                    ? (locked.stream === 'PCM' && q.section === 'Mathematics' ? 2 : 1)
+                    : 0;
+                });
+              }
+              // Auto-correct attempt and shift
+              selectedAttempt = locked.attempt;
+              selectedShift   = locked.shift;
+              // Load dashboard — this triggers submission + brief strip
+              loadDash(filename, qs);
+            };
+
+            overlay.classList.add('open');
+          } else {
+            // No locked signature found, or signature matches current selection.
+            // Fall back to the normal mismatch popup if stream is wrong.
+            if (detectedStream !== examMode) {
+              showMismatchPopup(filename, qs, detectedStream);
+            } else {
+              loadDash(filename, qs);
+            }
+          }
+        })
+        .catch(() => {
+          // RPC failed — fall back to normal flow
+          if (detectedStream !== examMode) {
+            showMismatchPopup(filename, qs, detectedStream);
+          } else {
+            loadDash(filename, qs);
+          }
+        });
+    } else {
+      // No Supabase client or no signature — fall back to normal flow
+      if (detectedStream !== examMode) {
+        showMismatchPopup(filename, qs, detectedStream);
+      } else {
+        loadDash(filename, qs);
+      }
     }
-    loadDash(filename, qs);
   } else {
     // Invalid count — incomplete download
     showIncompletePopup(filename, qs);
@@ -1277,50 +1131,10 @@ function showMismatchPopup(filename, qs, correctMode) {
   _pendingQs   = qs;
   _pendingFile = filename;
   const wrongMode    = examMode;
-  const correctCount = correctMode === 'PCM' ? 150 : 200;
   document.getElementById('mismatchMsg').textContent =
-    `You selected ${wrongMode} but this response sheet contains ${qs.length} questions, which matches a ${correctMode} sheet. Scoring rules are different — please use the correct stream.`;
+    `You selected ${wrongMode} but this response sheet belongs to the ${correctMode} stream. Please select ${correctMode} and the correct shift, then re-upload.`;
   document.getElementById('mismatchBadge').textContent =
-    `${qs.length} questions detected · ${correctMode} sheets have ${correctCount} questions`;
-  document.getElementById('mismatchSwitchBtn').textContent  = `Switch to ${correctMode} & Continue →`;
-  document.getElementById('mismatchSwitchBtn').dataset.mode = correctMode;
-
-  // Populate shift dropdown for the correct stream
-  const shiftSelect = document.getElementById('mismatchShiftSelect');
-  const PCM_SHIFTS = [
-    '11 April - Morning', '11 April - Evening',
-    '13 April - Morning', '13 April - Evening',
-    '15 April - Morning', '15 April - Evening',
-    '16 April - Morning', '16 April - Evening',
-    '17 April - Morning', '17 April - Evening',
-    '18 April - Morning', '18 April - Evening',
-    '19 April - Morning', '19 April - Evening',
-    '20 April - Morning', '20 April - Evening'
-  ];
-  const PCB_SHIFTS = [
-    '21 April - Morning', '21 April - Evening',
-    '22 April - Morning', '22 April - Evening',
-    '23 April - Morning', '23 April - Evening',
-    '24 April - Morning', '24 April - Evening',
-    '25 April - Morning', '25 April - Evening',
-    '26 April - Morning', '26 April - Evening'
-  ];
-  const PCB_SHIFTS_ATT2 = [
-    '10 May - Morning', '10 May - Evening',
-    '11 May - Morning', '11 May - Evening'
-  ];
-  
-  let shifts;
-  if (correctMode === 'PCM') {
-    shifts = PCM_SHIFTS;
-  } else {
-    shifts = selectedAttempt === 'Attempt 2' ? PCB_SHIFTS_ATT2 : PCB_SHIFTS;
-  }
-  
-  shiftSelect.innerHTML = '<option value="" disabled selected>Select shift...</option>' +
-    shifts.map(s => `<option value="${s}">${s}</option>`).join('');
-  document.getElementById('mismatchStreamLabel').textContent = correctMode;
-  document.getElementById('mismatchShiftError').style.display = 'none';
+    `${correctMode} Response Sheet Detected`;
 
   document.getElementById('loadingScreen').style.display = 'none';
   document.getElementById('mismatchOverlay').classList.add('open');
@@ -1942,6 +1756,29 @@ function showDash(qs) {
   saveSession(document.getElementById('topbarFile').textContent, qs);
   const st = computeStats(qs);
   if (st.earned >= 150) setTimeout(fireConfetti, 600);
+
+  if (window._isOldSheet) {
+    const analysisBtn = document.getElementById('analysisBtn');
+    if (analysisBtn) analysisBtn.style.display = 'none';
+    const strip = document.getElementById('liveStatsBrief');
+    if (strip) strip.style.display = 'none';
+  } else {
+    const analysisBtn = document.getElementById('analysisBtn');
+    if (analysisBtn) analysisBtn.style.display = '';
+
+    // Retry brief strip after submission has time to complete
+    setTimeout(() => {
+      const strip = document.getElementById('liveStatsBrief');
+      if (strip && (!strip.innerHTML || strip.style.display === 'none')) {
+        if (typeof fetchAndRenderBriefStrip === 'function') {
+          const stream  = typeof examMode !== 'undefined' ? examMode : 'PCM';
+          const attempt = typeof selectedAttempt !== 'undefined' ? selectedAttempt : '';
+          const shift   = typeof selectedShift !== 'undefined' ? selectedShift : '';
+          fetchAndRenderBriefStrip(stream, attempt, shift, st.earned, st.subStats || []);
+        }
+      }
+    }, 2500);
+  }
 }
 
 // Restore session without writing to Firebase
@@ -1970,12 +1807,22 @@ function showDashRestored(qs) {
     userSubStats: st.subStats || []
   };
 
-  // Still fetch the brief strip so they can see their stats
-  if (typeof fetchAndRenderBriefStrip === 'function') {
-    const stream = examMode;
-    const attempt = typeof selectedAttempt !== 'undefined' ? selectedAttempt : '';
-    const shift = typeof selectedShift !== 'undefined' ? selectedShift : '';
-    fetchAndRenderBriefStrip(stream, attempt, shift, st.earned, st.subStats || []);
+  if (window._isOldSheet) {
+    const analysisBtn = document.getElementById('analysisBtn');
+    if (analysisBtn) analysisBtn.style.display = 'none';
+    const strip = document.getElementById('liveStatsBrief');
+    if (strip) strip.style.display = 'none';
+  } else {
+    const analysisBtn = document.getElementById('analysisBtn');
+    if (analysisBtn) analysisBtn.style.display = '';
+
+    // Still fetch the brief strip so they can see their stats
+    if (typeof fetchAndRenderBriefStrip === 'function') {
+      const stream = examMode;
+      const attempt = typeof selectedAttempt !== 'undefined' ? selectedAttempt : '';
+      const shift = typeof selectedShift !== 'undefined' ? selectedShift : '';
+      fetchAndRenderBriefStrip(stream, attempt, shift, st.earned, st.subStats || []);
+    }
   }
   if (st.earned >= 150) setTimeout(fireConfetti, 600);
 }
