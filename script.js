@@ -1578,7 +1578,7 @@ function showQuestion(idx, scroll) {
   const img     = questionImages[q.id] || null;
   imgArea.innerHTML = img
     ? `<img src="${img}" alt="Q${q.id}" class="zoomable-img" title="Click to zoom">`
-    : `<div class="q-img-placeholder">Question image not available<br><small style="font-size:11px;margin-top:4px;display:block">Image preview requires a PDF, saved HTML, or MHTML file</small></div>`;
+    : `<div class="q-img-placeholder">Question image not available<br><small style="font-size:11px;margin-top:4px;display:block">Please upload the PDF version of your response sheet for question previews.</small></div>`;
 
   const qBody = document.querySelector('.q-body');
   if (qBody) qBody.scrollTop = 0;
@@ -1858,7 +1858,7 @@ function populateQDetail(q) {
   const img = questionImages[q.id] || null;
   imgArea.innerHTML = img
     ? `<img src="${img}" alt="Q${q.id}" class="zoomable-img" title="Click to zoom" style="cursor:zoom-in">`
-    : `<div class="q-img-placeholder">Question image not available<br><small style="font-size:11px;margin-top:4px;display:block">Image preview requires a PDF, saved HTML, or MHTML file</small></div>`;
+    : `<div class="q-img-placeholder">Question image not available<br><small style="font-size:11px;margin-top:4px;display:block">Please upload the PDF version of your response sheet for question previews.</small></div>`;
 
   // Answers
   const si = document.getElementById('qdSelIcon'), sv = document.getElementById('qdSelected');
