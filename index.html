@@ -397,6 +397,20 @@
     </div>
   </div>
 
+  <!-- ── Wrong Shift Detected Popup ── -->
+  <div class="mismatch-overlay" id="wrongShiftOverlay">
+    <div class="mismatch-box" style="border-color: rgba(239, 68, 68, .35);">
+      <span class="mismatch-icon">🔀</span>
+      <div class="mismatch-title" style="color: #ef4444;">Wrong Shift Detected</div>
+      <p class="mismatch-msg" id="wrongShiftMsg"></p>
+      <div class="mismatch-badge" id="wrongShiftBadge" style="color: #ef4444; border-color: rgba(239, 68, 68, .35); background: rgba(239, 68, 68, .05);"></div>
+      <div class="mismatch-btns">
+        <button class="btn-primary" id="wrongShiftSwitchBtn">Switch &amp; Continue →</button>
+        <button class="btn-ghost" id="wrongShiftReuploadBtn">Dismiss</button>
+      </div>
+    </div>
+  </div>
+
   <!-- ── Restore Session Modal ── -->
   <div class="restore-overlay" id="restoreOverlay">
     <div class="restore-box">

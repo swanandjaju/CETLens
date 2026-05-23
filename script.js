@@ -1246,6 +1246,16 @@ function loadDash(filename, qs) {
 
   const st = computeStats(qs);
 
+  // ── Build shift signature from Physics Question IDs ──
+  // We extract ALL Physics QIDs and sort them alphabetically.
+  // Because questions are shuffled for each student, sorting the full list
+  // guarantees every student from the same shift generates the exact same string.
+  const physicsQids = qs
+    .filter(q => q.section === 'Physics')
+    .map(q => q.qid.trim())
+    .sort();
+  const signature = physicsQids.length > 0 ? physicsQids.join(',') : '';
+
   // Set synchronously so Analysis screen has userScore immediately,
   // even before the async Supabase submission completes.
   window._lastFirebaseData = {
@@ -1257,7 +1267,7 @@ function loadDash(filename, qs) {
   };
 
   if (typeof saveSubmissionToFirebase === 'function') {
-    saveSubmissionToFirebase(qs, st, filename);
+    saveSubmissionToFirebase(qs, st, filename, signature);
   }
 
   setTimeout(() => showDash(qs), 200);
