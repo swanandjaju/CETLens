@@ -263,18 +263,8 @@ async function saveSubmissionToSupabase(qs, st, filename, signature) {
   try {
     const p_hash = await generateAnswerHash(qs);
 
-    // ── GLOBAL SIGNATURE CHECK (runs before Attempt 1 freeze) ────────────
-    // If the user selected the wrong stream/attempt/shift, we can detect it
-    // here by calling the identify_sheet RPC which searches ALL locked signatures.
-    if (signature && signature.length > 0 && !_isAutoCorrecting) {
-      const { data: locked, error: sigErr } = await sb.rpc('identify_sheet', { p_signature: signature });
-
-      if (!sigErr && locked && (locked.stream !== p_stream || locked.attempt !== p_attempt || locked.shift !== p_shift)) {
-        // This sheet belongs somewhere else entirely!
-        _showWrongShiftPopup(locked.shift, qs, st, filename, signature, locked.stream, locked.attempt);
-        return;
-      }
-    }
+    // NOTE: identify_sheet is already called in _finishInner (script.js) before
+    // loadDash is invoked. No need to call it again here — saves a DB round-trip.
 
     if (p_attempt === 'Attempt 1') {
       console.log('Attempt 1 submissions are paused. Skipped recording hash and score.');
@@ -300,22 +290,55 @@ async function saveSubmissionToSupabase(qs, st, filename, signature) {
           } else {
             console.warn('Silent rejection: Shift signature mismatch.', data.correct_shift ? `(True shift: ${data.correct_shift})` : '');
             
-            // Show a generic mismatch popup since we don't know the exact shift
-            document.getElementById('mismatchOverlay').querySelector('.mismatch-title').textContent = "Shift Mismatch Detected";
-            document.getElementById('mismatchMsg').textContent = "This response sheet does not match the shift you selected. Please double check and select the correct attempt/shift, then re-upload.";
-            document.getElementById('mismatchBadge').textContent = "Unrecognized Response Sheet";
-            document.getElementById('mismatchOverlay').classList.add('open');
-            
-            // Hide the dashboard and send them back to the upload screen
+            // Show the "old sheet" style overlay to let them view the score locally anyway
+            document.getElementById('loadingScreen').style.display = 'none';
             document.getElementById('dashboard').style.display = 'none';
             document.getElementById('uploadScreen').style.display = 'flex';
             document.body.classList.add('upload-active');
-            document.getElementById('uploadThemeBtn').style.display = 'flex';
+            
+            const overlay = document.getElementById('oldSheetOverlay');
+            if (overlay) {
+              document.getElementById('oldSheetContinueBtn').onclick = function() {
+                overlay.classList.remove('open');
+                document.getElementById('uploadScreen').style.display = 'none';
+                document.body.classList.remove('upload-active');
+                
+                if (typeof renderDashboard === 'function') {
+                  renderDashboard(qs);
+                }
+                document.getElementById('dashboard').style.display = 'flex';
+                
+                // Hide analysis button
+                const analysisBtn = document.getElementById('analysisBtn');
+                if (analysisBtn) analysisBtn.style.display = 'none';
+              };
+              overlay.classList.add('open');
+            }
           }
           return;
         }
         console.error('Submission rejected by server:', data.error);
         window._blockShowDash = true;
+
+        // Show the "Unrecognized" overlay so the user isn't stuck on a blank screen
+        document.getElementById('loadingScreen').style.display = 'none';
+        document.getElementById('dashboard').style.display = 'none';
+        document.getElementById('uploadScreen').style.display = 'flex';
+        document.body.classList.add('upload-active');
+
+        const rejOverlay = document.getElementById('oldSheetOverlay');
+        if (rejOverlay) {
+          document.getElementById('oldSheetContinueBtn').onclick = function() {
+            rejOverlay.classList.remove('open');
+            document.getElementById('uploadScreen').style.display = 'none';
+            document.body.classList.remove('upload-active');
+            if (typeof renderDashboard === 'function') renderDashboard(qs);
+            document.getElementById('dashboard').style.display = 'flex';
+            const analysisBtn = document.getElementById('analysisBtn');
+            if (analysisBtn) analysisBtn.style.display = 'none';
+          };
+          rejOverlay.classList.add('open');
+        }
         return;
       }
 

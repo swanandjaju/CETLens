@@ -597,10 +597,11 @@ function parsePortalText(text) {
   }
 
   try {
-    const _physicsCount  = (text.match(/PHYSICS/g)   || []).length;
-    const _chemistryCount= (text.match(/CHEMISTRY/g) || []).length;
-    const _mathsCount    = (text.match(/(MATHS|MATHEMATICS)/g) || []).length;
-    const _biologyCount  = (text.match(/BIOLOGY/g)   || []).length;
+    const cleanText = text.replace(/\s+/g, '');
+    const _physicsCount  = (cleanText.match(/PHYSICS/g)   || []).length;
+    const _chemistryCount= (cleanText.match(/CHEMISTRY/g) || []).length;
+    const _mathsCount    = (cleanText.match(/MATHS|MATHEMATICS/g) || []).length;
+    const _biologyCount  = (cleanText.match(/BIOLOGY/g)   || []).length;
     window._isOldSheet = _physicsCount < 10 || _chemistryCount < 10 || (_mathsCount < 10 && _biologyCount < 10);
   } catch (e) {
     window._isOldSheet = true;
@@ -1830,7 +1831,10 @@ function showDashRestored(qs) {
 
 function resetApp() {
   window._blockShowDash = false;
+  window._isOldSheet = false;
   _isProcessing = false;
+  const analysisBtn = document.getElementById('analysisBtn');
+  if (analysisBtn) analysisBtn.style.display = '';
   questions = []; filteredQs = []; currentQ = 0;
   _pendingQs = null; _pendingFile = '';
   pdfPageImages = {}; questionImages = {}; questionPageMap = {};

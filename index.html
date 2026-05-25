@@ -369,16 +369,16 @@
       </div>
     </div>
   </div>
-  <!-- ── Old Response Sheet Popup ── -->
+  <!-- ── Unrecognized / Old Response Sheet Popup ── -->
   <div class="mismatch-overlay" id="oldSheetOverlay">
     <div class="mismatch-box" style="border-color: rgba(245, 158, 11, .35);">
       <span class="mismatch-icon">📋</span>
-      <div class="mismatch-title" style="color: #f59e0b;">Old Response Sheet Detected</div>
-      <p class="mismatch-msg">This appears to be a <strong>2025</strong> response sheet, not a 2026 one. Your data will <strong>not</strong> be stored in our database or counted in community analytics.</p>
+      <div class="mismatch-title" style="color: #f59e0b;">Unrecognized Response Sheet</div>
+      <p class="mismatch-msg">This response sheet does not match the shift you selected, or it hasn't been verified by our system yet. Your data will <strong>not</strong> be stored in our database or counted in community analytics.</p>
       <div class="mismatch-badge" style="color: #f59e0b; border-color: rgba(245, 158, 11, .35); background: rgba(245, 158, 11, .05);">Data will not be saved · Local analysis only</div>
       <div class="mismatch-btns">
         <button class="btn-primary" id="oldSheetContinueBtn" style="background: linear-gradient(135deg, #f59e0b, #d97706);">View my score anyway →</button>
-        <button class="btn-ghost" id="oldSheetReuploadBtn" onclick="oldSheetReupload()">Re-upload a 2026 sheet</button>
+        <button class="btn-ghost" id="oldSheetReuploadBtn" onclick="oldSheetReupload()">Re-upload Response Sheet</button>
       </div>
     </div>
   </div>
