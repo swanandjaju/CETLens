@@ -214,6 +214,9 @@ function fetchAnalysisSupabase(stream, attempt) {
       return rawEntriesFromStats(statsByShift, stream, attempt, summary);
     }
     return null;
+  }).catch(err => {
+    console.error('Promise.all fetch error:', err);
+    return null;
   });
 }
 
@@ -478,6 +481,8 @@ function _showWrongShiftPopup(correctShift, qs, st, filename, signature, correct
       if (typeof renderDashboard === 'function') {
         renderDashboard(qs);
       }
+    }).catch(err => {
+      console.error('Auto-correct save error:', err);
     }).finally(() => {
       _isAutoCorrecting = false;
     });

@@ -306,7 +306,7 @@ function restoreSession() {
       questionImages = images;
     }
     showDashRestored(session.questions);
-  });
+  }).catch(err => console.error('Image load error:', err));
 }
 
 function dismissRestore() {
