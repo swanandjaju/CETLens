@@ -128,7 +128,7 @@ checkStoredSession = function () {
         if (hash === '#analysis') {
           setTimeout(() => _origOpenAnalysisScreen(), 100);
         }
-      });
+      }).catch(err => console.error('Image load error:', err));
 
     } else {
       // No session — redirect home with a message
@@ -187,7 +187,7 @@ function handleRoute() {
       loadImagesFromIDB().then(images => {
         if (images && Object.keys(images).length > 0) questionImages = images;
         _origShowDashRestored(session.questions);
-      });
+      }).catch(err => console.error('Image load error:', err));
     } else {
       if (document.getElementById('predictorScreen')?.style.display === 'flex') {
         _origClosePredictorScreen();
@@ -220,7 +220,7 @@ function handleRoute() {
         if (images && Object.keys(images).length > 0) questionImages = images;
         _origShowDashRestored(session.questions);
         setTimeout(() => _origOpenAnalysisScreen(), 100);
-      });
+      }).catch(err => console.error('Image load error:', err));
     } else {
       if (document.getElementById('predictorScreen')?.style.display === 'flex') {
         _origClosePredictorScreen();

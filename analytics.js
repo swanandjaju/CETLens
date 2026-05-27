@@ -214,6 +214,9 @@ function fetchAnalysisSupabase(stream, attempt) {
       return rawEntriesFromStats(statsByShift, stream, attempt, summary);
     }
     return null;
+  }).catch(err => {
+    console.error('Promise.all fetch error:', err);
+    return null;
   });
 }
 
@@ -478,6 +481,8 @@ function _showWrongShiftPopup(correctShift, qs, st, filename, signature, correct
       if (typeof renderDashboard === 'function') {
         renderDashboard(qs);
       }
+    }).catch(err => {
+      console.error('Auto-correct save error:', err);
     }).finally(() => {
       _isAutoCorrecting = false;
     });
@@ -943,15 +948,7 @@ function switchCommunityStream(stream) {
   if (btnPCB) btnPCB.classList.toggle('active', stream === 'PCB');
 
   const attemptSelector = document.getElementById('commAttemptSelector');
-  if (stream === 'PCB') {
-    if (attemptSelector) attemptSelector.style.display = 'flex';
-  } else {
-    if (attemptSelector) attemptSelector.style.display = 'none';
-    if (_selectedCommunityAttempt !== 'Attempt 1') {
-      switchCommunityAttempt('Attempt 1'); // Switch back to Attempt 1
-      return; // switchCommunityAttempt will trigger re-fetch
-    }
-  }
+  if (attemptSelector) attemptSelector.style.display = 'block';
 
   // Re-render with cached data if available
   if (_communityPayloadCache) {
@@ -977,7 +974,7 @@ function fetchCommunityFullAnalysis() {
   }
 
   Promise.all([
-    sb.from('shift_stats').select('*').eq('stream', 'PCM').eq('attempt', 'Attempt 1'),
+    sb.from('shift_stats').select('*').eq('stream', 'PCM').eq('attempt', _selectedCommunityAttempt),
     sb.from('shift_stats').select('*').eq('stream', 'PCB').eq('attempt', _selectedCommunityAttempt),
     sb.from('submission_summary').select('*')
   ]).then(([pcmStatsRes, pcbStatsRes, summaryRes]) => {

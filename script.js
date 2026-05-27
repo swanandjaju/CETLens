@@ -143,6 +143,24 @@ function updateShifts() {
         <option value="11 May - Evening">11 May - Evening</option>
       `;
       shiftContainer.style.display = 'block';
+    } else if (examMode === 'PCM') {
+      shiftSelect.innerHTML = `
+        <option value="" disabled selected>Select shift...</option>
+        <option value="12 May - Morning">12 May - Morning</option>
+        <option value="12 May - Evening">12 May - Evening</option>
+        <option value="13 May - Morning">13 May - Morning</option>
+        <option value="13 May - Evening">13 May - Evening</option>
+        <option value="14 May - Morning">14 May - Morning</option>
+        <option value="14 May - Evening">14 May - Evening</option>
+        <option value="15 May - Morning">15 May - Morning</option>
+        <option value="15 May - Evening">15 May - Evening</option>
+        <option value="18 May - Morning">18 May - Morning</option>
+        <option value="18 May - Evening">18 May - Evening</option>
+        <option value="19 May - Morning">19 May - Morning</option>
+        <option value="19 May - Evening">19 May - Evening</option>
+        <option value="20 May - Morning">20 May - Morning</option>
+      `;
+      shiftContainer.style.display = 'block';
     } else {
       shiftContainer.style.display = 'none';
     }
@@ -288,7 +306,7 @@ function restoreSession() {
       questionImages = images;
     }
     showDashRestored(session.questions);
-  });
+  }).catch(err => console.error('Image load error:', err));
 }
 
 function dismissRestore() {
