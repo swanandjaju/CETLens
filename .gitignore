@@ -15,7 +15,7 @@ desktop.ini
 .env.test.local
 .env.production.local
 
-# Node modules (just in case you ever use npm)
+# Node modules
 node_modules/
 dist/
 build/
