@@ -1,4 +1,4 @@
-# CETLens - Advanced MHT-CET Analytical Platform
+# CETLens
 
 CETLens is an incredibly powerful, fully client-side analytical platform designed to parse, process, and evaluate **MHT-CET Objection Portal response sheets**. By operating entirely within the user's browser, CETLens delivers real-time statistical insights, shift-wise difficulty analysis, dynamic percentile predictions, and robust error detection without the need for a dedicated backend application server.
 
