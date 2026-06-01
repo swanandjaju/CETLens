@@ -1,152 +1,73 @@
 # CETLens
 
-**Instant MHT-CET Response Sheet Analyzer & Community Analytics Platform**
+CETLens is a comprehensive, client-side analytical platform designed to parse, process, and evaluate MHT-CET Objection Portal response sheets. By operating entirely within the user's browser, CETLens delivers real-time statistical insights, shift-wise difficulty analysis, and robust error detection without the need for a dedicated backend application server.
 
-Upload your official MHT-CET Objection Portal response sheet (HTML, PDF, or TXT) and generate a fully interactive analytics dashboard instantly. CETLens operates entirely locally on your device, ensuring zero data privacy risks while contributing to a crowd-sourced, sybil-resistant live community analytics engine.
+## Overview
 
-**Live Application:** [https://cet-lens.vercel.app](https://cet-lens.vercel.app)
+The platform allows users to upload their MHT-CET response sheets (in HTML, MHTML, or PDF format). Once uploaded, CETLens processes the raw document, extracting questions, selected options, correct options, and question states. It then computes the total score, subject-wise breakdowns, and overall accuracy. Furthermore, it securely syncs anonymized statistical data to Supabase to generate community-driven insights, including shift difficulty rankings and aggregate score distributions.
 
----
+## Key Features
 
-## Table of Contents
+### 1. Client-Side Parsing Engine
+- **Multi-Format Support:** Accurately processes standard HTML, MHTML, and PDF response sheets.
+- **Data Extraction:** Parses question text, image content, candidate selections, and official answer keys directly from the DOM using custom traversal algorithms.
+- **Immediate Scoring:** Calculates scores instantaneously upon file upload, applying stream-specific marking schemes (e.g., PCM vs. PCB).
 
-1. [Project Overview](#project-overview)
-2. [Core Features](#core-features)
-3. [Data Integrity & Anti-Poisoning Framework](#data-integrity--anti-poisoning-framework)
-4. [Machine Learning & Statistical Analysis](#machine-learning--statistical-analysis)
-5. [Tech Stack](#tech-stack)
-6. [Architecture and Application Flow](#architecture-and-application-flow)
-7. [Database Structure](#database-structure)
-8. [Local Setup & Deployment](#local-setup--deployment)
-9. [Performance Optimizations](#performance-optimizations)
-10. [License](#license)
+### 2. Analytical Dashboard
+- **Score Breakdown:** Provides a detailed overview of the user's performance, including total marks, correct attempts, incorrect attempts, and unattempted questions.
+- **Subject-Wise Analysis:** Dissects the score by subject (Physics, Chemistry, Mathematics/Biology), offering granular insights into strengths and weaknesses.
+- **Question Review Interface:** A comprehensive grid allowing users to filter questions by status (Correct, Incorrect, Unattempted) and review specific questions alongside their associated images and correct answers.
 
----
+### 3. Community Intelligence
+- **Shift Difficulty Ranking:** Aggregates anonymized score data across different examination shifts to dynamically rank shifts by difficulty. Uses an advanced algorithm factoring in median scores, average scores, and top percentiles.
+- **Score Distribution:** Generates live distribution metrics, establishing the user's relative standing compared to the broader participant pool.
+- **Percentile Predictor:** An experimental module that projects estimated percentiles based on live shift statistics and historical reference data.
 
-## Project Overview
+### 4. Advanced Error Handling and Auto-Correction
+- **Shift Anomaly Detection:** Employs signature-based identity checks to detect structural mismatches or incorrect shift metadata.
+- **Automated Fallbacks:** Intelligently corrects malformed stream data (e.g., assigning Mathematics vs. Biology dynamically based on stream detection) and recalculates metrics seamlessly.
+- **Graceful Degradation:** Ensures core dashboard functionality remains intact even in the event of partial parsing failures or database unavailability.
 
-After every MHT-CET examination attempt, students receive a raw response sheet that is notoriously difficult to interpret manually. CETLens solves this by automatically parsing the raw HTML/PDF to extract question IDs, candidate answers, and correct answers. 
+## Technical Architecture
 
-It calculates the total score, subject-wise breakdown, and accuracy metrics without ever transmitting the raw file to a server. Simultaneously, CETLens aggregates anonymized score statistics to generate real-time community insights, including shift-wise averages, percentile distributions, and difficulty rankings across both Attempt 1 and Attempt 2.
+CETLens is built as a static Single Page Application (SPA), emphasizing performance, security, and low operational overhead.
 
----
+### Technologies Used
+- **Frontend Core:** HTML5, CSS3, Vanilla JavaScript (ES6+).
+- **Database / Backend as a Service (BaaS):** Supabase (PostgreSQL).
+- **Libraries:**
+  - `pdf.js` for rendering and extracting data from PDF documents.
+  - `html2canvas` for client-side rendering capabilities.
+  - `chart.js` for data visualization.
 
-## Core Features
+### Data Flow
+1. **Input:** User uploads a response sheet.
+2. **Processing (`script.js`):** The application parses the document structure, standardizing the data into a structured JSON array of question objects.
+3. **Scoring:** The parsing engine computes the score and constructs statistical aggregates.
+4. **Persistence (`analytics.js`):** The extracted statistical footprint (excluding personally identifiable information) is asynchronously transmitted to Supabase.
+5. **Visualization:** The UI components render the parsed data into interactive charts and scorecards.
 
-### Client-Side Parsing Engine
-- **Multi-Format Support:** Accepts HTML/MHTML saves from the Objection Portal, direct PDF prints, and pipe-delimited TXT exports.
-- **Section Detection:** Automatically identifies Physics, Chemistry, Mathematics (PCM), and Biology (PCB) sections using text heuristics and positional inference.
-- **PDF Extraction:** Utilizes `pdf.js` to extract text layers and render bounding boxes, generating inline thumbnail crops for every question securely in the browser.
+## Project Structure
 
-### Interactive Dashboard
-- **Score Visualization:** Custom-built SVG arc gauges display the candidate's total score (out of 200 for PCM, 150 for PCB).
-- **Subject-Wise Analytics:** Chart.js doughnut charts display subject-specific performance and accuracy ratios.
-- **Question Review Grid:** A fully filterable table (Correct, Incorrect, Unattempted) with keyboard navigation and modal lightboxes for detailed question review.
+- `index.html`: The primary entry point containing the application layout, SVG assets, and modal structures.
+- `index.css`: The global stylesheet defining the design system, typography, animations, and responsive layouts.
+- `script.js`: The core logic for file ingestion, parsing, session management, and DOM manipulation.
+- `analytics.js`: Handles communication with Supabase, shift difficulty computation, and community data aggregation.
+- `predictor.js`: Contains the mathematical models and historical mappings for percentile estimation.
+- `router.js`: A lightweight client-side routing implementation using the History API to manage navigation states between the dashboard, live analysis, and predictor views.
+- `rpc.sql`: PostgreSQL stored procedures and table definitions required to configure the Supabase instance.
 
-### Live Community Analytics
-- **Real-Time Aggregation:** Post-submission banners immediately display the user's estimated percentile, shift average, and relative standing.
-- **Shift-Wise Analysis:** Dedicated dashboards comparing individual performance against the shift mean and median using radar charts and score histograms.
-- **Percentile Predictor:** An experimental projection model estimating percentiles based on live shift statistics and historical density curves.
+## Deployment
 
----
+CETLens is a static site and can be deployed to any standard CDN or static hosting provider (e.g., Vercel, Netlify, GitHub Pages).
 
-## Data Integrity & Anti-Poisoning Framework
+### Requirements
+- A Supabase project with the appropriate tables and RPCs configured (refer to `rpc.sql`).
+- Environment variables or inline configuration for the Supabase Project URL and Anon Key within the JavaScript context.
 
-Because the official CET Cell response sheets lack a forced cryptographic identifier (like an application number) that reliably survives browser downloads, CETLens employs a robust, multi-layered data integrity framework to prevent spam, duplicate submissions, and deliberate data poisoning.
+## Disclaimer
 
-1. **SHA-256 Duplicate Blocking:** The frontend extracts every Question ID and selected Option ID, concatenating them into a strict sequence. This sequence is hashed using the Web Crypto API (`SHA-256`). If the database detects a hash collision, the submission is instantly rejected as a duplicate.
-2. **Shift Signature Locks:** To prevent malicious actors from uploading response sheets into the wrong shift to manipulate averages, the backend generates a unique cryptographic "signature" from all question IDs present in the file. Once 35 authentic submissions establish the signature for a specific shift, the shift is permanently "locked." Any subsequent uploads containing mismatched signatures are automatically flagged and rejected.
-3. **Mathematical Impossibility Filters:** The backend silently discards submissions with mathematically impossible score distributions (e.g., scores exceeding theoretical maximums or missing mandatory subject data).
-4. **Sybil Resistance:** strict IP-based rate limiting caps unique uploads to a maximum of 3 per IP address per shift, allowing genuine shared usage while blocking automated spam.
-
----
-
-## Data & Statistical Analysis
-
-CETLens serves as a foundation for rigorous statistical analysis of the MHT-CET examination. 
-
-- **Data Engineering:** The platform exports cleaned, feature-engineered datasets containing score frequencies, standard deviations, variances, and skewness metrics for every shift.
-- **Detailed Reports:** A comprehensive Data Analytics Report is generated post-examination, providing detailed shift difficulty rankings, score compression indices, and subject dominance analysis. This report is directly accessible via the platform dashboard.
-
----
-
-## Tech Stack
-
-CETLens is intentionally built without a heavy framework or build step. It relies entirely on vanilla web technologies and public CDNs to maximize performance and transparency.
-
-- **Frontend:** Vanilla HTML5, CSS3, JavaScript (ES6+)
-- **Backend & Database:** Supabase (PostgreSQL, REST API)
-- **Data Visualization:** Chart.js
-- **PDF Processing:** pdf.js
-- **Exports:** jsPDF, html2canvas
-- **Cryptography:** Web Crypto API
+The percentile predictions and shift rankings provided by CETLens are based on voluntary user data and experimental models. They are not official and should not be treated as final admission-safe metrics.
 
 ---
-
-## Architecture and Application Flow
-
-CETLens is a Single Page Application (SPA) utilizing a custom hash-based router. 
-
-1. **Initialization:** The application applies the user's preferred theme and checks `localStorage` for an existing session.
-2. **File Processing:** Uploaded files are parsed locally via `DOMParser` or `pdf.js`. 
-3. **Scoring:** The scoring engine applies the MHT-CET marking scheme (+2 for Math, +1 for Physics/Chemistry/Biology, 0 negative marking).
-4. **Data Aggregation:** A background asynchronous call securely transmits the anonymized statistics (Total Score, Subject Scores, SHA-256 Hash, Shift ID) to the Supabase backend via an upsert operation.
-5. **Session Management:** The parsed question array is serialized to `localStorage`, and PDF image crops are persisted in `IndexedDB`.
-
----
-
-## Database Structure
-
-The Supabase PostgreSQL database is optimized for irreversible, anonymized aggregation. Raw user data is never stored.
-
-### `shift_stats` Table
-- `id` (uuid): Primary key
-- `stream` (text): PCM or PCB
-- `attempt` (text): Attempt 1 or Attempt 2
-- `shift` (text): Shift identifier
-- `count` (integer): Total valid submissions
-- `total_score` (numeric): Cumulative score sum
-- `highest` / `min_score` (integer): Range boundaries
-- `score_counts` (jsonb): A frequency map (e.g., `{"142": 3}`) used for percentile calculation without storing individual rows.
-- `subject_sums` (jsonb): Cumulative subject scores for calculating shift averages.
-
-**Row Level Security (RLS):** Policies are strictly configured to allow anonymous reads and upserts on aggregate fields, while explicitly denying standard inserts, deletes, or arbitrary modifications.
-
----
-
-## Local Setup & Deployment
-
-CETLens requires no build pipeline. 
-
-1. Clone the repository:
-   ```bash
-   git clone https://github.com/swanandjaju/CETLens.git
-   ```
-2. Serve the directory using any local web server:
-   ```bash
-   python3 -m http.server 8080
-   # OR
-   npx serve .
-   ```
-3. Open `http://localhost:8080` in your browser.
-
-*Note: For the Web Crypto API (`crypto.subtle`) to function correctly, the application must be served over a secure context (`localhost` or `HTTPS`).*
-
----
-
-## Performance Optimizations
-
-- **TTL In-Memory Caching:** Supabase read requests are cached client-side for 15 minutes, drastically reducing network round-trips during navigation.
-- **IndexedDB Cursor Limits:** Image caches are strictly bound to the active session. `IndexedDB` stores are cleared prior to new uploads to prevent storage bloat.
-- **Progressive Feedback:** PDF rendering is resource-intensive. The UI provides asynchronous step-by-step loading states (Extracting text → Parsing → Rendering images) to maintain an active user experience.
-- **Dynamic CSS Theming:** Dark mode toggling relies on a single `data-theme` attribute mutation on the root element, ensuring instantaneous `<O(1)>` style recalculation.
-
----
-
-## License
-
-This project is licensed under the MIT License. You are free to use, copy, modify, merge, publish, distribute, sublicense, or sell the software, provided the original copyright notice and license text are included.
-
----
-
-Built with ❤️ by Swanand Jaju — WCE Sangli, 2026
+Made with ❤️ by Swanand Jaju

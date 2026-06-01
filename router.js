@@ -13,9 +13,9 @@
 
 'use strict';
 
-// ─────────────────────────────────────────────────────────────────────────────
+// ---
 // PART 1: Wrap existing screen functions so they update the URL automatically
-// ─────────────────────────────────────────────────────────────────────────────
+// ---
 
 const _origShowDash = showDash;
 showDash = function (qs) {
@@ -23,11 +23,7 @@ showDash = function (qs) {
   history.pushState(null, '', '#dashboard');
 };
 
-const _origShowDashRestored = showDashRestored;
-showDashRestored = function (qs) {
-  _origShowDashRestored(qs);
-  history.pushState(null, '', '#dashboard');
-};
+
 
 const _origResetApp = resetApp;
 resetApp = function () {
@@ -72,14 +68,14 @@ closePredictorScreen = function () {
 };
 
 
-// ─────────────────────────────────────────────────────────────────────────────
+// ---
 // PART 2: Override checkStoredSession — controls when the popup shows
 //
 //   On /           → show popup as normal (existing behaviour)
 //   On /#dashboard → silently restore session, no popup
 //   On /#analysis  → silently restore session + open analysis, no popup
 //   On any hash    → if no session exists, redirect to home
-// ─────────────────────────────────────────────────────────────────────────────
+// ---
 
 const _origCheckStoredSession = checkStoredSession;
 checkStoredSession = function () {
@@ -103,41 +99,21 @@ checkStoredSession = function () {
     let session = null;
     try { session = JSON.parse(localStorage.getItem('examSession')); } catch (e) {}
 
-    if (session && Array.isArray(session.questions) && session.questions.length) {
-      // Restore state
-      window._storedSession = session;
-      questions       = session.questions;
-      filteredQs      = session.questions;
-      examMode        = session.examMode      || session.stream   || 'PCM';
-      selectedAttempt = session.selectedAttempt || session.attempt || '';
-      selectedShift   = session.selectedShift   || session.shift   || '';
+    const success = restoreSessionSilently(session, () => {
+      _origShowDash(session.questions, true);
+      if (hash === '#analysis') {
+        setTimeout(() => _origOpenAnalysisScreen(), 100);
+      }
+    });
 
-      const topbarFile = document.getElementById('topbarFile');
-      if (topbarFile) topbarFile.textContent = session.filename || session.fileName || 'Restored Session';
-
-      const topbarMode = document.getElementById('topbarMode');
-      if (topbarMode) topbarMode.textContent = examMode;
-
-      // Load question images then show dashboard
-      loadImagesFromIDB().then(images => {
-        if (images && Object.keys(images).length > 0) questionImages = images;
-
-        _origShowDashRestored(session.questions);
-
-        // If they came directly to /#analysis, open it on top after dashboard renders
-        if (hash === '#analysis') {
-          setTimeout(() => _origOpenAnalysisScreen(), 100);
-        }
-      }).catch(err => console.error('Image load error:', err));
-
-    } else {
+    if (!success) {
       // No session — redirect home with a message
       history.replaceState(null, '', location.pathname);
       const msg = document.createElement('div');
       msg.textContent = 'Please upload your response sheet first.';
       msg.style.cssText = `
         position:fixed; top:1.5rem; left:50%; transform:translateX(-50%);
-        background:#1a1d23; color:#e2e8f0; border:1px solid #ff4757;
+        background:var(--charcoal); color:var(--text); border:1px solid var(--accent);
         padding:.65rem 1.25rem; border-radius:10px; font-size:13px;
         font-family:inherit; z-index:99999; box-shadow:0 8px 24px rgba(0,0,0,.4);
       `;
@@ -148,9 +124,9 @@ checkStoredSession = function () {
 };
 
 
-// ─────────────────────────────────────────────────────────────────────────────
+// ---
 // PART 3: Router — handles hash changes (browser back / forward)
-// ─────────────────────────────────────────────────────────────────────────────
+// ---
 
 function handleRoute() {
   const hash = window.location.hash;
@@ -174,24 +150,12 @@ function handleRoute() {
     // This branch handles back/forward navigation after initial load.
     let session = null;
     try { session = JSON.parse(localStorage.getItem('examSession')); } catch (e) {}
-    if (session && Array.isArray(session.questions) && session.questions.length) {
-      questions       = session.questions;
-      filteredQs      = session.questions;
-      examMode        = session.examMode      || session.stream   || 'PCM';
-      selectedAttempt = session.selectedAttempt || session.attempt || '';
-      selectedShift   = session.selectedShift   || session.shift   || '';
-      const topbarFile = document.getElementById('topbarFile');
-      if (topbarFile) topbarFile.textContent = session.filename || session.fileName || 'Restored Session';
-      const topbarMode = document.getElementById('topbarMode');
-      if (topbarMode) topbarMode.textContent = examMode;
-      loadImagesFromIDB().then(images => {
-        if (images && Object.keys(images).length > 0) questionImages = images;
-        _origShowDashRestored(session.questions);
-      }).catch(err => console.error('Image load error:', err));
-    } else {
-      if (document.getElementById('predictorScreen')?.style.display === 'flex') {
-        _origClosePredictorScreen();
-      }
+    
+    const success = restoreSessionSilently(session, () => {
+      _origShowDash(session.questions, true);
+    });
+    
+    if (!success) {
       history.replaceState(null, '', location.pathname);
     }
     return;
@@ -206,25 +170,13 @@ function handleRoute() {
     // Dashboard not open — restore first, then open analysis
     let session = null;
     try { session = JSON.parse(localStorage.getItem('examSession')); } catch (e) {}
-    if (session && Array.isArray(session.questions) && session.questions.length) {
-      questions       = session.questions;
-      filteredQs      = session.questions;
-      examMode        = session.examMode      || session.stream   || 'PCM';
-      selectedAttempt = session.selectedAttempt || session.attempt || '';
-      selectedShift   = session.selectedShift   || session.shift   || '';
-      const topbarFile = document.getElementById('topbarFile');
-      if (topbarFile) topbarFile.textContent = session.filename || session.fileName || 'Restored Session';
-      const topbarMode = document.getElementById('topbarMode');
-      if (topbarMode) topbarMode.textContent = examMode;
-      loadImagesFromIDB().then(images => {
-        if (images && Object.keys(images).length > 0) questionImages = images;
-        _origShowDashRestored(session.questions);
-        setTimeout(() => _origOpenAnalysisScreen(), 100);
-      }).catch(err => console.error('Image load error:', err));
-    } else {
-      if (document.getElementById('predictorScreen')?.style.display === 'flex') {
-        _origClosePredictorScreen();
-      }
+    
+    const success = restoreSessionSilently(session, () => {
+      _origShowDash(session.questions, true);
+      setTimeout(() => _origOpenAnalysisScreen(), 100);
+    });
+    
+    if (!success) {
       history.replaceState(null, '', location.pathname);
     }
     return;

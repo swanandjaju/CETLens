@@ -5,6 +5,15 @@
 
 'use strict';
 
+window.escapeHtml = function(value) {
+  return String(value)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+};
+
 
 // pdf.js worker setup
 pdfjsLib.GlobalWorkerOptions.workerSrc =
@@ -18,7 +27,6 @@ let currentQ         = 0;
 let examMode         = 'PCM';
 let donutChartInst   = null;
 let subjectChartInsts = [];
-let pdfPageImages    = {};
 let questionImages   = {};
 let questionPageMap  = {};
 let _pendingQs       = null;
@@ -27,7 +35,7 @@ let _isProcessing    = false;
 let selectedAttempt  = '';
 let selectedShift    = '';
 
-// ── IndexedDB helpers for question image persistence ──
+// --- IndexedDB helpers for question image persistence 
 const IDB_NAME = 'CETLensDB';
 const IDB_VERSION = 1;
 const IDB_STORE = 'questionImages';
@@ -287,26 +295,36 @@ function checkStoredSession() {
   } catch (e) { /* corrupted session data — ignore */ }
 }
 
+function restoreSessionSilently(session, onReady) {
+  if (!session || !Array.isArray(session.questions) || !session.questions.length) {
+    return false;
+  }
+  window._storedSession = session;
+  questions       = session.questions;
+  filteredQs      = session.questions;
+  examMode        = session.examMode      || session.stream   || 'PCM';
+  selectedAttempt = session.selectedAttempt || session.attempt || '';
+  selectedShift   = session.selectedShift   || session.shift   || '';
+
+  const topbarFile = document.getElementById('topbarFile');
+  if (topbarFile) topbarFile.textContent = session.filename || session.fileName || 'Restored Session';
+
+  const topbarMode = document.getElementById('topbarMode');
+  if (topbarMode) topbarMode.textContent = examMode;
+
+  loadImagesFromIDB().then(images => {
+    if (images && Object.keys(images).length > 0) questionImages = images;
+    if (onReady) onReady();
+  }).catch(err => console.error('Image load error:', err));
+  return true;
+}
+
 function restoreSession() {
   const session = window._storedSession;
-  if (!session || !session.questions || !session.questions.length) {
-    dismissRestore();
-    return;
-  }
   document.getElementById('restoreOverlay').classList.remove('open');
-  examMode = session.examMode || 'PCM';
-  selectedAttempt = session.selectedAttempt || '';
-  selectedShift = session.selectedShift || '';
-  document.getElementById('topbarFile').textContent = session.filename || 'Restored session';
-  document.getElementById('topbarMode').textContent = examMode;
-
-  // Load question images from IndexedDB before showing dashboard
-  loadImagesFromIDB().then(images => {
-    if (images && Object.keys(images).length > 0) {
-      questionImages = images;
-    }
-    showDashRestored(session.questions);
-  }).catch(err => console.error('Image load error:', err));
+  if (!restoreSessionSilently(session, () => showDash(session.questions, true))) {
+    dismissRestore();
+  }
 }
 
 function dismissRestore() {
@@ -348,7 +366,7 @@ function exportPDF() {
   const W = 210;
   const G = [255,71,87], D = [224,229,236], C = [45,52,54], P = [74,85,104];
 
-  // Background — light neumorphic
+  // Background  light neumorphic
   doc.setFillColor(...D); doc.rect(0, 0, W, 297, 'F');
 
   // Top accent rule
@@ -553,7 +571,7 @@ document.addEventListener('DOMContentLoaded', function () {
     if (f) processFile(f);
   });
 
-  // Image area click → lightbox
+  // Image area click  lightbox
   document.getElementById('qImgArea').addEventListener('click', function (e) {
     if (e.target.tagName === 'IMG') openLightbox(e.target.src);
   });
@@ -595,7 +613,7 @@ function setMode(m) {
 
 // core parser
 function parsePortalText(text) {
-  // ── Watermark detection & removal ──
+  // --- Watermark detection & removal 
   // The MHT-CET portal embeds copy-protection watermark numbers (5-7 digits)
   // scattered throughout the page. When text is extracted, these appear next to
   // "Correct Option:" and "Candidate Response:", causing mis-parsing.
@@ -719,7 +737,6 @@ async function processFile(file) {
   if (_isProcessing) return;
   _isProcessing = true;
   showLoading();
-  pdfPageImages   = {};
   questionImages  = {};
   questionPageMap = {};
 
@@ -733,14 +750,12 @@ async function processFile(file) {
     } else {
       // HTML or MHTML
       let htmlContent;
-      let mhtmlImages = {};
 
       if (isMHTML) {
         setStep('Reading MHTML…', '');
         const raw = await file.text();
         const parsed = parseMHTML(raw);
         htmlContent = parsed.html;
-        mhtmlImages = parsed.images;
       } else {
         setStep('Reading HTML…', '');
         htmlContent = await file.text();
@@ -769,11 +784,10 @@ async function processFile(file) {
 
 /**
  * parseMHTML — Parse MIME multipart MHTML format.
- * Extracts the text/html body and all image/* parts as data URIs,
- * keyed by Content-Location and Content-ID.
+ * Extracts the text/html body.
  */
 function parseMHTML(raw) {
-  const result = { html: '', images: {} };
+  const result = { html: '' };
 
   // Find the MIME boundary from the Content-Type header
   const boundaryMatch = raw.match(/boundary="?([^\s"]+)"?/i);
@@ -830,17 +844,6 @@ function parseMHTML(raw) {
         }
       }
       if (!result.html) result.html = body;
-    } else if (contentType.startsWith('image/')) {
-      let dataUri;
-      if (encoding === 'base64') {
-        dataUri = `data:${contentType};base64,${body}`;
-      } else {
-        // Convert raw binary to base64
-        const b64 = btoa(unescape(encodeURIComponent(body)));
-        dataUri = `data:${contentType};base64,${b64}`;
-      }
-      if (location) result.images[location] = dataUri;
-      if (contentId) result.images['cid:' + contentId] = dataUri;
     }
   }
 
@@ -992,7 +995,7 @@ function finish(filename, qs) {
   const PCM_COUNT = 150;
   const PCB_COUNT = 200;
 
-  // ── Old sheet check: show warning popup for 2025 response sheets ──
+  // --- Old sheet check: show warning popup for 2025 response sheets 
   if (window._isOldSheet) {
     document.getElementById('loadingScreen').style.display = 'none';
     const overlay = document.getElementById('oldSheetOverlay');
@@ -1018,108 +1021,35 @@ function oldSheetReupload() {
 function _finishInner(filename, qs, PCM_COUNT, PCB_COUNT) {
 
   if (qs.length === PCM_COUNT || qs.length === PCB_COUNT) {
-    // Valid count — check if the stream matches
+    // Valid count  check if the stream matches
     const detectedStream = qs.length === PCB_COUNT ? 'PCB' : 'PCM';
 
-    // ── Build signature early so we can do a global lookup ──
+    // --- Build signature early so we can do a global lookup 
     const physicsQids = qs
       .filter(q => q.section === 'Physics')
       .map(q => q.qid.trim())
       .sort();
     const signature = physicsQids.length > 0 ? physicsQids.join(',') : '';
 
-    // ── Global signature lookup: show auto-detect popup if we know the answer ──
-    const sb = window._supabaseClient;
-    if (sb && signature.length > 0) {
-      sb.rpc('identify_sheet', { p_signature: signature })
-        .then(({ data: locked, error }) => {
-          if (!error && locked && (locked.stream !== examMode || locked.attempt !== selectedAttempt || locked.shift !== selectedShift)) {
-            // We know exactly where this sheet belongs — show the auto-detect popup!
-            const detectedLabel = `${locked.stream} ${locked.attempt} — ${locked.shift}`;
-            const selectedLabel = `${examMode} ${selectedAttempt} — ${selectedShift || '(no shift)'}`;
-
-            document.getElementById('loadingScreen').style.display = 'none';
-
-            const overlay   = document.getElementById('wrongShiftOverlay');
-            const msgEl     = document.getElementById('wrongShiftMsg');
-            const badgeEl   = document.getElementById('wrongShiftBadge');
-            const switchBtn = document.getElementById('wrongShiftSwitchBtn');
-
-            msgEl.textContent =
-              `We mathematically analyzed your response sheet and detected that it belongs to "${detectedLabel}". ` +
-              `Don't worry — click below and we'll take you to the correct dashboard automatically!`;
-            badgeEl.textContent = `Auto-Detected: ${detectedLabel}  ·  You selected: ${selectedLabel}`;
-            switchBtn.textContent = `Move to ${detectedLabel} →`;
-
-            switchBtn.onclick = function () {
-              overlay.classList.remove('open');
-              // Auto-correct stream if needed (re-assign subjects + marks)
-              if (locked.stream !== examMode) {
-                examMode = locked.stream;
-                document.getElementById('btnPCM').classList.toggle('active', locked.stream === 'PCM');
-                document.getElementById('btnPCB').classList.toggle('active', locked.stream === 'PCB');
-                const oldSubject = locked.stream === 'PCM' ? 'Biology' : 'Mathematics';
-                const newSubject = locked.stream === 'PCM' ? 'Mathematics' : 'Biology';
-                let newSubjectNum = 0;
-                qs.forEach(q => {
-                  if (q.section === oldSubject) {
-                    q.section = newSubject;
-                    newSubjectNum++;
-                    q.sectionNum = newSubjectNum;
-                  }
-                  q.marks = q.status === 'correct'
-                    ? (locked.stream === 'PCM' && q.section === 'Mathematics' ? 2 : 1)
-                    : 0;
-                });
-              }
-              // Auto-correct attempt and shift
-              selectedAttempt = locked.attempt;
-              selectedShift   = locked.shift;
-              // Load dashboard — this triggers submission + brief strip
-              loadDash(filename, qs);
-            };
-
-            overlay.classList.add('open');
-          } else {
-            // No locked signature found, or signature matches current selection.
-            // Fall back to the normal mismatch popup if stream is wrong.
-            if (detectedStream !== examMode) {
-              showMismatchPopup(filename, qs, detectedStream);
-            } else {
-              loadDash(filename, qs);
-            }
-          }
-        })
-        .catch(() => {
-          // RPC failed — fall back to normal flow
-          if (detectedStream !== examMode) {
-            showMismatchPopup(filename, qs, detectedStream);
-          } else {
-            loadDash(filename, qs);
-          }
-        });
+    if (detectedStream !== examMode) {
+      showMismatchPopup(filename, qs, detectedStream);
     } else {
-      // No Supabase client or no signature — fall back to normal flow
-      if (detectedStream !== examMode) {
-        showMismatchPopup(filename, qs, detectedStream);
-      } else {
-        loadDash(filename, qs);
-      }
+      loadDash(filename, qs);
     }
   } else {
-    // Invalid count — incomplete download
+    // Invalid count  incomplete download
     showIncompletePopup(filename, qs);
   }
 }
 
-function loadDash(filename, qs) {
+async function loadDash(filename, qs) {
   document.getElementById('topbarFile').textContent = filename;
   document.getElementById('topbarMode').textContent = examMode;
   setStep('Done!', `${qs.length} questions loaded`);
 
   const st = computeStats(qs);
 
-  // ── Build shift signature from Physics Question IDs ──
+  // --- Build shift signature from Physics Question IDs 
   // We extract ALL Physics QIDs and sort them alphabetically.
   // Because questions are shuffled for each student, sorting the full list
   // guarantees every student from the same shift generates the exact same string.
@@ -1131,7 +1061,7 @@ function loadDash(filename, qs) {
 
   // Set synchronously so Analysis screen has userScore immediately,
   // even before the async Supabase submission completes.
-  window._lastFirebaseData = {
+  window._lastSupabaseData = {
     stream: examMode,
     attempt: selectedAttempt,
     shift: selectedShift,
@@ -1139,11 +1069,12 @@ function loadDash(filename, qs) {
     userSubStats: st.subStats || []
   };
 
-  if (typeof saveSubmissionToFirebase === 'function') {
-    saveSubmissionToFirebase(qs, st, filename, signature);
+  if (typeof saveSubmissionToSupabase === 'function') {
+    const success = await saveSubmissionToSupabase(qs, st, filename, signature);
+    if (success === false) return; // Prevent showDash if server rejects (e.g. wrong shift)
   }
 
-  setTimeout(() => showDash(qs), 200);
+  showDash(qs);
 }
 
 function showMismatchPopup(filename, qs, correctMode) {
@@ -1171,7 +1102,7 @@ function mismatchSwitchAndContinue() {
 
   document.getElementById('mismatchOverlay').classList.remove('open');
 
-  // Set examMode directly — do NOT call setMode() which resets selectedShift to ''
+  // Set examMode directly  do NOT call setMode() which resets selectedShift to ''
   // and causes the backend submission to silently fail with 'invalid_shift'.
   examMode = correctMode;
   document.getElementById('btnPCM').classList.toggle('active', correctMode === 'PCM');
@@ -1180,7 +1111,7 @@ function mismatchSwitchAndContinue() {
   // Set the correct shift from the popup selection (attempt is preserved)
   selectedShift = mismatchShift;
 
-  // Reassign the third subject (Biology ↔ Mathematics) and recalculate marks.
+  // Reassign the third subject (Biology  Mathematics) and recalculate marks.
   // During parsing, the 3rd subject was assigned based on the WRONG examMode,
   // so questions 101+ have the wrong section name.
   const oldSubject = correctMode === 'PCM' ? 'Biology' : 'Mathematics';
@@ -1387,37 +1318,30 @@ function renderGrid(qs) {
 
 
 // show question
-function showQuestion(idx, scroll) {
-  if (idx < 0 || idx >= filteredQs.length) return;
-  if (!filteredQs.length) return;
-  currentQ = idx;
-  const q  = filteredQs[idx];
+function updateQuestionUI(q, prefix) {
+  const isQd = prefix === 'qd';
+  
+  document.getElementById(isQd ? 'qdNum' : 'qNum').textContent = `Q${q.id} · ${q.section} ${q.sectionNum}`;
 
-  document.querySelectorAll('.q-btn.active').forEach(b => b.classList.remove('active'));
-  const btn = document.getElementById('qbtn-' + (q.id - 1));
-  if (btn) { btn.classList.add('active'); btn.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); }
-
-  document.getElementById('qNum').textContent = `Q${q.id} · ${q.section} ${q.sectionNum}`;
-
-  const badge = document.getElementById('qBadge');
-  badge.className   = 'q-badge ' + (q.status === 'correct' ? 'badge-correct' : q.status === 'incorrect' ? 'badge-incorrect' : 'badge-unattempted');
+  const badge = document.getElementById(isQd ? 'qdBadge' : 'qBadge');
+  badge.className = 'q-badge ' + (q.status === 'correct' ? 'badge-correct' : q.status === 'incorrect' ? 'badge-incorrect' : 'badge-unattempted');
   badge.textContent = q.status.charAt(0).toUpperCase() + q.status.slice(1);
 
-  const pill = document.getElementById('marksPill');
+  const pill = document.getElementById(isQd ? 'qdMarks' : 'marksPill');
   pill.textContent = q.marks > 0 ? `+${q.marks}` : String(q.marks);
-  pill.className   = 'marks-pill ' + (q.marks > 0 ? 'marks-pos' : 'marks-zero');
+  pill.className = 'marks-pill ' + (q.marks > 0 ? 'marks-pos' : 'marks-zero');
 
-  const imgArea = document.getElementById('qImgArea');
-  const img     = questionImages[q.id] || null;
+  const imgArea = document.getElementById(isQd ? 'qdImgArea' : 'qImgArea');
+  if (isQd) imgArea.scrollTop = 0;
+  const img = questionImages[q.id] || null;
   imgArea.innerHTML = img
-    ? `<img src="${img}" alt="Q${q.id}" class="zoomable-img" title="Click to zoom">`
+    ? `<img src="${img}" alt="Q${q.id}" class="zoomable-img" title="Click to zoom"${isQd ? ' style="cursor:zoom-in"' : ''}>`
     : `<div class="q-img-placeholder">Question image not available<br><small style="font-size:11px;margin-top:4px;display:block">Please upload the PDF version of your response sheet for question previews.</small></div>`;
 
-  const qBody = document.querySelector('.q-body');
-  if (qBody) qBody.scrollTop = 0;
-
-  const si = document.getElementById('selIcon'), sv = document.getElementById('badgeSelected');
-  const ci = document.getElementById('corIcon'), cv = document.getElementById('badgeCorrect');
+  const si = document.getElementById(isQd ? 'qdSelIcon' : 'selIcon');
+  const sv = document.getElementById(isQd ? 'qdSelected' : 'badgeSelected');
+  const ci = document.getElementById(isQd ? 'qdCorIcon' : 'corIcon');
+  const cv = document.getElementById(isQd ? 'qdCorrect' : 'badgeCorrect');
 
   ci.className = 'ans-icon ia'; ci.innerHTML = '<span>✓</span>';
   cv.className = 'ans-val va';  cv.textContent = q.correctLabel ? 'Option ' + q.correctLabel : (q.correctOptId || '—');
@@ -1433,12 +1357,28 @@ function showQuestion(idx, scroll) {
     si.className = 'ans-icon is'; si.innerHTML = '<span>—</span>';
     sv.className = 'ans-val vs'; sv.textContent = 'Not Answered';
   }
+}
+
+// show question
+function showQuestion(idx, scroll) {
+  if (idx < 0 || idx >= filteredQs.length) return;
+  if (!filteredQs.length) return;
+  currentQ = idx;
+  const q  = filteredQs[idx];
+
+  document.querySelectorAll('.q-btn.active').forEach(b => b.classList.remove('active'));
+  const btn = document.getElementById('qbtn-' + (q.id - 1));
+  if (btn) { btn.classList.add('active'); btn.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); }
+
+  updateQuestionUI(q, 'q');
+
+  const qBody = document.querySelector('.q-body');
+  if (qBody) qBody.scrollTop = 0;
 
   document.getElementById('qOf').textContent = `${idx + 1} / ${filteredQs.length}`;
   highlightQTableRow(q.id);
 
   if (scroll) {
-
     const contentEl = document.querySelector('.content');
     if (contentEl) contentEl.scrollTo({ top: 0, behavior: 'smooth' });
   }
@@ -1527,7 +1467,7 @@ function switchScoreTab(tabName, btn) {
 }
 
 function renderScoreCard(st) {
-  // ── Arc gauge SVG paths ──
+  // --- Arc gauge SVG paths 
   const cx = 100, cy = 110, r = 80;
   const startAngle = Math.PI;
   const endAngle = 0;
@@ -1538,7 +1478,7 @@ function renderScoreCard(st) {
     y: cy - r * Math.sin(angle)
   });
 
-  // Full track arc (semicircle from 180° to 0°)
+  // Full track arc (semicircle from 180 to 0)
   const trackStart = ptAt(startAngle);
   const trackEnd   = ptAt(endAngle);
   const trackD = `M ${trackStart.x} ${trackStart.y} A ${r} ${r} 0 0 1 ${trackEnd.x} ${trackEnd.y}`;
@@ -1579,7 +1519,7 @@ function renderScoreCard(st) {
       ${st.accuracy}% Accuracy
     </span>`;
 
-  // ── Subject-wise rows (Tab 2) ──
+  // --- Subject-wise rows (Tab 2) 
   document.getElementById('subjectScoreRows').innerHTML = st.subStats.map(s => `
     <div class="subject-score-row" data-subject="${s.s}">
       <span class="subject-score-name">${s.s}</span>
@@ -1670,47 +1610,10 @@ function closeQDetail() {
 }
 
 function populateQDetail(q) {
-
   const detailBody = document.querySelector('.q-detail-body');
   if (detailBody) detailBody.scrollTop = 0;
 
-  // Header
-  document.getElementById('qdNum').textContent = `Q${q.id} · ${q.section} ${q.sectionNum}`;
-
-  const badge = document.getElementById('qdBadge');
-  badge.className = 'q-badge ' + (q.status === 'correct' ? 'badge-correct' : q.status === 'incorrect' ? 'badge-incorrect' : 'badge-unattempted');
-  badge.textContent = q.status.charAt(0).toUpperCase() + q.status.slice(1);
-
-  const pill = document.getElementById('qdMarks');
-  pill.textContent = q.marks > 0 ? `+${q.marks}` : String(q.marks);
-  pill.className = 'marks-pill ' + (q.marks > 0 ? 'marks-pos' : 'marks-zero');
-
-  // image area
-  const imgArea = document.getElementById('qdImgArea');
-  imgArea.scrollTop = 0;
-  const img = questionImages[q.id] || null;
-  imgArea.innerHTML = img
-    ? `<img src="${img}" alt="Q${q.id}" class="zoomable-img" title="Click to zoom" style="cursor:zoom-in">`
-    : `<div class="q-img-placeholder">Question image not available<br><small style="font-size:11px;margin-top:4px;display:block">Please upload the PDF version of your response sheet for question previews.</small></div>`;
-
-  // Answers
-  const si = document.getElementById('qdSelIcon'), sv = document.getElementById('qdSelected');
-  const ci = document.getElementById('qdCorIcon'), cv = document.getElementById('qdCorrect');
-
-  ci.className = 'ans-icon ia'; ci.innerHTML = '<span>✓</span>';
-  cv.className = 'ans-val va';  cv.textContent = q.correctLabel ? 'Option ' + q.correctLabel : (q.correctOptId || '—');
-
-  if (q.status === 'correct') {
-    si.className = 'ans-icon ic'; si.innerHTML = '<span>✓</span>';
-    sv.className = 'ans-val vc'; sv.textContent = q.candidateLabel ? 'Option ' + q.candidateLabel : (q.candidateOptId || '—');
-    ci.className = 'ans-icon ic'; cv.className = 'ans-val vc';
-  } else if (q.status === 'incorrect') {
-    si.className = 'ans-icon iw'; si.innerHTML = '<span>✗</span>';
-    sv.className = 'ans-val vw'; sv.textContent = q.candidateLabel ? 'Option ' + q.candidateLabel : (q.candidateOptId || '—');
-  } else {
-    si.className = 'ans-icon is'; si.innerHTML = '<span>—</span>';
-    sv.className = 'ans-val vs'; sv.textContent = 'Not Answered';
-  }
+  updateQuestionUI(q, 'qd');
 
   // Highlight table row
   highlightQTableRow(q.id);
@@ -1761,9 +1664,9 @@ function setStep(label, sub) {
   document.getElementById('stepSub').textContent   = sub || '';
 }
 
-function showDash(qs) {
-  if (window._blockShowDash) return;
+function showDash(qs, isRestore = false) {
   document.getElementById('loadingScreen').style.display = 'none';
+  document.getElementById('uploadScreen').style.display  = 'none';
   document.getElementById('dashboard').style.display     = 'flex';
   const predictor = document.getElementById('predictorScreen');
   if (predictor) predictor.style.display = 'none';
@@ -1772,55 +1675,19 @@ function showDash(qs) {
   document.getElementById('uploadThemeBtn').style.display = 'none'; // hide upload screen toggle
   const lp = document.getElementById('landingPage');
   if (lp) lp.style.display = 'none';
+  
   renderDashboard(qs);
-  saveSession(document.getElementById('topbarFile').textContent, qs);
+  
+  if (!isRestore) {
+    saveSession(document.getElementById('topbarFile').textContent, qs);
+  }
+
   const st = computeStats(qs);
   if (st.earned >= 150) setTimeout(fireConfetti, 600);
 
-  if (window._isOldSheet) {
-    const analysisBtn = document.getElementById('analysisBtn');
-    if (analysisBtn) analysisBtn.style.display = 'none';
-    const strip = document.getElementById('liveStatsBrief');
-    if (strip) strip.style.display = 'none';
-  } else {
-    const analysisBtn = document.getElementById('analysisBtn');
-    if (analysisBtn) analysisBtn.style.display = '';
-
-    // Retry brief strip after submission has time to complete
-    setTimeout(() => {
-      const strip = document.getElementById('liveStatsBrief');
-      if (strip && (!strip.innerHTML || strip.style.display === 'none')) {
-        if (typeof fetchAndRenderBriefStrip === 'function') {
-          const stream  = typeof examMode !== 'undefined' ? examMode : 'PCM';
-          const attempt = typeof selectedAttempt !== 'undefined' ? selectedAttempt : '';
-          const shift   = typeof selectedShift !== 'undefined' ? selectedShift : '';
-          fetchAndRenderBriefStrip(stream, attempt, shift, st.earned, st.subStats || []);
-        }
-      }
-    }, 2500);
-  }
-}
-
-// Restore session without writing to Firebase
-function showDashRestored(qs) {
-  document.getElementById('loadingScreen').style.display = 'none';
-  document.getElementById('uploadScreen').style.display  = 'none';
-  document.getElementById('dashboard').style.display     = 'flex';
-  const predictor = document.getElementById('predictorScreen');
-  if (predictor) predictor.style.display = 'none';
-
-  document.body.classList.remove('upload-active');
-  document.getElementById('uploadThemeBtn').style.display = 'none';
-  const lp = document.getElementById('landingPage');
-  if (lp) lp.style.display = 'none';
-  renderDashboard(qs);
-  // Do NOT call saveSubmissionToFirebase — session restore is read-only
-  // Do NOT call saveSession again — it's already saved
-  const st = computeStats(qs);
-
   // Set synchronously so Analysis screen has userScore immediately
-  window._lastFirebaseData = {
-    stream: examMode,
+  window._lastSupabaseData = {
+    stream: typeof examMode !== 'undefined' ? examMode : 'PCM',
     attempt: typeof selectedAttempt !== 'undefined' ? selectedAttempt : '',
     shift: typeof selectedShift !== 'undefined' ? selectedShift : '',
     userScore: st.earned,
@@ -1836,15 +1703,27 @@ function showDashRestored(qs) {
     const analysisBtn = document.getElementById('analysisBtn');
     if (analysisBtn) analysisBtn.style.display = '';
 
-    // Still fetch the brief strip so they can see their stats
     if (typeof fetchAndRenderBriefStrip === 'function') {
-      const stream = examMode;
-      const attempt = typeof selectedAttempt !== 'undefined' ? selectedAttempt : '';
-      const shift = typeof selectedShift !== 'undefined' ? selectedShift : '';
-      fetchAndRenderBriefStrip(stream, attempt, shift, st.earned, st.subStats || []);
+      const fetchBriefStrip = () => {
+        const stream = window._lastSupabaseData.stream;
+        const attempt = window._lastSupabaseData.attempt;
+        const shift = window._lastSupabaseData.shift;
+        fetchAndRenderBriefStrip(stream, attempt, shift, st.earned, st.subStats || []);
+      };
+
+      if (isRestore) {
+        fetchBriefStrip();
+      } else {
+        // Retry brief strip after submission has time to complete
+        setTimeout(() => {
+          const strip = document.getElementById('liveStatsBrief');
+          if (strip && (!strip.innerHTML || strip.style.display === 'none')) {
+            fetchBriefStrip();
+          }
+        }, 2500);
+      }
     }
   }
-  if (st.earned >= 150) setTimeout(fireConfetti, 600);
 }
 
 function resetApp() {
@@ -1855,7 +1734,7 @@ function resetApp() {
   if (analysisBtn) analysisBtn.style.display = '';
   questions = []; filteredQs = []; currentQ = 0;
   _pendingQs = null; _pendingFile = '';
-  pdfPageImages = {}; questionImages = {}; questionPageMap = {};
+  questionImages = {}; questionPageMap = {};
   subjectChartInsts.forEach(c => c.destroy()); subjectChartInsts = [];
   if (donutChartInst) { donutChartInst.destroy(); donutChartInst = null; }
   const subGrid = document.getElementById('subjectChartsGrid');
@@ -1885,7 +1764,7 @@ function resetApp() {
 }
 
 
-// ── Analysis screen ──
+// --- Analysis screen 
 
 let _analysisCharts = {};
 
@@ -1915,9 +1794,7 @@ function closeAnalysisScreen() {
   document.getElementById('dashboard').style.display      = 'flex';
 }
 
-// ── Community screen ──
-
-let _communityScreenCharts = {};
+// --- Community screen 
 
 function openCommunityScreen() {
   // Hide landing / upload

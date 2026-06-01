@@ -16,7 +16,7 @@ let _predictorOptionsSeq = 0;
 let _predictorLiveRows = [];
 let _predictorRefreshTimer = null;
 
-// ─── MANUAL OVERRIDE (ANTI-TROLL PROTECTION) ───
+// --- MANUAL OVERRIDE (ANTI-TROLL PROTECTION) 
 // If trolls spam fake 200/200 scores, it will inflate averages and crash genuine percentiles.
 // Set PREDICTOR_USE_LIVE_DATA to false to freeze the predictor and use your manually verified rankings below.
 const PREDICTOR_USE_LIVE_DATA = false;
@@ -43,9 +43,9 @@ const MANUAL_DIFFICULTY_RANKING = [
   { shift: '11 April - Morning' },
 ];
 
-// ─── 2025 REFERENCE RANKING (hardest → easiest by % scoring ≥120) ───
+// --- 2025 REFERENCE RANKING (hardest  easiest by % scoring 120) 
 const PREDICTOR_REFERENCE_RANKING = [
-  '21st April S2',   // 6.80%  — Hardest
+  '21st April S2',   // 6.80%   Hardest
   '20th April S2',   // 9.10%
   '22nd April S2',   // 10.10%
   '21st April S1',   // 12.40%
@@ -59,10 +59,10 @@ const PREDICTOR_REFERENCE_RANKING = [
   '25th April S2',   // 15.50%
   '26th April S1',   // 15.70%
   '26th April S2',   // 15.70%
-  '19th April S1'    // 26.50% — Easiest
+  '19th April S1'    // 26.50%  Easiest
 ];
 
-// ─── 2025 HISTORICAL MARKS → PERCENTILE CURVES ───
+// --- 2025 HISTORICAL MARKS  PERCENTILE CURVES 
 // Each key is a shift name; value is an array of {marks, percentile} points
 // sorted by marks ascending. Data from exam_results.xlsx.
 const PREDICTOR_HISTORICAL_CURVES = {
@@ -233,7 +233,7 @@ const PREDICTOR_HISTORICAL_CURVES = {
 };
 
 
-// ─── UI FUNCTIONS ───
+// --- UI FUNCTIONS 
 
 function openPredictorDisclaimer() {
   const overlay = document.getElementById('predictorDisclaimerOverlay');
@@ -334,7 +334,7 @@ function populatePredictorAttempts(rows) {
   select.innerHTML = '<option value="" disabled selected>' +
     (attempts.length ? 'Select attempt...' : 'No live attempts yet') +
     '</option>' +
-    attempts.map(attempt => '<option value="' + escapeHtmlPredictor(attempt) + '">' + escapeHtmlPredictor(attempt) + '</option>').join('');
+    attempts.map(attempt => '<option value="' + window.escapeHtml(attempt) + '">' + window.escapeHtml(attempt) + '</option>').join('');
 
   if (attempts.includes(current)) {
     select.value = current;
@@ -358,7 +358,7 @@ function populatePredictorShifts(rows) {
   select.innerHTML = '<option value="" disabled selected>' +
     (attempt ? (shifts.length ? 'Select shift...' : 'No live shifts for attempt') : 'Select attempt first') +
     '</option>' +
-    shifts.map(shift => '<option value="' + escapeHtmlPredictor(shift) + '">' + escapeHtmlPredictor(shift) + '</option>').join('');
+    shifts.map(shift => '<option value="' + window.escapeHtml(shift) + '">' + window.escapeHtml(shift) + '</option>').join('');
 
   if (shifts.includes(current)) select.value = current;
   else select.value = '';
@@ -404,7 +404,7 @@ function onPredictorInputChange() {
 }
 
 
-// ─── LIVE DATA ───
+// --- LIVE DATA 
 
 function startPredictorLiveRefresh() {
   stopPredictorLiveRefresh();
@@ -479,18 +479,24 @@ async function fetchPredictorLiveRows(stream) {
   if (error) throw new Error('Supabase shift statistics could not be fetched.');
 
   return (data || [])
-    .filter(row => row && Number(row.count) > 0 && row.attempt && row.shift)
-    .map(row => ({
-      attempt: String(row.attempt),
-      shift: String(row.shift),
-      count: Number(row.count),
-      total_score: Number(row.total_score),
-      score_counts: row.score_counts || {}
-    }));
+    .filter(row => row && Number(row.count) >= 3 && row.attempt && row.shift && !String(row.shift).toLowerCase().includes('18 may'))
+    .map(row => {
+      let parsedScores = row.score_counts || {};
+      if (typeof parsedScores === 'string') {
+        try { parsedScores = JSON.parse(parsedScores); } catch(e) { console.warn('Predictor: JSON parse error in live rows', e); }
+      }
+      return {
+        attempt: String(row.attempt),
+        shift: String(row.shift),
+        count: Number(row.count),
+        total_score: Number(row.total_score),
+        score_counts: parsedScores
+      };
+    });
 }
 
 
-// ─── CORE PREDICTION ───
+// --- CORE PREDICTION 
 
 async function updatePredictorPrediction(seq, stream, attempt, shift, marks) {
   setPredictorResult('--', 'Fetching live shift statistics…');
@@ -502,7 +508,8 @@ async function updatePredictorPrediction(seq, stream, attempt, shift, marks) {
 
     const currentIndex = currentRanking.findIndex(item => item.shift === shift);
     if (currentIndex === -1) {
-      throw new Error('Selected shift is not present in the live Supabase statistics yet.');
+      const avail = currentRanking.map(r => r.shift).join(', ');
+      throw new Error('Shift not found in ranking! Available (' + currentRanking.length + '): ' + avail);
     }
 
     const selectedRank = currentRanking[currentIndex];
@@ -540,7 +547,7 @@ async function updatePredictorPrediction(seq, stream, attempt, shift, marks) {
     let margin = Math.max(Math.abs(percentile - rawPMin), Math.abs(rawPMax - percentile));
 
     // If the data curves perfectly flatline (e.g. due to monotonicity smoothing),
-    // enforce a minimum ±0.1 margin so the UI doesn't randomly disappear.
+    // enforce a minimum 0.1 margin so the UI doesn't randomly disappear.
     if (margin < 0.1) {
       margin = 0.1;
     }
@@ -566,7 +573,7 @@ async function updatePredictorPrediction(seq, stream, attempt, shift, marks) {
 }
 
 async function fetchPredictorCurrentRanking(stream, attempt) {
-  if (!PREDICTOR_USE_LIVE_DATA) {
+  if (!PREDICTOR_USE_LIVE_DATA && String(attempt).trim() === 'Attempt 1') {
     if (!MANUAL_DIFFICULTY_RANKING || MANUAL_DIFFICULTY_RANKING.length === 0) {
       throw new Error('Predictor is frozen but MANUAL_DIFFICULTY_RANKING is empty.');
     }
@@ -580,30 +587,40 @@ async function fetchPredictorCurrentRanking(stream, attempt) {
     });
   }
 
-  const sb = window._supabaseClient;
-  if (!sb) throw new Error('Supabase client is unavailable.');
+  // Use globally cached rows instead of a redundant Supabase fetch on every keystroke
+  let data = _predictorLiveRows.filter(r => r.attempt === attempt);
+  
+  if (data.length === 0) {
+    // Fallback: fetch directly if cache is empty
+    const sb = window._supabaseClient;
+    if (!sb) throw new Error('Supabase client is unavailable.');
 
-  let response;
-  try {
-    response = await sb.from('shift_stats')
-      .select('shift,count,total_score,score_counts')
-      .eq('stream', stream)
-      .eq('attempt', attempt);
-  } catch (err) {
-    throw new Error('Supabase live shift statistics request failed. Check your internet connection and run the app over HTTP/localhost, not file://.');
+    let response;
+    try {
+      response = await sb.from('shift_stats')
+        .select('shift,count,total_score,score_counts')
+        .eq('stream', stream)
+        .eq('attempt', attempt);
+    } catch (err) {
+      throw new Error('Supabase live shift statistics request failed. Check your internet connection and run the app over HTTP/localhost, not file://.');
+    }
+
+    const { data: fetchResult, error } = response;
+    if (error) throw new Error('Supabase shift statistics could not be fetched.');
+    data = fetchResult || [];
   }
 
-  const { data, error } = response;
-  if (error) throw new Error('Supabase shift statistics could not be fetched.');
-
-  const rows = (data || [])
+  const rows = data
     .filter(row => row && Number(row.count) >= 3)
     .map(row => {
       let derivedCount = 0;
       let derivedTotal = 0;
       let above120Count = 0;
       let below80Count = 0;
-      const scoreCounts = row.score_counts || {};
+      let scoreCounts = row.score_counts || {};
+      if (typeof scoreCounts === 'string') {
+        try { scoreCounts = JSON.parse(scoreCounts); } catch(e) { console.warn('Predictor: JSON parse error in current ranking', e); }
+      }
       for (const [scoreStr, cStr] of Object.entries(scoreCounts)) {
         const score = Number(scoreStr);
         const c = Number(cStr);
@@ -620,6 +637,22 @@ async function fetchPredictorCurrentRanking(stream, attempt) {
       const median = predictorMedianFromScoreCounts(scoreCounts);
       const average = count > 0 ? total / count : NaN;
       
+      let varianceSum = 0;
+      let skewnessSum = 0;
+      if (count > 1 && Number.isFinite(average)) {
+        for (const [scoreStr, cStr] of Object.entries(scoreCounts)) {
+          const score = Number(scoreStr);
+          const c = Number(cStr);
+          if (Number.isFinite(score) && Number.isFinite(c)) {
+             const diff = score - average;
+             varianceSum += c * (diff * diff);
+             skewnessSum += c * (diff * diff * diff);
+          }
+        }
+      }
+      const stdDev = count > 1 ? Math.sqrt(varianceSum / count) : 0;
+      const skewness = (stdDev > 0) ? (skewnessSum / count) / (stdDev * stdDev * stdDev) : 0;
+
       const pctAbove120 = count > 0 ? (above120Count / count) * 100 : 0;
       const pctBelow80 = count > 0 ? (below80Count / count) * 100 : 0;
 
@@ -628,6 +661,7 @@ async function fetchPredictorCurrentRanking(stream, attempt) {
         count,
         average,
         median,
+        skewness,
         pctAbove120,
         pctBelow80
       };
@@ -646,19 +680,32 @@ async function fetchPredictorCurrentRanking(stream, attempt) {
   const maxAbove120 = Math.max(...rows.map(r => r.pctAbove120));
   const minBelow80 = Math.min(...rows.map(r => r.pctBelow80));
   const maxBelow80 = Math.max(...rows.map(r => r.pctBelow80));
+  const minSkew = Math.min(...rows.map(r => r.skewness));
+  const maxSkew = Math.max(...rows.map(r => r.skewness));
 
   rows.forEach(row => {
     const normalizedAvg = maxAvg > minAvg ? (row.average - minAvg) / (maxAvg - minAvg) : 0.5;
     const normalizedMedian = maxMedian > minMedian ? (row.median - minMedian) / (maxMedian - minMedian) : 0.5;
     const normalizedAbove120 = maxAbove120 > minAbove120 ? (row.pctAbove120 - minAbove120) / (maxAbove120 - minAbove120) : 0.5;
     const normalizedBelow80 = maxBelow80 > minBelow80 ? (row.pctBelow80 - minBelow80) / (maxBelow80 - minBelow80) : 0.5;
+    const normalizedSkew = maxSkew > minSkew ? (row.skewness - minSkew) / (maxSkew - minSkew) : 0.5;
 
-    row.difficultyScore = (
-      (1 - normalizedAvg) * 0.25 +
-      (1 - normalizedMedian) * 0.25 +
-      (1 - normalizedAbove120) * 0.30 +
-      normalizedBelow80 * 0.20
-    );
+    if (String(attempt).trim() === 'Attempt 2') {
+      row.difficultyScore = (
+        (1 - normalizedAvg) * 0.20 +
+        (1 - normalizedMedian) * 0.20 +
+        (1 - normalizedAbove120) * 0.25 +
+        normalizedBelow80 * 0.15 +
+        normalizedSkew * 0.20
+      );
+    } else {
+      row.difficultyScore = (
+        (1 - normalizedAvg) * 0.25 +
+        (1 - normalizedMedian) * 0.25 +
+        (1 - normalizedAbove120) * 0.30 +
+        normalizedBelow80 * 0.20
+      );
+    }
   });
 
   // Hardest first: higher difficultyScore first
@@ -675,7 +722,7 @@ async function fetchPredictorCurrentRanking(stream, attempt) {
 }
 
 
-// ─── INTERPOLATION ───
+// --- INTERPOLATION 
 
 function interpolatePredictorCurve(curve, marks) {
   const points = [...curve].sort((a, b) => a.marks - b.marks);
@@ -746,7 +793,7 @@ function predictorMedianFromScoreCounts(scoreCounts) {
 }
 
 
-// ─── UI HELPERS ───
+// --- UI HELPERS 
 
 function setPredictorResult(value, meta) {
   const result = document.getElementById('predictorResult');
@@ -762,14 +809,6 @@ function setPredictorStatus(message, type) {
   status.className = 'predictor-status' + (type ? ' is-' + type : '');
 }
 
-function escapeHtmlPredictor(value) {
-  return String(value)
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;');
-}
 
 document.addEventListener('DOMContentLoaded', () => {
   initPredictorControls();

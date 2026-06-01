@@ -1,6 +1,6 @@
-// ── CETLens — Supabase-backed analytics ──────────────────────────────────────
+// --- CETLens  Supabase-backed analytics 
 
-// ── HTML escape utility (XSS prevention) ─────────────────────────────────────
+// --- HTML escape utility (XSS prevention) 
 // All database-sourced values rendered via innerHTML MUST be escaped with this.
 function _escHtml(str) {
   if (str == null) return '';
@@ -12,8 +12,8 @@ function _escHtml(str) {
     .replace(/'/g, '&#39;');
 }
 
-// ── In-memory read cache ──────────────────────────────────────────────────────
-// Prevents repeat Firebase reads when analysis / community screens are reopened.
+// --- In-memory read cache 
+// Prevents repeat Supabase reads when analysis / community screens are reopened.
 // Keys are invalidated automatically after TTL, or explicitly after a new write.
 
 const _fbCache = {};
@@ -34,7 +34,7 @@ function _cacheInvalidate(prefix) {
   Object.keys(_fbCache).forEach(k => { if (k.startsWith(prefix)) delete _fbCache[k]; });
 }
 
-// ── helpers ──────────────────────────────────────────────────────────────────
+// --- helpers 
 
 function getChartColors() {
   const style = getComputedStyle(document.documentElement);
@@ -61,60 +61,33 @@ function baseChartOptions(colors) {
     }
   };
 }
-
-function drawArcGauge(svgEl, fillEl, ratio) {
-  const cx = 100, cy = 110, r = 80;
-  const ptAt = a => ({ x: cx + r * Math.cos(a), y: cy - r * Math.sin(a) });
-  const trackStart = ptAt(Math.PI), trackEnd = ptAt(0);
-  const trackD = `M ${trackStart.x} ${trackStart.y} A ${r} ${r} 0 0 1 ${trackEnd.x} ${trackEnd.y}`;
-  svgEl.querySelector('.arc-track').setAttribute('d', trackD);
-  const clampedRatio = Math.min(Math.max(ratio, 0), 1);
-  const fillAngle = Math.PI - clampedRatio * Math.PI;
-  const fillEnd = ptAt(fillAngle);
-  const fillD = clampedRatio > 0
-    ? `M ${trackStart.x} ${trackStart.y} A ${r} ${r} 0 0 1 ${fillEnd.x} ${fillEnd.y}` : '';
-  fillEl.setAttribute('d', fillD);
-}
-
-function statsPath(stream, attempt, shift) {
-  return `stats/${stream}/${attempt}/${shift}`;
-}
-
-function scoreLimitForStream(stream) {
-  // Both PCM and PCB have 200 max marks
-  return 200;
-}
-
 function normalizeScore(score, stream) {
-  const max = scoreLimitForStream(stream);
+  const max = 200;
   const n = Number(score);
   if (!Number.isFinite(n)) return 0;
   return Math.min(Math.max(Math.round(n), 0), max);
 }
-
-function incrementAggregate(current, payload) {
-  const score = normalizeScore(payload.score, payload.stream);
-  const next = current || {};
-  next.count = (next.count || 0) + 1;
-  next.sum = (next.sum || 0) + score;
-  next.highest = Math.max(next.highest === undefined ? -Infinity : next.highest, score);
-  next.min = Math.min(next.min === undefined ? Infinity : next.min, score);
-  next.scoreCounts = next.scoreCounts || {};
-  next.scoreCounts[score] = (next.scoreCounts[score] || 0) + 1;
-  next.subjectSums = next.subjectSums || {};
-  Object.entries(payload.subjects || {}).forEach(([subject, value]) => {
-    const n = Number(value) || 0;
-    next.subjectSums[subject] = (next.subjectSums[subject] || 0) + n;
-  });
-  next.updatedAt = Date.now();
-  return next;
-}
-
 function countScores(scoreCounts, predicate) {
   return Object.entries(scoreCounts || {}).reduce((total, [score, count]) => {
     const s = Number(score);
     return predicate(s) ? total + (Number(count) || 0) : total;
   }, 0);
+}
+
+function getMode(arr) {
+  if (!arr || !arr.length) return 0;
+  const counts = {};
+  let maxCount = 0;
+  let mode = arr[0];
+  for (let i = 0; i < arr.length; i++) {
+    const v = arr[i];
+    counts[v] = (counts[v] || 0) + 1;
+    if (counts[v] > maxCount) {
+      maxCount = counts[v];
+      mode = v;
+    }
+  }
+  return mode;
 }
 
 function expandScoreCounts(scoreCounts) {
@@ -220,14 +193,7 @@ function fetchAnalysisSupabase(stream, attempt) {
   });
 }
 
-function renderNoAnalysisData() {
-  document.getElementById('analysisLoading').style.display = 'none';
-  document.getElementById('analysisContent').innerHTML =
-    '<p style="padding:3rem;text-align:center;color:var(--pewter)">No data yet — be the first to submit!</p>';
-  document.getElementById('analysisContent').style.display = 'block';
-}
-
-// ── hash helper for duplicate prevention ──────────────────────────────────────
+// --- hash helper for duplicate prevention 
 
 async function generateAnswerHash(qs) {
   // Concatenate all questionId + candidateOptId pairs in order
@@ -239,16 +205,15 @@ async function generateAnswerHash(qs) {
   return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
 }
 
-// ── save submission ───────────────────────────────────────────────────────────
-// Optimized write path (3 Firebase ops instead of 5):
-//   1. Read  — hash check (duplicate prevention)
-//   2. Write — stats aggregate transaction (concurrent-safe)
-//   3. Write — multi-path update: summary counters + hash record (1 round-trip)
+// --- save submission 
+// Optimized write path (3 Supabase ops instead of 5):
+//   1. Read   hash check (duplicate prevention)
+//   2. Write  stats aggregate transaction (concurrent-safe)
+//   3. Write  multi-path update: summary counters + hash record (1 round-trip)
 //
 // The `submissions` collection write has been removed. All analytics rely on
 // the aggregated `stats` node, so raw submissions were redundant storage.
 
-let _isAutoCorrecting = false;
 
 async function saveSubmissionToSupabase(qs, st, filename, signature) {
   if (window._isOldSheet) return;
@@ -267,7 +232,7 @@ async function saveSubmissionToSupabase(qs, st, filename, signature) {
     const p_hash = await generateAnswerHash(qs);
 
     // NOTE: identify_sheet is already called in _finishInner (script.js) before
-    // loadDash is invoked. No need to call it again here — saves a DB round-trip.
+    // loadDash is invoked. No need to call it again here  saves a DB round-trip.
 
     if (p_attempt === 'Attempt 1') {
       console.log('Attempt 1 submissions are paused. Skipped recording hash and score.');
@@ -287,41 +252,32 @@ async function saveSubmissionToSupabase(qs, st, filename, signature) {
       // Check for application-level errors returned by the RPC
       if (data && data.error) {
         if (data.error === 'wrong_shift_detected') {
-          window._blockShowDash = true; // Prevent race condition with showDash() timeout
-          if (data.correct_shift && !_isAutoCorrecting) {
+          if (data.correct_shift) {
             _showWrongShiftPopup(data.correct_shift, qs, st, filename, signature, data.correct_stream || null, data.correct_attempt || null);
           } else {
-            console.warn('Silent rejection: Shift signature mismatch.', data.correct_shift ? `(True shift: ${data.correct_shift})` : '');
-            
-            // Show the "old sheet" style overlay to let them view the score locally anyway
+            console.warn('Silent rejection: Shift signature mismatch.');
             document.getElementById('loadingScreen').style.display = 'none';
             document.getElementById('dashboard').style.display = 'none';
             document.getElementById('uploadScreen').style.display = 'flex';
             document.body.classList.add('upload-active');
-            
             const overlay = document.getElementById('oldSheetOverlay');
             if (overlay) {
               document.getElementById('oldSheetContinueBtn').onclick = function() {
                 overlay.classList.remove('open');
                 document.getElementById('uploadScreen').style.display = 'none';
                 document.body.classList.remove('upload-active');
-                
-                if (typeof renderDashboard === 'function') {
-                  renderDashboard(qs);
-                }
+                if (typeof renderDashboard === 'function') renderDashboard(qs);
                 document.getElementById('dashboard').style.display = 'flex';
-                
-                // Hide analysis button
                 const analysisBtn = document.getElementById('analysisBtn');
                 if (analysisBtn) analysisBtn.style.display = 'none';
               };
               overlay.classList.add('open');
             }
           }
-          return;
+          return false;
         }
         console.error('Submission rejected by server:', data.error);
-        window._blockShowDash = true;
+        return false;
 
         // Show the "Unrecognized" overlay so the user isn't stuck on a blank screen
         document.getElementById('loadingScreen').style.display = 'none';
@@ -357,7 +313,7 @@ async function saveSubmissionToSupabase(qs, st, filename, signature) {
       _cacheInvalidate('community');
     }
 
-    // Render brief strip directly from RPC result — no second network fetch
+    // Render brief strip directly from RPC result  no second network fetch
     const clamped = normalizeScore(p_score, p_stream);
     const same = 0; // RPC doesn't return this; brief strip doesn't critically need it
     // Re-fetch the shift stats for accurate rendering (sum, highest needed)
@@ -375,7 +331,7 @@ async function saveSubmissionToSupabase(qs, st, filename, signature) {
   }
 }
 
-// ── Auto-Detect Shift Popup ─────────────────────────────────────────────────
+// --- Auto-Detect Shift Popup 
 // Shows a popup when the system detects the student selected the wrong
 // stream/attempt/shift. Offers a one-click button to auto-correct everything
 // and re-submit to the correct location.
@@ -409,15 +365,9 @@ function _showWrongShiftPopup(correctShift, qs, st, filename, signature, correct
   switchBtn.onclick = function () {
     overlay.classList.remove('open');
 
-    // ── Auto-correct stream if needed ──
+    // --- Auto-correct stream if needed 
     if (targetStream !== currentStream) {
       examMode = targetStream;
-      const btnPCM = document.getElementById('btnPCM');
-      const btnPCB = document.getElementById('btnPCB');
-      if (btnPCM) btnPCM.classList.toggle('active', targetStream === 'PCM');
-      if (btnPCB) btnPCB.classList.toggle('active', targetStream === 'PCB');
-
-      // Re-assign 3rd subject (Biology ↔ Mathematics) and recalculate marks
       const oldSubject = targetStream === 'PCM' ? 'Biology' : 'Mathematics';
       const newSubject = targetStream === 'PCM' ? 'Mathematics' : 'Biology';
       let newSubjectNum = 0;
@@ -431,14 +381,10 @@ function _showWrongShiftPopup(correctShift, qs, st, filename, signature, correct
           ? (targetStream === 'PCM' && q.section === 'Mathematics' ? 2 : 1)
           : 0;
       });
-      // Recompute stats with correct scoring
-      st = computeStats(qs);
     }
-
-    // ── Auto-correct attempt ──
+    
+    // --- Auto-correct attempt and shift 
     selectedAttempt = targetAttempt;
-
-    // ── Auto-correct shift ──
     selectedShift = targetShift;
 
     // Update the shift dropdown if visible
@@ -457,45 +403,20 @@ function _showWrongShiftPopup(correctShift, qs, st, filename, signature, correct
       shiftSelect.value = targetShift;
     }
 
-    // Update the cached firebase data
-    if (window._lastFirebaseData) {
-      window._lastFirebaseData.stream = targetStream;
-      window._lastFirebaseData.attempt = targetAttempt;
-      window._lastFirebaseData.shift = targetShift;
+    // Call loadDash with the corrected variables
+    if (typeof loadDash === 'function') {
+      loadDash(filename, qs);
     }
-
-    // Re-submit with the corrected everything (with safety flag)
-    _isAutoCorrecting = true;
-    saveSubmissionToSupabase(qs, st, filename, signature).then(() => {
-      // Explicitly refresh the brief strip with correct data
-      if (typeof fetchAndRenderBriefStrip === 'function') {
-        fetchAndRenderBriefStrip(targetStream, targetAttempt, targetShift, st.earned, st.subStats || []);
-      }
-      // Re-save session so restore works correctly
-      if (typeof saveSession === 'function') {
-        const fname = document.getElementById('topbarFile')
-          ? document.getElementById('topbarFile').textContent : filename;
-        saveSession(fname, qs);
-      }
-      // Re-render the dashboard with correct stream/marks
-      if (typeof renderDashboard === 'function') {
-        renderDashboard(qs);
-      }
-    }).catch(err => {
-      console.error('Auto-correct save error:', err);
-    }).finally(() => {
-      _isAutoCorrecting = false;
-    });
   };
 
   overlay.classList.add('open');
 }
 
-// Backward-compatible alias — script.js calls saveSubmissionToFirebase()
-const saveSubmissionToFirebase = saveSubmissionToSupabase;
+// Backward-compatible alias  script.js calls saveSubmissionToSupabase()
+window.saveSubmissionToSupabase = saveSubmissionToSupabase;
 
-// ── BRIEF STRIP (dashboard) ───────────────────────────────────────────────────
-// Reads only the single shift's aggregated stat node — no fallback to the full
+// --- BRIEF STRIP (dashboard) 
+// Reads only the single shift's aggregated stat node  no fallback to the full
 // submissions collection (which could be thousands of records at scale).
 
 function fetchAndRenderBriefStrip(stream, attempt, shift, userScore, userSubStats) {
@@ -555,10 +476,10 @@ function renderBriefStrip(stream, attempt, shift, userScore, userSubStats, total
       </div>
     </div>`;
 
-  window._lastFirebaseData = { stream, attempt, shift, userScore, userSubStats };
+  window._lastSupabaseData = { stream, attempt, shift, userScore, userSubStats };
 }
 
-// ── FULL ANALYSIS SCREEN ──────────────────────────────────────────────────────
+// --- FULL ANALYSIS SCREEN 
 
 function fetchFullAnalysis() {
   const sb = window._supabaseClient;
@@ -566,7 +487,7 @@ function fetchFullAnalysis() {
     document.getElementById('analysisLoading').style.display = 'none';
     return;
   }
-  const ctx = window._lastFirebaseData || {};
+  const ctx = window._lastSupabaseData || {};
   const stream    = ctx.stream    || (typeof examMode        !== 'undefined' ? examMode        : 'PCM');
   const attempt   = ctx.attempt   || (typeof selectedAttempt !== 'undefined' ? selectedAttempt : '');
   const shift     = ctx.shift     || (typeof selectedShift   !== 'undefined' ? selectedShift   : '');
@@ -581,7 +502,7 @@ function fetchFullAnalysis() {
       return;
     }
 
-    // ── aggregate ─────────────────────────────────────────────────────────────
+    // --- aggregate 
     // per-shift data (same stream & attempt)
     const shiftMap = {}; // { shiftName: { scores:[], subjectSums:{}, count, highest } }
     // global
@@ -653,7 +574,7 @@ function fetchFullAnalysis() {
       if (buckets[b] !== undefined) buckets[b]++;
     });
 
-    // ── render stat elements ───────────────────────────────────────────────────
+    // --- render stat elements 
     document.getElementById('analysisTotalBadge').textContent = `${totalAllStreams} total submissions`;
     document.getElementById('analysisTotalAll').textContent   = totalAllStreams;
     
@@ -671,7 +592,7 @@ function fetchFullAnalysis() {
     document.getElementById('analysisMedian').textContent = median;
     document.getElementById('analysisMean').textContent   = myAvg.toFixed(1);
 
-    // ── Charts ─────────────────────────────────────────────────────────────────
+    // --- Charts 
     const colors = getChartColors();
 
     // 1. Score compare (you vs avg vs highest)
@@ -760,8 +681,7 @@ function fetchFullAnalysis() {
       // distribution stats
       const distEl = document.getElementById('distributionStats');
       if (distEl && sorted.length > 0) {
-        const modeScore = myScores.reduce((a, b, _, arr) =>
-          arr.filter(v => v === a).length >= arr.filter(v => v === b).length ? a : b, myScores[0]);
+        const modeScore = getMode(myScores);
         distEl.innerHTML = [
           ['Mean', myAvg.toFixed(1)], ['Median', median], ['Mode', modeScore],
           ['Min', sorted[0]], ['Max', sorted[sorted.length - 1]], ['Participants', myCount]
@@ -844,14 +764,14 @@ function fetchFullAnalysis() {
     if (sel) {
       sel.innerHTML = shiftNames.map(s => `<option value="${_escHtml(s)}" ${s === shift ? 'selected' : ''}>${_escHtml(s)}</option>`).join('');
       window._shiftMapData = shiftMap;
-      renderShiftDrillDown(shift || shiftNames[0]);
+      renderDrillDown('shiftDrillDown', window._shiftMapData, shift || shiftNames[0]);
     }
 
     // Show content
     document.getElementById('analysisLoading').style.display = 'none';
     document.getElementById('analysisContent').style.display  = 'block';
 
-    // ── Shift Difficulty Analysis ──
+    // --- Shift Difficulty Analysis 
     renderDifficultyRanking('analysisDifficultySection', shiftMap);
 
   }).catch(err => {
@@ -860,60 +780,10 @@ function fetchFullAnalysis() {
   });
 }
 
-// ── Drill-down renderer ───────────────────────────────────────────────────────
 
-function renderShiftDrillDown(shiftName) {
-  const container = document.getElementById('shiftDrillDown');
-  if (!container || !window._shiftMapData) return;
-  const sd = window._shiftMapData[shiftName];
-  if (!sd) { container.innerHTML = '<p style="color:var(--pewter);font-size:13px">No data for this shift yet.</p>'; return; }
-
-  const scores = sd.scores || [];
-  const count  = sd.count;
-  const avg    = count > 0 ? (scores.reduce((a, b) => a + b, 0) / count).toFixed(1) : '—';
-  const sorted = [...scores].sort((a, b) => a - b);
-  const median = sorted.length > 0
-    ? (sorted.length % 2 === 0
-        ? ((sorted[sorted.length / 2 - 1] + sorted[sorted.length / 2]) / 2).toFixed(1)
-        : sorted[Math.floor(sorted.length / 2)]) : '—';
-
-  const subjectRows = Object.entries(sd.subjectSums).map(([subj, sum]) => {
-    const sAvg = count > 0 ? (sum / count).toFixed(1) : '—';
-    const highest = scores.length > 0 ? sd.scores.reduce((best, _, i, arr) => {
-      // We don't track per-subject per-student breakdown so just show avg
-      return best;
-    }, '—') : '—';
-    return `
-      <div class="drill-subject-row">
-        <span class="drill-subject-name">${_escHtml(subj)}</span>
-        <span class="drill-subject-val" style="color:var(--text2)">Avg: ${sAvg}</span>
-        <span class="drill-subject-val" style="color:var(--pewter)">Total entries: ${count}</span>
-      </div>`;
-  }).join('');
-
-  container.innerHTML = `
-    <div class="drill-down-grid">
-      <div class="drill-cell"><div class="drill-cell__val">${count}</div><div class="drill-cell__lbl">Participants</div></div>
-      <div class="drill-cell"><div class="drill-cell__val">${avg}</div><div class="drill-cell__lbl">Average Score</div></div>
-      <div class="drill-cell"><div class="drill-cell__val">${sd.highest === -Infinity ? '—' : sd.highest}</div><div class="drill-cell__lbl">Highest Score</div></div>
-      <div class="drill-cell"><div class="drill-cell__val">${median}</div><div class="drill-cell__lbl">Median Score</div></div>
-      <div class="drill-cell"><div class="drill-cell__val">${sorted[0] !== undefined ? sorted[0] : '—'}</div><div class="drill-cell__lbl">Lowest Score</div></div>
-      <div class="drill-cell"><div class="drill-cell__val">${sorted.length > 0 ? (sorted[0] + sorted[sorted.length-1] > 0 ? (sorted.reduce((a,b)=>a+b,0)/sorted.length*100/(sorted[sorted.length-1]||1)).toFixed(0)+'%' : '—') : '—'}</div><div class="drill-cell__lbl">Score Spread</div></div>
-    </div>
-    ${subjectRows.length > 0 ? `
-      <div style="margin-top:1.25rem">
-        <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.12em;color:var(--text2);margin-bottom:.75rem">Subject-wise Averages</div>
-        <div class="drill-subject-row" style="font-size:10px;color:var(--pewter);font-weight:700;border-bottom:2px solid var(--border2)">
-          <span>Subject</span><span style="text-align:right">Average</span><span style="text-align:right">Participants</span>
-        </div>
-        ${subjectRows}
-      </div>` : ''}`;
-}
-
-
-// ── COMMUNITY FULL-SCREEN ANALYSIS ───────────────────────────────────────────
+// --- COMMUNITY FULL-SCREEN ANALYSIS 
 // Results are cached for _CACHE_TTL_MS. Reopening the screen within the TTL
-// window costs zero Firebase reads.
+// window costs zero Supabase reads.
 
 let _communityCharts = {};
 let _selectedCommunityStream = 'PCM';  // default stream filter
@@ -1022,14 +892,14 @@ function fetchCommunityFullAnalysis() {
   });
 }
 
-// Internal renderer — filters by _selectedCommunityStream
+// Internal renderer  filters by _selectedCommunityStream
 function _renderCommunityData({ pcmStats, pcbStats, summary }) {
   const noDataEl = document.getElementById('commNoData');
   const noDataMsg = document.getElementById('commNoDataMsg');
   const chartSections = document.getElementById('commChartSections');
 
   // Always destroy old charts first to prevent stale renders
-  Object.values(_communityCharts).forEach(c => { try { c.destroy(); } catch(e){} });
+  Object.values(_communityCharts).forEach(c => { try { c.destroy(); } catch(e){ console.warn('Chart destroy error:', e); } });
   _communityCharts = {};
 
   if (!pcmStats && !pcbStats) {
@@ -1072,7 +942,7 @@ function _renderCommunityData({ pcmStats, pcbStats, summary }) {
     return;
   }
 
-  // Data exists — show chart sections, hide no-data overlay
+  // Data exists  show chart sections, hide no-data overlay
   if (noDataEl) noDataEl.style.display = 'none';
   if (chartSections) chartSections.style.display = '';
 
@@ -1092,7 +962,7 @@ function _renderCommunityData({ pcmStats, pcbStats, summary }) {
   const colors = getChartColors();
 
 
-  // ── Score Distribution Histogram ──
+  // --- Score Distribution Histogram 
   const maxBucket = 200;
   const buckets = {};
   for (let i = 0; i <= maxBucket; i += 20) buckets[i] = 0;
@@ -1116,15 +986,14 @@ function _renderCommunityData({ pcmStats, pcbStats, summary }) {
   // Distribution stats
   const distEl = document.getElementById('commDistributionStats');
   if (distEl && sorted.length > 0) {
-    const modeScore = allScores.reduce((a, b, _, arr) =>
-      arr.filter(v => v === a).length >= arr.filter(v => v === b).length ? a : b, allScores[0]);
+    const modeScore = getMode(allScores);
     distEl.innerHTML = [
       ['Mean', mean], ['Median', median], ['Mode', modeScore],
       ['Min', sorted[0]], ['Max', sorted[sorted.length - 1]], ['Participants', streamTotal]
     ].map(([l, v]) => `<div class="dist-stat"><div class="dist-stat__val">${v}</div><div class="dist-stat__lbl">${l}</div></div>`).join('');
   }
 
-  // ── Shift Avg Chart ──
+  // --- Shift Avg Chart 
   const streamColor = stream === 'PCM' ? 'rgba(255,71,87,.55)' : 'rgba(96,165,250,.55)';
   const shiftAvgs = shiftNames.map(s => {
     const d = activeShiftMap[s];
@@ -1139,7 +1008,7 @@ function _renderCommunityData({ pcmStats, pcbStats, summary }) {
     });
   }
 
-  // ── Participants per Shift ──
+  // --- Participants per Shift 
   const shiftCounts = shiftNames.map(s => activeShiftMap[s].count);
   const partCtx = document.getElementById('comm-participantsChart');
   if (partCtx) {
@@ -1150,7 +1019,7 @@ function _renderCommunityData({ pcmStats, pcbStats, summary }) {
     });
   }
 
-  // ── Highest per Shift ──
+  // --- Highest per Shift 
   const shiftHighs = shiftNames.map(s => activeShiftMap[s].highest === -Infinity ? 0 : activeShiftMap[s].highest);
   const highCtx = document.getElementById('comm-highestChart');
   if (highCtx) {
@@ -1161,7 +1030,7 @@ function _renderCommunityData({ pcmStats, pcbStats, summary }) {
     });
   }
 
-  // ── Subject Avg per Shift ──
+  // --- Subject Avg per Shift 
   const allSubjects = [...new Set(Object.values(activeShiftMap).flatMap(sd => Object.keys(sd.subjectSums)))];
   const subjectColors = { Physics: '#00d4ff', Chemistry: '#c084fc', Mathematics: colors.accent, Biology: '#22c55e' };
   const shiftSubjCtx = document.getElementById('comm-shiftSubjectChart');
@@ -1184,7 +1053,7 @@ function _renderCommunityData({ pcmStats, pcbStats, summary }) {
     });
   }
 
-  // ── Stream Donut ──
+  // --- Stream Donut 
   const donutCtx = document.getElementById('comm-streamDonutChart');
   if (donutCtx) {
     _communityCharts.stream = new Chart(donutCtx, {
@@ -1197,32 +1066,32 @@ function _renderCommunityData({ pcmStats, pcbStats, summary }) {
     });
   }
 
-  // ── Stream Overview Stats ──
+  // --- Stream Overview Stats 
   document.getElementById('commTotalAll').textContent = streamTotal;
   document.getElementById('commMedian').textContent = median;
   document.getElementById('commMean').textContent = mean;
 
-  // ── Drill Down Selector ──
+  // --- Drill Down Selector 
   const sel = document.getElementById('commShiftSelect');
   if (sel) {
     sel.innerHTML = shiftNames.map(s => `<option value="${_escHtml(s)}">${_escHtml(s)}</option>`).join('');
     window._commShiftMapData = activeShiftMap;
-    renderCommShiftDrillDown(shiftNames[0]);
+    renderDrillDown('commDrillDown', window._commShiftMapData, shiftNames[0]);
   }
 
   // Show content
   document.getElementById('commLoading').style.display = 'none';
   document.getElementById('commContent').style.display = 'block';
 
-  // ── Shift Difficulty Analysis ──
+  // --- Shift Difficulty Analysis 
   renderDifficultyRanking('commDifficultySection', activeShiftMap);
 }
 
 
-function renderCommShiftDrillDown(shiftName) {
-  const container = document.getElementById('commDrillDown');
-  if (!container || !window._commShiftMapData) return;
-  const sd = window._commShiftMapData[shiftName];
+function renderDrillDown(containerId, shiftMapData, shiftName) {
+  const container = document.getElementById(containerId);
+  if (!container || !shiftMapData) return;
+  const sd = shiftMapData[shiftName];
   if (!sd) { container.innerHTML = '<p style="color:var(--pewter);font-size:13px">No data for this shift yet.</p>'; return; }
 
   const scores = sd.scores || [];
@@ -1262,7 +1131,7 @@ function renderCommShiftDrillDown(shiftName) {
       </div>` : ''}`;
 }
 
-// ── Shift Difficulty Analysis (shared renderer) ─────────────────────────────
+// --- Shift Difficulty Analysis (shared renderer) 
 
 function _computeMedianFromScoreCounts(scoreCounts) {
   // scoreCounts = { "94": 1, "120": 3, "150": 2 }
