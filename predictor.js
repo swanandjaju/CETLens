@@ -463,22 +463,11 @@ async function refreshPredictorLiveOptions(options) {
 }
 
 async function fetchPredictorLiveRows(stream) {
-  const sb = window._supabaseClient;
-  if (!sb) throw new Error('Supabase client is unavailable.');
-
-  let response;
   try {
-    response = await sb.from('shift_stats')
-      .select('attempt,shift,count,total_score,score_counts')
-      .eq('stream', stream);
-  } catch (err) {
-    throw new Error('Supabase live shift statistics request failed. Check your internet connection and run the app over HTTP/localhost, not file://.');
-  }
-
-  const { data, error } = response;
-  if (error) throw new Error('Supabase shift statistics could not be fetched.');
-
-  return (data || [])
+    const response = await fetch('static_shift_stats.json');
+    const data = await response.json();
+    const filteredData = data.filter(row => row.stream === stream);
+    return (filteredData || [])
     .filter(row => row && Number(row.count) >= 3 && row.attempt && row.shift && !String(row.shift).toLowerCase().includes('18 may'))
     .map(row => {
       let parsedScores = row.score_counts || {};
@@ -493,6 +482,9 @@ async function fetchPredictorLiveRows(stream) {
         score_counts: parsedScores
       };
     });
+  } catch (err) {
+    throw new Error('Failed to fetch live shift statistics from static JSON. Check your connection or file.');
+  }
 }
 
 
@@ -592,22 +584,13 @@ async function fetchPredictorCurrentRanking(stream, attempt) {
   
   if (data.length === 0) {
     // Fallback: fetch directly if cache is empty
-    const sb = window._supabaseClient;
-    if (!sb) throw new Error('Supabase client is unavailable.');
-
-    let response;
     try {
-      response = await sb.from('shift_stats')
-        .select('shift,count,total_score,score_counts')
-        .eq('stream', stream)
-        .eq('attempt', attempt);
+      const response = await fetch('static_shift_stats.json');
+      const fetchResult = await response.json();
+      data = fetchResult.filter(row => row.stream === stream && row.attempt === attempt);
     } catch (err) {
-      throw new Error('Supabase live shift statistics request failed. Check your internet connection and run the app over HTTP/localhost, not file://.');
+      throw new Error('Static shift statistics request failed. Check your internet connection.');
     }
-
-    const { data: fetchResult, error } = response;
-    if (error) throw new Error('Supabase shift statistics could not be fetched.');
-    data = fetchResult || [];
   }
 
   const rows = data

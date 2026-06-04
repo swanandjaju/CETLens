@@ -152,19 +152,16 @@ function fetchAnalysisSupabase(stream, attempt) {
     return Promise.resolve(null);
   }
 
-  const sb = window._supabaseClient;
-  if (!sb) return Promise.resolve(null);
-
   return Promise.all([
-    sb.from('shift_stats').select('*').eq('stream', stream).eq('attempt', attempt),
-    sb.from('submission_summary').select('*')
-  ]).then(([statsRes, summaryRes]) => {
-    if (statsRes.error) { console.error('Supabase stats error:', statsRes.error); return null; }
-    if (summaryRes.error) { console.error('Supabase summary error:', summaryRes.error); return null; }
-
+    fetch('static_shift_stats.json').then(res => res.json()),
+    fetch('static_submission_summary.json').then(res => res.json())
+  ]).then(([statsData, summaryData]) => {
+    // Filter statsData manually for stream and attempt since we fetched the whole file
+    const filteredStats = statsData.filter(row => row.stream === stream && row.attempt === attempt);
+    
     // Reshape rows into { shiftName: { count, sum, highest, min, scoreCounts, subjectSums } }
     const statsByShift = {};
-    (statsRes.data || []).forEach(row => {
+    (filteredStats || []).forEach(row => {
       statsByShift[row.shift] = {
         count: row.count,
         sum: Number(row.total_score),
@@ -177,7 +174,7 @@ function fetchAnalysisSupabase(stream, attempt) {
 
     // Reshape summary rows into { total, streams: { PCM, PCB } }
     const summary = { total: 0, streams: {} };
-    (summaryRes.data || []).forEach(row => {
+    (summaryData || []).forEach(row => {
       if (row.key === 'total') summary.total = Number(row.value);
       else summary.streams[row.key] = Number(row.value);
     });
@@ -216,9 +213,8 @@ async function generateAnswerHash(qs) {
 
 
 async function saveSubmissionToSupabase(qs, st, filename, signature) {
-  if (window._isOldSheet) return;
-  const sb = window._supabaseClient;
-  if (!sb) return;
+  // Offline Mode: Saving is disabled.
+  return;
 
   const p_stream  = typeof examMode        !== 'undefined' ? examMode        : 'PCM';
   const p_attempt = typeof selectedAttempt !== 'undefined' ? selectedAttempt : '';
@@ -421,13 +417,12 @@ window.saveSubmissionToSupabase = saveSubmissionToSupabase;
 
 function fetchAndRenderBriefStrip(stream, attempt, shift, userScore, userSubStats) {
   if (window._isOldSheet) return;
-  const sb = window._supabaseClient;
-  if (!sb) return;
-  return sb.from('shift_stats').select('*')
-    .eq('stream', stream).eq('attempt', attempt).eq('shift', shift)
-    .then(({ data, error }) => {
-      if (error || !data || data.length === 0) return;
-      const stat = data[0];
+  return fetch('static_shift_stats.json')
+    .then(res => res.json())
+    .then(data => {
+      const filtered = data.filter(r => r.stream === stream && r.attempt === attempt && r.shift === shift);
+      if (!filtered || filtered.length === 0) return;
+      const stat = filtered[0];
       if (!stat || !stat.count) return;
       const above = countScores(stat.score_counts, score => score > userScore);
       const same  = countScores(stat.score_counts, score => score === userScore);
