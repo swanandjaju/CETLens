@@ -90,12 +90,7 @@ function loadImagesFromIDB() {
   }).catch(e => { console.warn('IDB load images failed:', e); return {}; });
 }
 
-function clearImagesFromIDB() {
-  return openImageDB().then(db => {
-    const tx = db.transaction(IDB_STORE, 'readwrite');
-    tx.objectStore(IDB_STORE).clear();
-  }).catch(() => {});
-}
+
 
 function updateShifts() {
   const attempt = document.getElementById('attemptSelect').value;
@@ -271,14 +266,16 @@ function checkStoredSession() {
     window._storedSession = session;
 
     // Build the meta info
+    const rtf = new Intl.RelativeTimeFormat('en', { numeric: 'auto' });
     const ago = Date.now() - (session.timestamp || 0);
     const mins = Math.floor(ago / 60000);
     const hours = Math.floor(mins / 60);
     const days = Math.floor(hours / 24);
-    let timeStr = '';
-    if (days > 0) timeStr = days + ' day' + (days > 1 ? 's' : '') + ' ago';
-    else if (hours > 0) timeStr = hours + ' hour' + (hours > 1 ? 's' : '') + ' ago';
-    else if (mins > 0) timeStr = mins + ' minute' + (mins > 1 ? 's' : '') + ' ago';
+    
+    let timeStr;
+    if (days > 0) timeStr = rtf.format(-days, 'day');
+    else if (hours > 0) timeStr = rtf.format(-hours, 'hour');
+    else if (mins > 0) timeStr = rtf.format(-mins, 'minute');
     else timeStr = 'just now';
 
     const meta = document.getElementById('restoreMeta');

@@ -464,8 +464,7 @@ async function refreshPredictorLiveOptions(options) {
 
 async function fetchPredictorLiveRows(stream) {
   try {
-    const response = await fetch('static_shift_stats.json');
-    const data = await response.json();
+    const data = window.STATIC_SHIFT_STATS || [];
     const filteredData = data.filter(row => row.stream === stream);
     return (filteredData || [])
     .filter(row => row && Number(row.count) >= 3 && row.attempt && row.shift && !String(row.shift).toLowerCase().includes('18 may'))
@@ -585,8 +584,7 @@ async function fetchPredictorCurrentRanking(stream, attempt) {
   if (data.length === 0) {
     // Fallback: fetch directly if cache is empty
     try {
-      const response = await fetch('static_shift_stats.json');
-      const fetchResult = await response.json();
+      const fetchResult = window.STATIC_SHIFT_STATS || [];
       data = fetchResult.filter(row => row.stream === stream && row.attempt === attempt);
     } catch (err) {
       throw new Error('Static shift statistics request failed. Check your internet connection.');

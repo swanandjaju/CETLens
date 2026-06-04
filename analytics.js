@@ -152,10 +152,10 @@ function fetchAnalysisSupabase(stream, attempt) {
     return Promise.resolve(null);
   }
 
-  return Promise.all([
-    fetch('static_shift_stats.json').then(res => res.json()),
-    fetch('static_submission_summary.json').then(res => res.json())
-  ]).then(([statsData, summaryData]) => {
+  return new Promise((resolve) => {
+    const statsData = window.STATIC_SHIFT_STATS || [];
+    const summaryData = window.STATIC_SUBMISSION_SUMMARY || [];
+
     // Filter statsData manually for stream and attempt since we fetched the whole file
     const filteredStats = statsData.filter(row => row.stream === stream && row.attempt === attempt);
     
@@ -181,9 +181,10 @@ function fetchAnalysisSupabase(stream, attempt) {
 
     _cacheSet(cacheKey, { statsByShift, summary });
     if (Object.keys(statsByShift).length > 0) {
-      return rawEntriesFromStats(statsByShift, stream, attempt, summary);
+      resolve(rawEntriesFromStats(statsByShift, stream, attempt, summary));
+    } else {
+      resolve(null);
     }
-    return null;
   }).catch(err => {
     console.error('Promise.all fetch error:', err);
     return null;
@@ -417,18 +418,18 @@ window.saveSubmissionToSupabase = saveSubmissionToSupabase;
 
 function fetchAndRenderBriefStrip(stream, attempt, shift, userScore, userSubStats) {
   if (window._isOldSheet) return;
-  return fetch('static_shift_stats.json')
-    .then(res => res.json())
-    .then(data => {
-      const filtered = data.filter(r => r.stream === stream && r.attempt === attempt && r.shift === shift);
-      if (!filtered || filtered.length === 0) return;
-      const stat = filtered[0];
-      if (!stat || !stat.count) return;
+  return new Promise((resolve) => {
+    const data = window.STATIC_SHIFT_STATS || [];
+    const filtered = data.filter(r => r.stream === stream && r.attempt === attempt && r.shift === shift);
+    if (!filtered || filtered.length === 0) return resolve();
+    const stat = filtered[0];
+    if (!stat || !stat.count) return resolve();
       const above = countScores(stat.score_counts, score => score > userScore);
       const same  = countScores(stat.score_counts, score => score === userScore);
       renderBriefStrip(stream, attempt, shift, userScore, userSubStats,
-        stat.count, Number(stat.total_score), stat.highest, above, same);
-    }).catch(err => console.error('Brief strip fetch error:', err));
+      stat.count, Number(stat.total_score), stat.highest, above, same);
+    resolve();
+  });
 }
 
 function renderBriefStrip(stream, attempt, shift, userScore, userSubStats, total, sum, highest, above, same) {
@@ -822,102 +823,80 @@ function switchCommunityStream(stream) {
 }
 
 function fetchCommunityFullAnalysis() {
-  const sb = window._supabaseClient;
-  if (!sb) {
-    const el = document.getElementById('commLoading');
-    if (el) el.style.display = 'none';
-    return;
-  }
-
-  // Serve from cache if available
-  const cacheKey = `community:${_selectedCommunityAttempt}`;
-  const cached = _cacheGet(cacheKey);
-  if (cached) {
-    _communityPayloadCache = cached;
-    _renderCommunityData(cached);
-    return;
-  }
-
-  Promise.all([
-    sb.from('shift_stats').select('*').eq('stream', 'PCM').eq('attempt', _selectedCommunityAttempt),
-    sb.from('shift_stats').select('*').eq('stream', 'PCB').eq('attempt', _selectedCommunityAttempt),
-    sb.from('submission_summary').select('*')
-  ]).then(([pcmStatsRes, pcbStatsRes, summaryRes]) => {
-    if (pcmStatsRes.error) { console.error('Supabase community PCM stats error:', pcmStatsRes.error); return; }
-    if (pcbStatsRes.error) { console.error('Supabase community PCB stats error:', pcbStatsRes.error); return; }
-
-    // Separate rows by stream into { shiftName: stat } maps
-    const pcmStats = {};
-    const pcbStats = {};
-    (pcmStatsRes.data || []).forEach(row => {
-      pcmStats[row.shift] = {
-        count: row.count,
-        sum: Number(row.total_score),
-        highest: row.highest,
-        min: row.lowest,
-        scoreCounts: row.score_counts || {},
-        subjectSums: row.subject_sums || {}
-      };
-    });
-    (pcbStatsRes.data || []).forEach(row => {
-      pcbStats[row.shift] = {
-        count: row.count,
-        sum: Number(row.total_score),
-        highest: row.highest,
-        min: row.lowest,
-        scoreCounts: row.score_counts || {},
-        subjectSums: row.subject_sums || {}
-      };
-    });
-
-    // Reshape summary
-    const summary = { total: 0, streams: {} };
-    (summaryRes.data || []).forEach(row => {
-      if (row.key === 'total') summary.total = Number(row.value);
-      else summary.streams[row.key] = Number(row.value);
-    });
-
-    const payload = { pcmStats, pcbStats, summary };
-    _cacheSet(cacheKey, payload);
-    _communityPayloadCache = payload;
-    _renderCommunityData(payload);
-  }).catch(err => {
-    console.error('Community analysis fetch error:', err);
-    document.getElementById('commLoading').style.display = 'none';
+  const pcmStats = {};
+  (window.STATIC_SHIFT_STATS || []).filter(r => r.stream === 'PCM' && r.attempt === _selectedCommunityAttempt).forEach(row => {
+    pcmStats[row.shift] = {
+      count: row.count,
+      sum: Number(row.total_score),
+      highest: row.highest,
+      min: row.lowest,
+      scoreCounts: row.score_counts || {},
+      subjectSums: row.subject_sums || {}
+    };
   });
+
+  const pcbStats = {};
+  (window.STATIC_SHIFT_STATS || []).filter(r => r.stream === 'PCB' && r.attempt === _selectedCommunityAttempt).forEach(row => {
+    pcbStats[row.shift] = {
+      count: row.count,
+      sum: Number(row.total_score),
+      highest: row.highest,
+      min: row.lowest,
+      scoreCounts: row.score_counts || {},
+      subjectSums: row.subject_sums || {}
+    };
+  });
+
+  const summary = { total: 0, streams: {} };
+  const summaryData = window.STATIC_SUBMISSION_SUMMARY || [];
+  (summaryData || []).forEach(row => {
+    if (row.key === 'total') summary.total = Number(row.value);
+    else summary.streams[row.key] = Number(row.value);
+  });
+
+  const payload = { pcmStats, pcbStats, summary };
+  _communityPayloadCache = payload;
+  _renderCommunityData(payload);
 }
 
 // Internal renderer  filters by _selectedCommunityStream
 function _renderCommunityData({ pcmStats, pcbStats, summary }) {
   const noDataEl = document.getElementById('commNoData');
   const noDataMsg = document.getElementById('commNoDataMsg');
+  const contentEl = document.getElementById('commContent');
   const chartSections = document.getElementById('commChartSections');
 
   // Always destroy old charts first to prevent stale renders
-  Object.values(_communityCharts).forEach(c => { try { c.destroy(); } catch(e){ console.warn('Chart destroy error:', e); } });
+  Object.values(_communityCharts).forEach(c => { if (c) c.destroy(); });
   _communityCharts = {};
 
-  if (!pcmStats && !pcbStats) {
+  if (Object.keys(pcmStats || {}).length === 0 && Object.keys(pcbStats || {}).length === 0) {
     document.getElementById('commLoading').style.display = 'none';
     document.getElementById('commTotalBadge').textContent = '0 submissions';
     if (noDataMsg) noDataMsg.textContent = 'No data yet — be the first to submit!';
     if (noDataEl) noDataEl.style.display = 'block';
     if (chartSections) chartSections.style.display = 'none';
-    document.getElementById('commContent').style.display = 'block';
+    contentEl.style.display = 'block';
     return;
   }
 
-  // Pick stats for the selected stream only
+  // Memoize the computationally heavy map building per attempt
+  if (_lastMemoizedAttempt !== _selectedCommunityAttempt) {
+    _memoizedPcmStatsMap = buildShiftMapFromStats(pcmStats);
+    _memoizedPcbStatsMap = buildShiftMapFromStats(pcbStats);
+    _lastMemoizedAttempt = _selectedCommunityAttempt;
+  }
+  
+  const pcmStatsMap = _memoizedPcmStatsMap;
+  const pcbStatsMap = _memoizedPcbStatsMap;
+
   const stream = _selectedCommunityStream;
-  const activeStats = stream === 'PCM' ? (pcmStats || {}) : (pcbStats || {});
-  const activeShiftMap = buildShiftMapFromStats(activeStats);
+  const activeShiftMap = stream === 'PCM' ? pcmStatsMap : pcbStatsMap;
 
   // Totals for the selected stream
   let pcmTotal = 0, pcbTotal = 0;
-  const pcmShiftMap = buildShiftMapFromStats(pcmStats || {});
-  const pcbShiftMap = buildShiftMapFromStats(pcbStats || {});
-  Object.values(pcmShiftMap).forEach(s => { pcmTotal += s.count; });
-  Object.values(pcbShiftMap).forEach(s => { pcbTotal += s.count; });
+  Object.values(pcmStatsMap).forEach(s => { pcmTotal += s.count; });
+  Object.values(pcbStatsMap).forEach(s => { pcbTotal += s.count; });
   const streamTotal = stream === 'PCM' ? pcmTotal : pcbTotal;
 
   // Scores for the selected stream only
