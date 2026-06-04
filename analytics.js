@@ -785,6 +785,9 @@ let _communityCharts = {};
 let _selectedCommunityStream = 'PCM';  // default stream filter
 let _selectedCommunityAttempt = 'Attempt 1'; // default attempt
 let _communityPayloadCache = null;     // stores fetched payload for re-render on stream switch
+let _memoizedPcmStatsMap = null;
+let _memoizedPcbStatsMap = null;
+let _lastMemoizedAttempt = null;
 
 function switchCommunityAttempt(attempt) {
   if (attempt !== 'Attempt 1' && attempt !== 'Attempt 2') return;
