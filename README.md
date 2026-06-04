@@ -1,154 +1,202 @@
-# CETLens - Advanced Technical Documentation & Project Architecture
+# CETLens - Advanced Technical Documentation & System Architecture
 
 ![CETLens Hero Image](https://via.placeholder.com/1200x400.png?text=CETLens+Architecture)
 
-Welcome to the definitive source code documentation for **CETLens**, an advanced client-side web application explicitly architected to process, parse, and deeply analyze MHT-CET Objection Portal response sheets. This application functions entirely within the user's browser environment, ensuring maximum security and zero payload transmission of original sheets. It extracts DOM-level question data, computes raw mathematical scores subject-wise, and mathematically models community statistics to generate highly accurate percentile predictions.
+Welcome to the definitive source code documentation for **CETLens**. 
+
+CETLens is an advanced, high-performance client-side web application designed to process, parse, and analyze MHT-CET Objection Portal response sheets. By parsing raw response files directly within the browser, CETLens achieves two primary goals: 
+1. **Absolute Data Privacy**: Original response sheets are never uploaded to any server.
+2. **Real-time Analytics**: It normalizes disparate response formats into exact subject-wise mathematical scores, and instantly synchronizes anonymized metadata with a Supabase PostgreSQL backend to model dynamic community normalizations, rank distributions, and percentile predictions.
+
+This documentation serves as a comprehensive guide for developers, data scientists, and system architects seeking to understand the inner workings of the CETLens ecosystem.
 
 ---
 
 ## Table of Contents
-1. [Project Overview](#1-project-overview)
-2. [System Architecture & Lifecycle](#2-system-architecture--lifecycle)
-   - [Phase 1: Live Data Collection (Supabase)](#phase-1-live-data-collection-supabase)
-   - [Phase 2: Static Archival (Current State)](#phase-2-static-archival-current-state)
-3. [Core Parsing Engine (`script.js`)](#3-core-parsing-engine-scriptjs)
-   - [HTML / MHTML Parsing Algorithm](#html--mhtml-parsing-algorithm)
-   - [PDF Parsing & OCR Bridging](#pdf-parsing--ocr-bridging)
-4. [Statistical Analytics Module (`analytics.js`)](#4-statistical-analytics-module-analyticsjs)
-   - [Data Hydration & Memoization](#data-hydration--memoization)
-   - [Chart Lifecycle & Canvas Rendering](#chart-lifecycle--canvas-rendering)
-5. [Predictive Modeling (`predictor.js`)](#5-predictive-modeling-predictorjs)
-   - [Algorithmic Approach to Difficulty](#algorithmic-approach-to-difficulty)
+1. [Core Philosophy & Tech Stack](#1-core-philosophy--tech-stack)
+2. [Frontend Architecture & State Management](#2-frontend-architecture--state-management)
+3. [The Parsing Engine (`script.js`)](#3-the-parsing-engine-scriptjs)
+   - [HTML and MHTML Processing Pipeline](#html-and-mhtml-processing-pipeline)
+   - [PDF.js Processing & Heuristic Extraction](#pdfjs-processing--heuristic-extraction)
+4. [Database Architecture & Concurrency (`Supabase / PostgreSQL`)](#4-database-architecture--concurrency)
+   - [Schema & JSONB Aggregation](#schema--jsonb-aggregation)
+   - [The RPC Function & Row-Level Locking](#the-rpc-function--row-level-locking)
+5. [Statistical Analytics Module (`analytics.js`)](#5-statistical-analytics-module-analyticsjs)
+   - [Data Hydration & Rendering Lifecycle](#data-hydration--rendering-lifecycle)
+   - [Visualization Strategy](#visualization-strategy)
+   - [Shift Difficulty Algorithm](#shift-difficulty-algorithm)
+6. [Predictive Modeling (`predictor.js`)](#6-predictive-modeling-predictorjs)
+   - [Statistical Moments (Variance & Skewness)](#statistical-moments-variance--skewness)
    - [Logit Interpolation Mapping](#logit-interpolation-mapping)
-6. [Legacy Database Schema (Reference Only)](#6-legacy-database-schema-reference-only)
-7. [Local Setup & Deployment](#7-local-setup--deployment)
+7. [Local Setup & Deployment Guide](#7-local-setup--deployment-guide)
 8. [License & Credits](#8-license--credits)
 
 ---
 
-## 1. Project Overview
+## 1. Core Philosophy & Tech Stack
 
-During the highly competitive MHT-CET examination cycle, thousands of students receive response sheets with ambiguous layouts and non-standardized formats (spanning raw HTML, MHTML, and varied PDF snapshots). **CETLens** was developed to provide an instantaneous, offline-first parsing utility capable of normalizing these disparate formats into an accurate, uniform score breakdown (Physics, Chemistry, Mathematics/Biology).
+CETLens was built under extremely tight latency and hosting constraints. During the MHT-CET result cycle, web traffic spikes significantly. Therefore, the application abandons heavyweight JavaScript frameworks (like React, Vue, or Angular) in favor of hyper-optimized Vanilla ES6+ JavaScript.
 
-Beyond simple calculation, CETLens aggregates these scores to establish a "Community Normalization Curve." This allows students to instantly see their rank, the shift-specific mean, and predicted percentiles before official results are declared.
+### The Tech Stack
+* **Frontend UI/UX**: Vanilla HTML5, CSS3 (leveraging CSS Custom Properties for O(1) dynamic theming), and Vanilla JS.
+* **Backend / Database**: Serverless Supabase (PostgreSQL).
+* **Charting & Visualization**: `Chart.js` via CDN.
+* **Document Parsing**: `pdf.js` for canvas-based PDF rendering, and native `DOMParser` for HTML/MHTML processing.
+* **Export Utilities**: `html2canvas` and `jsPDF` for client-side report generation.
 
----
-
-## 2. System Architecture & Lifecycle
-
-CETLens is constructed as a modern **Single Page Application (SPA)** utilizing heavily optimized vanilla JavaScript (ES6+), CSS3 (with CSS Variables for dynamic theming), and HTML5 APIs. The lack of a heavyweight frontend framework (like React or Vue) was a deliberate architectural decision to ensure instantaneous load times even on low-end mobile devices over 3G networks.
-
-To balance the necessity of real-time community data ingestion with zero long-term infrastructure costs, the application lifecycle was engineered in two distinct operational phases:
-
-### Phase 1: Live Data Collection (Supabase)
-During the two-week peak traffic window (handling over **8,500+ organic submissions**), the application relied on a Serverless Supabase PostgreSQL backend.
-1. **Client-Side Scoring:** The parsing engine computed the raw score entirely locally. The original document was never transmitted to a server, guaranteeing user privacy.
-2. **Anonymized Sync:** Only a lightweight, anonymized telemetry footprint (comprising the Stream, Attempt, Shift, and Total Score) was transmitted to the Supabase endpoint via REST.
-3. **Database Concurrency:** To avoid race conditions during concurrent bulk writes, a highly optimized PostgreSQL RPC function (`record_submission`) was deployed. Instead of appending thousands of individual rows, this RPC used row-level locking to increment a JSONB frequency map for the respective shift. This reduced the database footprint by 99% and ensured O(1) read times.
-
-### Phase 2: Static Archival (Current State)
-Once active data collection concluded, CETLens was transitioned into a **100% Serverless Static Web Application** to completely eliminate database hosting and scaling costs indefinitely.
-1. **Data Snapshotting:** The live Supabase data (the JSONB frequency maps) was dumped, serialized, and compressed into local static JSON payloads (`static_shift_stats.json` and `static_submission_summary.json`).
-2. **Offline Refactoring:** The frontend data pipelines in `analytics.js` and `predictor.js` were comprehensively refactored. The Supabase client SDK was stripped from the codebase. The application now hydrates its visualization layer directly from the bundled offline JSON objects.
-3. **End Result:** CETLens runs entirely from a static file server (like GitHub Pages) forever. It provides the exact same rich analytics, percentile predictions, and community leaderboards with absolute zero backend infrastructure, ensuring total platform longevity.
+By relying on CDNs for dependencies and a serverless database backend, the cost to scale CETLens to tens of thousands of concurrent users remains nearly zero.
 
 ---
 
-## 3. Core Parsing Engine (`script.js`)
+## 2. Frontend Architecture & State Management
 
-The `script.js` module is the beating heart of CETLens. It manages the ingestion of unstandardized file formats and executes complex regex and DOM-traversal algorithms to extract question IDs and user answers.
+Unlike traditional SPA frameworks that maintain a virtual DOM, CETLens utilizes a direct DOM manipulation strategy driven by a global state model.
 
-### HTML / MHTML Parsing Algorithm
-When a user uploads a raw HTML or MHTML file, CETLens executes the following sequence:
-- **Sanitization:** The `DOMParser` API is utilized to safely parse the file into an in-memory document tree without executing embedded malicious scripts (XSS protection).
-- **Selector Targeting:** The engine scans for specific structural classes injected by the official exam portal. It loops through nodes, extracting the "Right Answer", the "Chosen Option", and the "Question Status" (Attempted/Unattempted).
-- **Subject Mapping:** The system heuristically determines the subject (Physics, Chemistry, Math, Biology) based on sequential boundaries within the document.
+### Global State Management
+State is maintained via global `window` objects. The application initializes variables such as `window._supabaseClient` and UI state flags (`_selectedCommunityStream`, `examMode`, `selectedShift`). Functions are designed to read from these globals and mutate the DOM directly. 
 
-### PDF Parsing & OCR Bridging
-Due to variations in how users generate PDFs (Print to PDF, third-party mobile scanners), the PDF pipeline requires extensive computational effort:
-- **Canvas Rendering:** `pdf.js` is leveraged to sequentially render each page onto a hidden `<canvas>` element in the background thread.
-- **Text Layer Extraction:** The `getTextContent()` method extracts raw text arrays. Because PDFs lack semantic structure, CETLens relies on advanced RegEx pattern matching to reconstruct the topology of a question block, accounting for varying whitespace, fragmented strings, and missing delimiters.
+### Theming Engine
+CETLens features an advanced theming engine that supports light and dark modes out of the box. 
+- **CSS Variables**: All colors are mapped to CSS custom properties (e.g., `--bg`, `--text`, `--accent`).
+- **Toggle Mechanism**: When the user triggers the theme toggle, JavaScript applies a `[data-theme="dark"]` attribute to the `<html>` element, instantly forcing a repaint with the new palette.
+- **Persistence**: The user's preference is serialized and stored in `localStorage` to prevent unstyled flashes of light on subsequent visits.
 
 ---
 
-## 4. Statistical Analytics Module (`analytics.js`)
+## 3. The Parsing Engine (`script.js`)
 
-The `analytics.js` module transforms raw numeric data into actionable, interactive visualizations utilizing `Chart.js`.
+The `script.js` file handles the ingestion, validation, and parsing of user files. Because students download their response sheets on various devices (Android, iOS, Windows) using different browsers, the uploaded files manifest in numerous chaotic formats. The parsing engine standardizes them.
 
-### Data Hydration & Memoization
-Because the dataset contains over 8,500 records spread across dozens of shifts, rendering charts on-the-fly involves heavy Map/Reduce operations. To guarantee 60fps UI performance:
-- **Data Shape Reconstitution:** The static JSON frequency maps (`{"score_counts": {"95": 12, "96": 4}}`) are "expanded" back into raw score arrays for mathematical processing.
-- **Aggressive Memoization:** When a user toggles between the "PCM" and "PCB" streams on the Community Dashboard, the massive shift-maps are not rebuilt from scratch. The application caches the computation via `_memoizedPcmStatsMap`, guaranteeing instantaneous UI updates with O(1) retrieval time.
+### HTML and MHTML Processing Pipeline
+The most accurate method of score calculation is through DOM parsing. 
+1. **File Reading**: The `FileReader` API ingests the file as plain text.
+2. **Sanitization**: To prevent Cross-Site Scripting (XSS), the raw string is passed into the native `DOMParser`, constructing an off-screen, inert DOM tree. Scripts embedded in the original file are stripped.
+3. **Selector Targeting**: The engine executes complex `querySelectorAll` commands to hunt for specific structural classes injected by the official exam portal. It loops through the nodes, matching the "Right Answer" table cell against the "Chosen Option" cell.
+4. **Subject Mapping**: The MHT-CET exam is strictly sequential. The engine maps questions 1-50 to Physics, 51-100 to Chemistry, and 101-150 to Mathematics (or 101-200 to Biology). 
+5. **Scoring**: A simple mathematical accumulator calculates marks based on correct responses (+1 or +2 depending on the subject).
 
-### Chart Lifecycle & Canvas Rendering
-- **Automated Destruction:** To prevent GPU memory leaks and "ghosting" effects when re-rendering overlapping canvases, a rigorous lifecycle hook (`Object.values(_communityCharts).forEach(c => { if (c) c.destroy(); })`) guarantees old charts are wiped from the DOM before new data is painted.
-- **Responsive Colors:** Chart rendering is tied into the CSS variable system (e.g., `getComputedStyle(document.documentElement).getPropertyValue('--accent')`), ensuring seamless transitions when the user toggles Dark Mode.
+### PDF.js Processing & Heuristic Extraction
+When users "Print to PDF" on their phones, the semantic HTML structure is destroyed. CETLens reconstructs it.
+1. **Canvas Rendering**: Using Mozilla's `pdf.js`, CETLens creates hidden `<canvas>` elements and renders every page of the PDF into memory.
+2. **Text Layer Extraction**: The `getTextContent()` method extracts raw text coordinate arrays.
+3. **Regex Topology Mapping**: Because PDFs lack DOM structures, the text layers are concatenated into massive strings. The engine uses advanced Regular Expressions (Regex) to map patterns like `Question ID : [0-9]+` and `Chosen Option : [1-4]`. The algorithm must account for massive whitespace variations, fragmented substrings, and completely missing delimiters caused by aggressive PDF compression.
 
 ---
 
-## 5. Predictive Modeling (`predictor.js`)
+## 4. Database Architecture & Concurrency
 
-Unlike basic average-based models that fail at the extreme tails of a distribution, CETLens dynamically calculates the exact shape of the score distribution for each shift using mathematical moments.
+During peak loads, thousands of students compute their scores simultaneously. CETLens relies on **Supabase (PostgreSQL)** to handle this throughput without bottlenecks. 
 
-### Algorithmic Approach to Difficulty
-To accurately gauge how "difficult" a specific shift was relative to others, the system analyzes the dataset using higher-order statistics:
-- **Variance (Standard Deviation):** Measures the spread of scores. A high variance indicates the paper heavily differentiated top students from average ones.
-- **Skewness:** The third standardized moment. Positive Skew indicates a difficult paper (scores clumped at the bottom); Negative Skew indicates an easy paper.
-- **The Difficulty Score:** A composite mathematical rank is generated by weighting the Normalized Mean, the Median, applying a Skewness Penalty, and evaluating outlier percentages (students scoring >120 vs <80).
+### Schema & JSONB Aggregation
+Traditional SQL schemas would store one row per user submission. However, querying thousands of rows to compute a community average is computationally expensive. 
+Instead, CETLens utilizes a highly optimized `shift_stats` view that relies heavily on PostgreSQL's `JSONB` data type.
+
+A specific shift's record looks like this:
+```json
+{
+  "stream": "PCM",
+  "attempt": "Attempt 1",
+  "shift": "23 April - Evening",
+  "count": 1400,
+  "total_score": 125000,
+  "highest": 182,
+  "lowest": 40,
+  "score_counts": {
+    "95": 12,
+    "96": 4,
+    "182": 1
+  }
+}
+```
+The `score_counts` dictionary is a frequency map. By mapping the raw score to a frequency count, the database payload is compressed by 99%.
+
+### The RPC Function & Row-Level Locking
+To prevent race conditions when two users submit a score to the same shift at the exact same millisecond, CETLens relies on a bespoke Remote Procedure Call (RPC) named `record_submission`. 
+- This function uses PostgreSQL's `SELECT ... FOR UPDATE` row-level lock.
+- It atomically fetches the row for the specified shift, increments the `count`, adds to the `total_score`, updates the `highest`/`lowest` thresholds if necessary, and increments the specific key inside the `score_counts` JSONB object.
+- It then releases the lock. This ensures O(1) writes with absolute mathematical consistency, guaranteeing no dropped submissions during traffic spikes.
+
+---
+
+## 5. Statistical Analytics Module (`analytics.js`)
+
+The `analytics.js` module hydrates the UI with real-time statistics by fetching the compressed JSONB data from Supabase.
+
+### Data Hydration & Rendering Lifecycle
+1. **Network Fetch**: The client performs a `SELECT` on the `shift_stats` view for the selected stream (e.g., PCM).
+2. **Data Transformation**: The JSONB `score_counts` map is "expanded" back into a flat array of scores in JavaScript memory. 
+3. **Chart Rendering Lifecycle**: Before drawing new charts, the script aggressively loops through the `_communityCharts` cache and invokes `.destroy()` on existing `Chart.js` instances. This prevents "ghosting" effects (where two canvases overlap) and prevents GPU memory leaks.
+
+### Visualization Strategy
+The application utilizes various chart types to provide profound insights to the user:
+- **Radar Charts**: Compares the user's specific subject-wise performance (Physics vs. Chemistry vs. Math) against the shift average.
+- **Histograms**: Plots the expanded score arrays into buckets of 20 (e.g., 0-20, 20-40) to visualize the standard bell-curve distribution of the examination. 
+- **Horizontal Bar Charts**: Renders comparative leaderboards showcasing the highest score across all shifts.
+
+### Shift Difficulty Algorithm
+CETLens doesn't rely purely on the "average" score to rank shift difficulty, because outlier scores (a few students scoring 190+) can heavily skew a standard mean. 
+Instead, the Difficulty Algorithm mathematically combines:
+- **The Normalized Mean**
+- **The Median**: Evaluated directly from the JSONB frequency map to prevent outlier distortion.
+- **Top / Bottom Percentages**: Calculates the percentage of students scoring above a "high" threshold (e.g., 120) versus below a "low" threshold (e.g., 80).
+Shifts are then sorted dynamically based on this composite weighted score.
+
+---
+
+## 6. Predictive Modeling (`predictor.js`)
+
+Predicting a user's percentile accurately before official results requires profound mathematical modeling. Basic linear interpolation fails because human test scores follow an S-curve (a normal distribution), not a straight line.
+
+### Statistical Moments (Variance & Skewness)
+The predictor algorithm analyzes the exact shape of the score distribution for a specific shift using higher-order mathematical moments:
+- **Variance (Standard Deviation)**: Measures the spread of the data. A high standard deviation means the paper successfully differentiated top-tier students from average students.
+- **Skewness**: The third standardized moment. A positive skew means the bulk of students scored very low (indicating an extremely difficult paper). A negative skew implies an easy paper where scores clumped at the top.
+The algorithm assigns "penalties" or "bonuses" to a user's raw score based on the Skewness of their specific shift. 
 
 ### Logit Interpolation Mapping
-To predict the user's percentile:
-- The system maps the user's raw score to the closest historical curve stored in `percentile_curves.json`.
-- It executes a **Logit transformation** (`log(p / (1 - p))`) to linearize the S-curve of the standard normal distribution.
-- Linear interpolation is applied between the two closest known data points on the transformed scale, and the result is mapped back using the Inverse Logit function to project a highly accurate, decimal-level percentile prediction.
+Once the user's score is normalized against their shift's variance and skewness, it must be mapped to a percentile curve.
+1. The system references historical exam data stored in `percentile_curves.json`.
+2. It executes a **Logit Transformation**: `log(p / (1 - p))` to linearize the S-curve of the historical percentiles.
+3. It maps the user's normalized score onto this linearized scale, performs strict linear interpolation between the two closest known boundary points, and then maps the result back via the Inverse Logit function.
+4. The output is a highly accurate, decimal-level percentile prediction (e.g., 98.452%).
 
 ---
 
-## 6. Legacy Database Schema (Reference Only)
+## 7. Local Setup & Deployment Guide
 
-*Note: This schema is deprecated as of Phase 2. It is documented here strictly for architectural reference and historical context.*
+Running CETLens locally or deploying it to a production server is straightforward.
 
-```sql
--- Phase 1: High-Concurrency Tracking View
-CREATE VIEW shift_stats AS
-SELECT 
-    stream, attempt, shift,
-    COUNT(*) as count,
-    SUM(total_score) as total_score,
-    MAX(total_score) as highest,
-    MIN(total_score) as lowest,
-    jsonb_object_agg(score, count) as score_counts
-FROM score_submissions
-GROUP BY stream, attempt, shift;
-```
-During peak load, a bespoke PostgreSQL RPC (`record_submission`) was executed. It utilized row-level `FOR UPDATE` locks to atomically increment specific keys inside the `score_counts` JSONB dictionary, utterly bypassing the traditional overhead of multi-row `INSERT` operations at scale.
+### Environment Setup
+To connect the frontend parsing engine to your own Supabase instance:
+1. Create a Supabase Project.
+2. Execute the `rpc.sql` (if available in your legacy repository) to generate the tables, views, and RPC functions.
+3. Open `script.js` and locate the Supabase initialization block.
+4. Replace the `SUPABASE_URL` and `SUPABASE_ANON_KEY` variables with your specific project credentials.
 
----
+### Running Locally
+Because it relies on Vanilla JavaScript and CDN scripts, there is no `npm install` or build step required.
+1. Clone the repository.
+2. Launch a local web server to bypass CORS restrictions. If you have Python installed, run:
+   ```bash
+   python -m http.server 8000
+   ```
+3. Navigate to `http://localhost:8000` in your browser.
 
-## 7. Local Setup & Deployment
-
-Because CETLens operates entirely as a serverless static web application, local development and production deployment are incredibly straightforward. There are zero build steps, no Node.js dependencies to install, and no backend environment variables to configure.
-
-### Local Development
-1. Clone the repository to your local machine.
-2. Ensure the offline datasets (`static_data.js` / `static_shift_stats.json`) are present in the directory.
-3. Open `index.html` directly in your web browser. Alternatively, use a simple local server (e.g., `python -m http.server 8000` or the VS Code Live Server extension) for a more robust development experience with hot reloading.
-
-### Production Deployment
-Deploy the flat directory structure to any major static hosting provider:
-- **GitHub Pages:** Push the codebase to your `main` branch and enable GitHub Pages in the repository settings.
-- **Vercel / Netlify / Cloudflare Pages:** Simply drag and drop the folder into their dashboard or link the Git repository.
+### Deployment
+Deploy the flat folder directly to any static web host:
+- **GitHub Pages**: Push to the `main` branch and configure GitHub Pages in the repository settings.
+- **Vercel / Netlify**: Connect your GitHub repository. The root directory will be automatically served without any build commands.
 
 ---
 
 ## 8. License & Credits
 
-Designed, architected, and built by **Swanand Jaju**.
+Designed, architected, and engineered by **Swanand Jaju**.
 
-This project relies on several fantastic open-source libraries:
-- [Chart.js](https://www.chartjs.org/) for beautiful, responsive canvas charting.
-- [pdf.js](https://mozilla.github.io/pdf.js/) by Mozilla for complex document rendering.
-- [html2canvas](https://html2canvas.hertzen.com/) & [jsPDF](https://parall.ax/products/jspdf) for exporting analysis reports.
-- [SheetJS](https://sheetjs.com/) for optional Excel parsing support.
+This project is built upon the shoulders of giants. It leverages the following open-source technologies:
+- [Chart.js](https://www.chartjs.org/) for beautiful, hardware-accelerated canvas charting.
+- [pdf.js](https://mozilla.github.io/pdf.js/) by Mozilla for complex document rendering pipelines.
+- [html2canvas](https://html2canvas.hertzen.com/) & [jsPDF](https://parall.ax/products/jspdf) for client-side report generation and snapshotting.
+- [SheetJS](https://sheetjs.com/) for deep Excel/CSV parsing capabilities.
 
-*If you found this tool helpful, please consider starring the repository!*
+*If you found this tool helpful, insightful, or educational, please consider starring the repository to support further development!*
