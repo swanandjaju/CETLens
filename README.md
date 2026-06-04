@@ -1,6 +1,5 @@
 # CETLens - Technical Documentation & System Architecture
 
-![CETLens Hero Image](https://via.placeholder.com/1200x400.png?text=CETLens+Architecture)
 
 Welcome to the source code documentation for **CETLens**. 
 
