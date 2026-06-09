@@ -18,7 +18,7 @@
 // ---
 
 const _origShowDash = showDash;
-showDash = function (qs) {
+showDash = qs => {
   _origShowDash(qs);
   history.pushState(null, '', '#dashboard');
 };
@@ -26,43 +26,43 @@ showDash = function (qs) {
 
 
 const _origResetApp = resetApp;
-resetApp = function () {
+resetApp = () => {
   _origResetApp();
   history.pushState(null, '', location.pathname);
 };
 
 const _origOpenAnalysisScreen = openAnalysisScreen;
-openAnalysisScreen = function () {
+openAnalysisScreen = () => {
   _origOpenAnalysisScreen();
   history.pushState(null, '', '#analysis');
 };
 
 const _origCloseAnalysisScreen = closeAnalysisScreen;
-closeAnalysisScreen = function () {
+closeAnalysisScreen = () => {
   _origCloseAnalysisScreen();
   history.pushState(null, '', '#dashboard');
 };
 
 const _origOpenCommunityScreen = openCommunityScreen;
-openCommunityScreen = function () {
+openCommunityScreen = () => {
   _origOpenCommunityScreen();
   history.pushState(null, '', '#community');
 };
 
 const _origCloseCommunityScreen = closeCommunityScreen;
-closeCommunityScreen = function () {
+closeCommunityScreen = () => {
   _origCloseCommunityScreen();
   history.pushState(null, '', location.pathname);
 };
 
 const _origOpenPredictorScreen = openPredictorScreen;
-openPredictorScreen = function () {
+openPredictorScreen = () => {
   _origOpenPredictorScreen();
   history.pushState(null, '', '#predictor');
 };
 
 const _origClosePredictorScreen = closePredictorScreen;
-closePredictorScreen = function () {
+closePredictorScreen = () => {
   _origClosePredictorScreen();
   history.pushState(null, '', location.pathname);
 };
@@ -78,7 +78,7 @@ closePredictorScreen = function () {
 // ---
 
 const _origCheckStoredSession = checkStoredSession;
-checkStoredSession = function () {
+checkStoredSession = () => {
   const hash = window.location.hash;
 
   // Home — show the popup exactly as before

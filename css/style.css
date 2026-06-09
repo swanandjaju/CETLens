@@ -3,6 +3,7 @@
 /* ─── Reset ─── */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
+img { max-width: 100%; height: auto; }
 
 html, body { height: 100%; overflow: hidden; }
 body.upload-active { overflow: auto; } /* Allow scroll on upload/landing screen */
@@ -15,7 +16,7 @@ body.upload-active { overflow: auto; } /* Allow scroll on upload/landing screen 
   --muted:         #d1d9e6;   /* Recessed wells */
   --text:          #2d3436;
   --text-muted:    #4a5568;
-  --accent:        #ff4757;   /* Safety-red — use sparingly */
+  --accent:        #b91c1c;   /* Accessible safety-red */
   --accent-fg:     #ffffff;
   --border-shadow: #babecc;   /* Dark half of neumorphic shadow */
   --border-light:  #ffffff;   /* Light half */
@@ -29,7 +30,7 @@ body.upload-active { overflow: auto; } /* Allow scroll on upload/landing screen 
   --shadow-glow:     0 0 10px 2px rgba(255,71,87,0.6);
 
   /* legacy aliases */
-  --accent-light:  #ff6b81;
+  --accent-light:  #c6283d;
   --accent-dim:    rgba(255, 71, 87, 0.22);
   --accent-faint:  rgba(255, 71, 87, 0.07);
 
@@ -52,13 +53,13 @@ body.upload-active { overflow: auto; } /* Allow scroll on upload/landing screen 
   --bg3:   var(--charcoal-mid);
   --border:  rgba(0, 0, 0, 0.08);
   --border2: rgba(0, 0, 0, 0.14);
-  --text2: #64748b;
+  --text2: #475569;
   --text3: var(--text-muted);
 
   /* ── Status colors ── */
-  --correct:       #22c55e;
-  --incorrect:     #ef4444;
-  --unattempted:   #64748b;
+  --correct:       #166534;
+  --incorrect:     #b91c1c;
+  --unattempted:   #475569;
   --unat-chart:    #d1d9e6;
 
   /* ── Radii ── */
@@ -91,12 +92,12 @@ body.upload-active { overflow: auto; } /* Allow scroll on upload/landing screen 
   --bg:    var(--background);
   --bg2:   var(--foreground);
   --bg3:   var(--charcoal-mid);
-  --text2: #64748b;
+  --text2: #475569;
   --text3: var(--text-muted);
   --border:  rgba(0, 0, 0, 0.08);
   --border2: rgba(0, 0, 0, 0.14);
-  --correct:    #16a34a;
-  --incorrect:  #dc2626;
+  --correct:    #166534;
+  --incorrect:  #b91c1c;
   --unat-chart: #d1d9e6;
   --gold-dim:   rgba(255, 71, 87, 0.2);
   --gold-faint: rgba(255, 71, 87, 0.07);
@@ -116,10 +117,10 @@ html[data-theme="light"] body {
   --background:    #1a1d23;
   --foreground:    #22262e;
   --muted:         #2a2f38;
-  --border:        #1f2937;
-  --pewter:        #cbd5e1;
   --text:          #f1f5f9;
   --text-muted:    #94a3b8;
+  --accent:        #ff5c6c;
+  --accent-light:  #ff6b81;
 
   --border-shadow: #111318;
   --border-light:  #2e3340;
@@ -143,11 +144,11 @@ html[data-theme="light"] body {
   --border:  rgba(255, 255, 255, 0.08);
   --border2: rgba(255, 255, 255, 0.14);
   --text2: #94a3b8;
-  --text3: #64748b;
+  --text3: #94a3b8;
 
   --correct:       #4ade80;
   --incorrect:     #f87171;
-  --unattempted:   #64748b;
+  --unattempted:   #94a3b8;
   --unat-chart:    #2a2f38;
 
   --accent-dim:    rgba(255, 71, 87, 0.28);
@@ -337,10 +338,10 @@ input, button, select { font-family: var(--font-body); }
 }
 .mode-btn:last-child { border-right: none; }
 .mode-btn-title { display: block; font-size: 20px; font-weight: 700; line-height: 1; margin-bottom: .3rem; color: inherit; }
-.mode-btn-sub   { display: block; font-size: 10px; font-weight: 500; letter-spacing: .06em; text-transform: uppercase; color: inherit; opacity: .7; }
+.mode-btn-sub   { display: block; font-size: 10px; font-weight: 500; letter-spacing: .06em; text-transform: uppercase; color: inherit; }
 .mode-btn:hover:not(.active) { background: var(--charcoal-mid); color: var(--text); }
-.mode-btn.active { background: var(--accent-faint); color: var(--accent-light); }
-.mode-btn.active .mode-btn-title { color: var(--accent-light); }
+.mode-btn.active { background: var(--accent-faint); color: var(--accent); }
+.mode-btn.active .mode-btn-title { color: var(--accent); }
 
 /* Upload zone */
 .upload-zone {
@@ -2305,7 +2306,6 @@ textarea.neu-input {
   width: 20px;
   height: 20px;
   border-radius: 50%;
-  background: var(--accent);
   border: 2px solid rgba(0,0,0,0.2);
   z-index: 10;
   /* Shine dot */

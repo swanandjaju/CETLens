@@ -1,25 +1,12 @@
-// --- CETLens  Supabase-backed analytics 
+'use strict';
 
-// --- HTML escape utility (XSS prevention) 
-// All database-sourced values rendered via innerHTML MUST be escaped with this.
-function _escHtml(str) {
-  if (str == null) return '';
-  return String(str)
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;');
-}
+// --- CETLens offline analytics
+
+const _escHtml = window.sanitizeHTML;
 
 // --- In-memory read cache 
 // Prevents repeat Supabase reads when analysis / community screens are reopened.
 // Keys are invalidated automatically after TTL, or explicitly after a new write.
-
-const SUPABASE_URL = '';
-const SUPABASE_ANON_KEY = '';
-
-'use strict';
 
 const _fbCache = {};
 const _CACHE_TTL_MS = 15 * 60 * 1000; // 15 minutes
@@ -157,9 +144,9 @@ function fetchAnalysisSupabase(stream, attempt) {
     return Promise.resolve(null);
   }
 
-  return new Promise((resolve) => {
-    const statsData = window.STATIC_SHIFT_STATS || [];
-    const summaryData = window.STATIC_SUBMISSION_SUMMARY || [];
+  return loadStaticData().then(({ shiftStats, submissionSummary }) => {
+    const statsData = shiftStats;
+    const summaryData = submissionSummary;
 
     // Filter statsData manually for stream and attempt since we fetched the whole file
     const filteredStats = statsData.filter(row => row.stream === stream && row.attempt === attempt);
@@ -185,14 +172,12 @@ function fetchAnalysisSupabase(stream, attempt) {
     });
 
     _cacheSet(cacheKey, { statsByShift, summary });
-    if (Object.keys(statsByShift).length > 0) {
-      resolve(rawEntriesFromStats(statsByShift, stream, attempt, summary));
-    } else {
-      resolve(null);
-    }
+    return Object.keys(statsByShift).length > 0
+      ? rawEntriesFromStats(statsByShift, stream, attempt, summary)
+      : null;
   }).catch(err => {
-    console.error('Promise.all fetch error:', err);
-    return null;
+    console.error('[fetchAnalysisSupabase] failed:', err);
+    throw err;
   });
 }
 
@@ -219,9 +204,12 @@ async function generateAnswerHash(qs) {
 
 
 async function saveSubmissionToSupabase(qs, st, filename, signature) {
-  // Offline Mode: Saving is disabled.
-  return;
+  // Offline mode intentionally performs no network write.
+  return undefined;
+}
 
+// Retained as a migration reference for a future authenticated backend.
+async function saveSubmissionToSupabaseLegacy(qs, st, filename, signature) {
   const p_stream  = typeof examMode        !== 'undefined' ? examMode        : 'PCM';
   const p_attempt = typeof selectedAttempt !== 'undefined' ? selectedAttempt : '';
   const p_shift   = typeof selectedShift   !== 'undefined' ? selectedShift   : '';
@@ -279,7 +267,6 @@ async function saveSubmissionToSupabase(qs, st, filename, signature) {
           return false;
         }
         console.error('Submission rejected by server:', data.error);
-        return false;
 
         // Show the "Unrecognized" overlay so the user isn't stuck on a blank screen
         document.getElementById('loadingScreen').style.display = 'none';
@@ -300,7 +287,7 @@ async function saveSubmissionToSupabase(qs, st, filename, signature) {
           };
           rejOverlay.classList.add('open');
         }
-        return;
+        return false;
       }
 
       if (data.duplicate) {
@@ -421,20 +408,21 @@ window.saveSubmissionToSupabase = saveSubmissionToSupabase;
 // Reads only the single shift's aggregated stat node  no fallback to the full
 // submissions collection (which could be thousands of records at scale).
 
-function fetchAndRenderBriefStrip(stream, attempt, shift, userScore, userSubStats) {
+async function fetchAndRenderBriefStrip(stream, attempt, shift, userScore, userSubStats) {
   if (window._isOldSheet) return;
-  return new Promise((resolve) => {
-    const data = window.STATIC_SHIFT_STATS || [];
+  try {
+    const { shiftStats: data } = await loadStaticData();
     const filtered = data.filter(r => r.stream === stream && r.attempt === attempt && r.shift === shift);
-    if (!filtered || filtered.length === 0) return resolve();
+    if (!filtered.length) return;
     const stat = filtered[0];
-    if (!stat || !stat.count) return resolve();
-      const above = countScores(stat.score_counts, score => score > userScore);
-      const same  = countScores(stat.score_counts, score => score === userScore);
-      renderBriefStrip(stream, attempt, shift, userScore, userSubStats,
+    if (!stat?.count) return;
+    const above = countScores(stat.score_counts, score => score > userScore);
+    const same = countScores(stat.score_counts, score => score === userScore);
+    renderBriefStrip(stream, attempt, shift, userScore, userSubStats,
       stat.count, Number(stat.total_score), stat.highest, above, same);
-    resolve();
-  });
+  } catch (err) {
+    console.error('[fetchAndRenderBriefStrip] failed:', err);
+  }
 }
 
 function renderBriefStrip(stream, attempt, shift, userScore, userSubStats, total, sum, highest, above, same) {
@@ -445,6 +433,7 @@ function renderBriefStrip(stream, attempt, shift, userScore, userSubStats, total
   const strip = document.getElementById('liveStatsBrief');
   if (!strip) return;
   strip.style.display = '';
+  // Safe static template: interpolated values are normalized numeric aggregates.
   strip.innerHTML = `
     <div class="live-brief-strip">
       <div class="live-brief-strip__led">
@@ -480,26 +469,30 @@ function renderBriefStrip(stream, attempt, shift, userScore, userSubStats, total
   window._lastSupabaseData = { stream, attempt, shift, userScore, userSubStats };
 }
 
-// --- FULL ANALYSIS SCREEN 
+// --- FULL ANALYSIS SCREEN
 
-function fetchFullAnalysis() {
-  const sb = window._supabaseClient;
-  if (!sb) {
-    document.getElementById('analysisLoading').style.display = 'none';
-    return;
-  }
+function prepareAnalysisRequest() {
   const ctx = window._lastSupabaseData || {};
-  const stream    = ctx.stream    || (typeof examMode        !== 'undefined' ? examMode        : 'PCM');
-  const attempt   = ctx.attempt   || (typeof selectedAttempt !== 'undefined' ? selectedAttempt : '');
-  const shift     = ctx.shift     || (typeof selectedShift   !== 'undefined' ? selectedShift   : '');
-  const userScore = ctx.userScore !== undefined ? ctx.userScore : 0;
-  const userSubStats = ctx.userSubStats || [];
+  return {
+    stream: ctx.stream || (typeof examMode !== 'undefined' ? examMode : 'PCM'),
+    attempt: ctx.attempt || (typeof selectedAttempt !== 'undefined' ? selectedAttempt : ''),
+    shift: ctx.shift || (typeof selectedShift !== 'undefined' ? selectedShift : ''),
+    userScore: ctx.userScore !== undefined ? ctx.userScore : 0,
+    userSubStats: ctx.userSubStats || []
+  };
+}
 
-  fetchAnalysisSupabase(stream, attempt).then(raw => {
+function renderAnalysisResult(raw, request) {
+  const { stream, attempt, shift, userScore, userSubStats } = request;
     if (!raw) {
       document.getElementById('analysisLoading').style.display = 'none';
-      document.getElementById('analysisContent').innerHTML = '<p style="padding:3rem;text-align:center;color:var(--pewter)">No data yet — be the first to submit!</p>';
-      document.getElementById('analysisContent').style.display = 'block';
+      const content = document.getElementById('analysisContent');
+      content.replaceChildren();
+      const message = document.createElement('p');
+      message.style.cssText = 'padding:3rem;text-align:center;color:var(--pewter)';
+      message.textContent = 'No data yet - be the first to submit!';
+      content.appendChild(message);
+      content.style.display = 'block';
       return;
     }
 
@@ -653,7 +646,7 @@ function fetchFullAnalysis() {
             <div class="subject-compare-row">
               <div class="subject-compare-row__header">
                 <span class="subject-compare-row__name">${_escHtml(s)}</span>
-                <span class="subject-compare-row__vals">You: <strong style="color:${col}">${youVal}</strong> &nbsp;·&nbsp; Avg: <strong>${avgVal}</strong> &nbsp;·&nbsp; Max: ${maxVal}</span>
+                <span class="subject-compare-row__vals">You: <strong style="color:${col}">${_escHtml(youVal)}</strong> &nbsp;·&nbsp; Avg: <strong>${_escHtml(avgVal)}</strong> &nbsp;·&nbsp; Max: ${_escHtml(maxVal)}</span>
               </div>
               <div class="subject-compare-track">
                 <div class="subject-compare-bar subject-compare-bar--avg" style="width:${avgPct}%;background:#60a5fa"></div>
@@ -782,10 +775,25 @@ function fetchFullAnalysis() {
     // --- Shift Difficulty Analysis 
     renderDifficultyRanking('analysisDifficultySection', shiftMap);
 
-  }).catch(err => {
-    console.error('Full analysis fetch error:', err);
-    document.getElementById('analysisLoading').style.display = 'none';
-  });
+}
+
+function handleAnalysisError(err) {
+  console.error('[fetchFullAnalysis] failed:', err);
+  document.getElementById('analysisLoading').style.display = 'none';
+  const content = document.getElementById('analysisContent');
+  content.replaceChildren();
+  const message = document.createElement('p');
+  message.style.cssText = 'padding:3rem;text-align:center;color:var(--incorrect)';
+  message.textContent = 'Analysis data could not be loaded. Please try again.';
+  content.appendChild(message);
+  content.style.display = 'block';
+}
+
+function fetchFullAnalysis() {
+  const request = prepareAnalysisRequest();
+  fetchAnalysisSupabase(request.stream, request.attempt)
+    .then(raw => renderAnalysisResult(raw, request))
+    .catch(handleAnalysisError);
 }
 
 
@@ -837,9 +845,24 @@ function switchCommunityStream(stream) {
   }
 }
 
-function fetchCommunityFullAnalysis() {
+async function fetchCommunityFullAnalysis() {
+  let shiftStats;
+  let submissionSummary;
+  try {
+    ({ shiftStats, submissionSummary } = await loadStaticData());
+  } catch (err) {
+    console.error('[fetchCommunityFullAnalysis] failed:', err);
+    document.getElementById('commLoading').style.display = 'none';
+    const noDataMsg = document.getElementById('commNoDataMsg');
+    if (noDataMsg) noDataMsg.textContent = 'Community analytics could not be loaded.';
+    const noData = document.getElementById('commNoData');
+    if (noData) noData.style.display = 'block';
+    document.getElementById('commContent').style.display = 'block';
+    return;
+  }
+
   const pcmStats = {};
-  (window.STATIC_SHIFT_STATS || []).filter(r => r.stream === 'PCM' && r.attempt === _selectedCommunityAttempt).forEach(row => {
+  shiftStats.filter(r => r.stream === 'PCM' && r.attempt === _selectedCommunityAttempt).forEach(row => {
     pcmStats[row.shift] = {
       count: row.count,
       sum: Number(row.total_score),
@@ -851,7 +874,7 @@ function fetchCommunityFullAnalysis() {
   });
 
   const pcbStats = {};
-  (window.STATIC_SHIFT_STATS || []).filter(r => r.stream === 'PCB' && r.attempt === _selectedCommunityAttempt).forEach(row => {
+  shiftStats.filter(r => r.stream === 'PCB' && r.attempt === _selectedCommunityAttempt).forEach(row => {
     pcbStats[row.shift] = {
       count: row.count,
       sum: Number(row.total_score),
@@ -863,8 +886,7 @@ function fetchCommunityFullAnalysis() {
   });
 
   const summary = { total: 0, streams: {} };
-  const summaryData = window.STATIC_SUBMISSION_SUMMARY || [];
-  (summaryData || []).forEach(row => {
+  submissionSummary.forEach(row => {
     if (row.key === 'total') summary.total = Number(row.value);
     else summary.streams[row.key] = Number(row.value);
   });
@@ -1276,11 +1298,11 @@ function renderDifficultyRanking(containerId, shiftMap, minSubmissions) {
     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem;">
       <strong style="color: var(--danger); font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.5px;">⚠️ Important Disclaimer</strong>
       <div style="display: flex; gap: 0.5rem; background: rgba(0,0,0,0.2); padding: 0.25rem; border-radius: 6px;">
-        <button onclick="this.parentElement.parentElement.nextElementSibling.innerHTML = \`${enDisclaimer}\`; this.style.background='rgba(255,255,255,0.1)'; this.style.color='#fff'; this.nextElementSibling.style.background='none'; this.nextElementSibling.style.color='rgba(255,255,255,0.5)'; this.parentElement.previousElementSibling.innerText='⚠️ Important Disclaimer';" style="background: rgba(255,255,255,0.1); border: none; color: #fff; font-size: 0.75rem; font-weight: 600; padding: 0.25rem 0.6rem; border-radius: 4px; cursor: pointer; transition: 0.2s;">EN</button>
-        <button onclick="this.parentElement.parentElement.nextElementSibling.innerHTML = \`${mrDisclaimer}\`; this.style.background='rgba(255,255,255,0.1)'; this.style.color='#fff'; this.previousElementSibling.style.background='none'; this.previousElementSibling.style.color='rgba(255,255,255,0.5)'; this.parentElement.previousElementSibling.innerText='⚠️ महत्त्वाची सूचना';" style="background: none; border: none; color: rgba(255,255,255,0.5); font-size: 0.75rem; font-weight: 600; padding: 0.25rem 0.6rem; border-radius: 4px; cursor: pointer; transition: 0.2s;">मराठी</button>
+        <button data-difficulty-language="en" style="background: rgba(255,255,255,0.1); border: none; color: #fff; font-size: 0.75rem; font-weight: 600; padding: 0.25rem 0.6rem; border-radius: 4px; cursor: pointer; transition: 0.2s;">EN</button>
+        <button data-difficulty-language="mr" style="background: none; border: none; color: rgba(255,255,255,0.5); font-size: 0.75rem; font-weight: 600; padding: 0.25rem 0.6rem; border-radius: 4px; cursor: pointer; transition: 0.2s;">मराठी</button>
       </div>
     </div>
-    <p style="font-size: 0.85rem; color: var(--text-muted); line-height: 1.6; margin: 0;">${enDisclaimer}</p>
+    <p data-difficulty-disclaimer style="font-size: 0.85rem; color: var(--text-muted); line-height: 1.6; margin: 0;">${enDisclaimer}</p>
   </div>`;
 
   // Toggle buttons
@@ -1362,5 +1384,25 @@ function renderDifficultyRanking(containerId, shiftMap, minSubmissions) {
     : 'Ranked using a balanced calculation to determine shift difficulty.'}</div>`;
 
   container.innerHTML = html;
-}
+  const disclaimerTitle = container.querySelector('.difficulty-header + div strong');
+  const disclaimerText = container.querySelector('[data-difficulty-disclaimer]');
+  const disclaimerButtons = container.querySelectorAll('[data-difficulty-language]');
+  const plainDisclaimer = value => value
+    .replace(/<br\s*\/?>/gi, '\n')
+    .replace(/<\/?b>/gi, '');
 
+  disclaimerButtons.forEach(button => {
+    button.addEventListener('click', () => {
+      const useMarathi = button.dataset.difficultyLanguage === 'mr';
+      disclaimerText.textContent = plainDisclaimer(useMarathi ? mrDisclaimer : enDisclaimer);
+      disclaimerTitle.textContent = useMarathi
+        ? '⚠️ महत्त्वाची सूचना'
+        : '⚠️ Important Disclaimer';
+      disclaimerButtons.forEach(option => {
+        const active = option === button;
+        option.style.background = active ? 'rgba(255,255,255,0.1)' : 'none';
+        option.style.color = active ? '#fff' : 'rgba(255,255,255,0.5)';
+      });
+    });
+  });
+}

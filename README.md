@@ -52,7 +52,9 @@ By relying on CDNs for dependencies and a serverless database backend, the appli
 CETLens utilizes a direct DOM manipulation strategy driven by a global state model.
 
 ### Global State Management
-State is maintained via global `window` objects. The application initializes variables such as `window._supabaseClient` and UI state flags (`_selectedCommunityStream`, `examMode`, `selectedShift`). Functions are designed to read from these globals and update the DOM directly. 
+State is maintained via global `window` objects and UI state flags such as
+`_selectedCommunityStream`, `examMode`, and `selectedShift`. Static analytics
+snapshots are loaded on demand and cached on `window`.
 
 ### Theming Engine
 CETLens includes a theming engine that supports light and dark modes. 
@@ -166,11 +168,16 @@ Once the user's score is adjusted against their shift's variance and skewness, i
 Running CETLens locally or deploying it to a production server involves the following steps.
 
 ### Environment Setup
-To connect the frontend parsing engine to your own Supabase instance:
-1. Create a Supabase Project.
-2. Execute the `rpc.sql` (if available in your legacy repository) to generate the tables, views, and RPC functions.
-3. Open `script.js` and locate the Supabase initialization block.
-4. Replace the `SUPABASE_URL` and `SUPABASE_ANON_KEY` variables with your specific project credentials.
+CETLens currently runs in offline static mode and does not require credentials.
+Analytics snapshots are loaded on demand from `data/static_shift_stats.json` and
+`data/static_submission_summary.json`.
+
+For a future Supabase-backed deployment:
+1. Copy `config.example.js` to `config.js`.
+2. Fill in `SUPABASE_URL` and `SUPABASE_ANON_KEY`.
+3. Keep `config.js` uncommitted; it is listed in `.gitignore`.
+4. Enable Row-Level Security on every exposed Supabase table. The anon key is
+   public by design, so database policies are the real authorization boundary.
 
 ### Running Locally
 Because the application relies on Vanilla JavaScript and CDN scripts, there is no `npm install` or build step required.
@@ -183,7 +190,8 @@ Because the application relies on Vanilla JavaScript and CDN scripts, there is n
 
 ### Deployment
 Deploy the flat folder structure directly to any static web host:
-- **GitHub Pages**: Push to the `main` branch and configure GitHub Pages in the repository settings.
+- **GitHub Pages**: Push to `main`, select **GitHub Actions** as the Pages source,
+  and the included workflow will minify JavaScript/CSS before deployment.
 - **Vercel / Netlify**: Connect your GitHub repository. The root directory will be automatically served without any build commands.
 
 ---

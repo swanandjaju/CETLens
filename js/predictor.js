@@ -238,6 +238,7 @@ const PREDICTOR_HISTORICAL_CURVES = {
 function openPredictorDisclaimer() {
   const overlay = document.getElementById('predictorDisclaimerOverlay');
   if (!overlay) return;
+  overlay.removeAttribute('inert');
   overlay.classList.add('open');
   overlay.setAttribute('aria-hidden', 'false');
   document.body.style.overflow = 'hidden';
@@ -248,6 +249,7 @@ function closePredictorDisclaimer() {
   if (!overlay) return;
   overlay.classList.remove('open');
   overlay.setAttribute('aria-hidden', 'true');
+  overlay.setAttribute('inert', '');
   document.body.style.overflow = '';
 }
 
@@ -301,7 +303,7 @@ function closePredictorScreen() {
 
 function initPredictorControls() {
   populatePredictorAttempts([]);
-  populatePredictorShifts([]);
+  populatePredictorShifts('');
 }
 
 function resetPredictorInputs() {
@@ -310,7 +312,7 @@ function resetPredictorInputs() {
   _predictorOptionsSeq++;
   _predictorLiveRows = [];
   populatePredictorAttempts([]);
-  populatePredictorShifts([]);
+  populatePredictorShifts('');
 
   const attempt = document.getElementById('predictorAttemptSelect');
   const shift = document.getElementById('predictorShiftSelect');
@@ -355,7 +357,7 @@ function populatePredictorShifts(attempt) {
   const select = document.getElementById('predictorShiftSelect');
   if (!select) return;
   const current = select.value;
-  const rows = _predictorFullData[document.getElementById('predictorStreamSelect').value];
+  const rows = _predictorLiveRows;
   
   const shifts = [...new Set((rows || [])
     .filter(row => !attempt || row.attempt === attempt)
@@ -392,7 +394,8 @@ function onPredictorMarksInput() {
 }
 
 function onPredictorAttemptChange() {
-  populatePredictorShifts(_predictorLiveRows);
+  const attempt = document.getElementById('predictorAttemptSelect')?.value || '';
+  populatePredictorShifts(attempt);
   onPredictorInputChange();
 }
 
@@ -446,7 +449,7 @@ async function refreshPredictorLiveOptions(options) {
   const seq = ++_predictorOptionsSeq;
 
   if (!silent) {
-    setPredictorStatus('Fetching live Supabase shift statistics...', 'loading');
+    setPredictorStatus('Loading shift statistics...', 'loading');
   }
 
   try {
@@ -455,16 +458,17 @@ async function refreshPredictorLiveOptions(options) {
 
     _predictorLiveRows = rows;
     populatePredictorAttempts(rows);
-    populatePredictorShifts(rows);
+    const attempt = document.getElementById('predictorAttemptSelect')?.value || '';
+    populatePredictorShifts(attempt);
 
     if (rows.length === 0) {
       setPredictorResult('--', 'Prediction unavailable.');
-      setPredictorStatus('No live Supabase shift statistics are available for ' + _predictorStream + ' yet.', 'error');
+      setPredictorStatus('No shift statistics are available for ' + _predictorStream + ' yet.', 'error');
       return;
     }
 
     if (!silent) {
-      setPredictorStatus('Live shift list loaded from Supabase.', 'success');
+      setPredictorStatus('Shift statistics loaded.', 'success');
     }
 
     onPredictorInputChange();
@@ -473,7 +477,7 @@ async function refreshPredictorLiveOptions(options) {
     const message = err && err.message ? err.message : 'Live shift statistics could not be fetched.';
     _predictorLiveRows = [];
     populatePredictorAttempts([]);
-    populatePredictorShifts([]);
+    populatePredictorShifts('');
     setPredictorResult('--', 'Prediction unavailable.');
     setPredictorStatus(message, 'error');
   }
@@ -481,7 +485,7 @@ async function refreshPredictorLiveOptions(options) {
 
 async function fetchPredictorLiveRows(stream) {
   try {
-    const data = window.STATIC_SHIFT_STATS || [];
+    const { shiftStats: data } = await loadStaticData();
     const filteredData = data.filter(row => row.stream === stream);
     return (filteredData || [])
     .filter(row => row && Number(row.count) >= 3 && row.attempt && row.shift && !String(row.shift).toLowerCase().includes('18 may'))
@@ -506,9 +510,46 @@ async function fetchPredictorLiveRows(stream) {
 
 // --- CORE PREDICTION 
 
+function mapPredictorRankingIndex(currentIndex, rankingLength) {
+  if (rankingLength <= 1) return 0;
+  return Math.round(
+    currentIndex * (PREDICTOR_REFERENCE_RANKING.length - 1) / (rankingLength - 1)
+  );
+}
+
+function buildReferencePercentiles(marks) {
+  const percentiles = PREDICTOR_REFERENCE_RANKING.map(shiftName => {
+    const curve = PREDICTOR_HISTORICAL_CURVES[shiftName];
+    return curve?.length >= 2 ? interpolatePredictorCurve(curve, marks) : 0;
+  });
+
+  for (let i = percentiles.length - 2; i >= 0; i--) {
+    if (percentiles[i] < percentiles[i + 1]) {
+      percentiles[i] = percentiles[i + 1];
+    }
+  }
+  return percentiles;
+}
+
+function getPredictorRange(percentiles, index) {
+  const percentile = percentiles[index];
+  const lowerNeighbor = percentiles[Math.min(index + 1, percentiles.length - 1)];
+  const upperNeighbor = percentiles[Math.max(index - 1, 0)];
+  const margin = Math.max(
+    0.1,
+    Math.abs(percentile - lowerNeighbor),
+    Math.abs(upperNeighbor - percentile)
+  );
+  return {
+    percentile,
+    min: Math.max(0, percentile - margin),
+    max: Math.min(100, percentile + margin)
+  };
+}
+
 async function updatePredictorPrediction(seq, stream, attempt, shift, marks) {
   setPredictorResult('--', 'Fetching live shift statistics…');
-  setPredictorStatus('Fetching live Supabase shift statistics...', 'loading');
+  setPredictorStatus('Loading shift statistics...', 'loading');
 
   try {
     const currentRanking = await fetchPredictorCurrentRanking(stream, attempt);
@@ -525,43 +566,13 @@ async function updatePredictorPrediction(seq, stream, attempt, shift, marks) {
       throw new Error('Selected shift has the same average and median as another live shift; a unique difficulty rank is unavailable.');
     }
 
-    let mappedIndex;
-    if (currentRanking.length <= 1) {
-      mappedIndex = 0;
-    } else {
-      mappedIndex = Math.round(currentIndex * (PREDICTOR_REFERENCE_RANKING.length - 1) / (currentRanking.length - 1));
-    }
-
-    const rawPercentiles = PREDICTOR_REFERENCE_RANKING.map(shiftName => {
-      const curve = PREDICTOR_HISTORICAL_CURVES[shiftName];
-      if (!curve || curve.length < 2) return 0;
-      return interpolatePredictorCurve(curve, marks);
-    });
-
-    for (let i = rawPercentiles.length - 2; i >= 0; i--) {
-      if (rawPercentiles[i] < rawPercentiles[i + 1]) {
-        rawPercentiles[i] = rawPercentiles[i + 1];
-      }
-    }
-
-    const percentile = rawPercentiles[mappedIndex];
+    const mappedIndex = mapPredictorRankingIndex(currentIndex, currentRanking.length);
+    const rawPercentiles = buildReferencePercentiles(marks);
+    const { percentile, min: finalPMin, max: finalPMax } =
+      getPredictorRange(rawPercentiles, mappedIndex);
     if (!percentile || percentile <= 0) {
       throw new Error('Percentile data is currently unavailable for this shift.');
     }
-
-    const rawPMin = rawPercentiles[Math.min(mappedIndex + 1, rawPercentiles.length - 1)];
-    const rawPMax = rawPercentiles[Math.max(mappedIndex - 1, 0)];
-
-    let margin = Math.max(Math.abs(percentile - rawPMin), Math.abs(rawPMax - percentile));
-
-    // If the data curves perfectly flatline (e.g. due to monotonicity smoothing),
-    // enforce a minimum 0.1 margin so the UI doesn't randomly disappear.
-    if (margin < 0.1) {
-      margin = 0.1;
-    }
-
-    const finalPMin = Math.max(0, percentile - margin);
-    const finalPMax = Math.min(100, percentile + margin);
 
     const formatted = percentile.toFixed(4);
     let metaText = '';
@@ -599,9 +610,9 @@ async function fetchPredictorCurrentRanking(stream, attempt) {
   let data = _predictorLiveRows.filter(r => r.attempt === attempt);
   
   if (data.length === 0) {
-    // Fallback: fetch directly if cache is empty
+    // Fallback: load the static snapshot directly if the UI cache is empty.
     try {
-      const fetchResult = window.STATIC_SHIFT_STATS || [];
+      const { shiftStats: fetchResult } = await loadStaticData();
       data = fetchResult.filter(row => row.stream === stream && row.attempt === attempt);
     } catch (err) {
       throw new Error('Static shift statistics request failed. Check your internet connection.');
