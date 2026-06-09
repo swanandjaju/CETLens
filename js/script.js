@@ -90,83 +90,67 @@ function loadImagesFromIDB() {
   }).catch(e => { console.warn('IDB load images failed:', e); return {}; });
 }
 
+function populateShifts(options) {
+  const shiftSelect = document.getElementById('shiftSelect');
+  shiftSelect.innerHTML = '';
+  
+  const defaultOption = document.createElement('option');
+  defaultOption.value = '';
+  defaultOption.disabled = true;
+  defaultOption.selected = true;
+  defaultOption.textContent = 'Select shift...';
+  shiftSelect.appendChild(defaultOption);
 
+  options.forEach(opt => {
+    const el = document.createElement('option');
+    el.value = opt;
+    el.textContent = opt;
+    shiftSelect.appendChild(el);
+  });
+}
 
 function updateShifts() {
-  const attempt = document.getElementById('attemptSelect').value;
+  const attemptSelect = document.getElementById('attemptSelect');
   const shiftContainer = document.getElementById('shiftContainer');
-  const shiftSelect = document.getElementById('shiftSelect');
+  const attempt = attemptSelect.value;
+  
+  if (!attempt) {
+    shiftContainer.style.display = 'none';
+    return;
+  }
 
+  let options = [];
+  
   if (attempt === 'Attempt 1') {
     if (examMode === 'PCM') {
-      shiftSelect.innerHTML = `
-        <option value="" disabled selected>Select shift...</option>
-        <option value="11 April - Morning">11 April - Morning</option>
-        <option value="11 April - Evening">11 April - Evening</option>
-        <option value="13 April - Morning">13 April - Morning</option>
-        <option value="13 April - Evening">13 April - Evening</option>
-        <option value="15 April - Morning">15 April - Morning</option>
-        <option value="15 April - Evening">15 April - Evening</option>
-        <option value="16 April - Morning">16 April - Morning</option>
-        <option value="16 April - Evening">16 April - Evening</option>
-        <option value="17 April - Morning">17 April - Morning</option>
-        <option value="17 April - Evening">17 April - Evening</option>
-        <option value="18 April - Morning">18 April - Morning</option>
-        <option value="18 April - Evening">18 April - Evening</option>
-        <option value="19 April - Morning">19 April - Morning</option>
-        <option value="19 April - Evening">19 April - Evening</option>
-        <option value="20 April - Morning">20 April - Morning</option>
-        <option value="20 April - Evening">20 April - Evening</option>
-      `;
+      options = [
+        "11 April - Morning", "11 April - Evening", "13 April - Morning", "13 April - Evening",
+        "15 April - Morning", "15 April - Evening", "16 April - Morning", "16 April - Evening",
+        "17 April - Morning", "17 April - Evening", "18 April - Morning", "18 April - Evening",
+        "19 April - Morning", "19 April - Evening", "20 April - Morning", "20 April - Evening"
+      ];
     } else {
-      shiftSelect.innerHTML = `
-        <option value="" disabled selected>Select shift...</option>
-        <option value="21 April - Morning">21 April - Morning</option>
-        <option value="21 April - Evening">21 April - Evening</option>
-        <option value="22 April - Morning">22 April - Morning</option>
-        <option value="22 April - Evening">22 April - Evening</option>
-        <option value="23 April - Morning">23 April - Morning</option>
-        <option value="23 April - Evening">23 April - Evening</option>
-        <option value="24 April - Morning">24 April - Morning</option>
-        <option value="24 April - Evening">24 April - Evening</option>
-        <option value="25 April - Morning">25 April - Morning</option>
-        <option value="25 April - Evening">25 April - Evening</option>
-        <option value="26 April - Morning">26 April - Morning</option>
-        <option value="26 April - Evening">26 April - Evening</option>
-      `;
+      options = [
+        "21 April - Morning", "21 April - Evening", "22 April - Morning", "22 April - Evening",
+        "23 April - Morning", "23 April - Evening", "24 April - Morning", "24 April - Evening",
+        "25 April - Morning", "25 April - Evening", "26 April - Morning", "26 April - Evening"
+      ];
     }
+    populateShifts(options);
     shiftContainer.style.display = 'block';
   } else if (attempt === 'Attempt 2') {
     if (examMode === 'PCB') {
-      shiftSelect.innerHTML = `
-        <option value="" disabled selected>Select shift...</option>
-        <option value="10 May - Morning">10 May - Morning</option>
-        <option value="10 May - Evening">10 May - Evening</option>
-        <option value="11 May - Morning">11 May - Morning</option>
-        <option value="11 May - Evening">11 May - Evening</option>
-      `;
-      shiftContainer.style.display = 'block';
+      options = ["10 May - Morning", "10 May - Evening", "11 May - Morning", "11 May - Evening"];
     } else if (examMode === 'PCM') {
-      shiftSelect.innerHTML = `
-        <option value="" disabled selected>Select shift...</option>
-        <option value="12 May - Morning">12 May - Morning</option>
-        <option value="12 May - Evening">12 May - Evening</option>
-        <option value="13 May - Morning">13 May - Morning</option>
-        <option value="13 May - Evening">13 May - Evening</option>
-        <option value="14 May - Morning">14 May - Morning</option>
-        <option value="14 May - Evening">14 May - Evening</option>
-        <option value="15 May - Morning">15 May - Morning</option>
-        <option value="15 May - Evening">15 May - Evening</option>
-        <option value="18 May - Morning">18 May - Morning</option>
-        <option value="18 May - Evening">18 May - Evening</option>
-        <option value="19 May - Morning">19 May - Morning</option>
-        <option value="19 May - Evening">19 May - Evening</option>
-        <option value="20 May - Morning">20 May - Morning</option>
-      `;
-      shiftContainer.style.display = 'block';
-    } else {
-      shiftContainer.style.display = 'none';
+      options = [
+        "12 May - Morning", "12 May - Evening", "13 May - Morning", "13 May - Evening",
+        "14 May - Morning", "14 May - Evening", "15 May - Morning", "15 May - Evening",
+        "18 May - Morning", "18 May - Evening", "19 May - Morning", "19 May - Evening",
+        "20 May - Morning"
+      ];
     }
+    populateShifts(options);
+    shiftContainer.style.display = 'block';
   } else {
     shiftContainer.style.display = 'none';
   }
@@ -817,8 +801,6 @@ function parseMHTML(raw) {
 
     const contentType = getHeader('Content-Type').split(';')[0].trim().toLowerCase();
     const encoding = getHeader('Content-Transfer-Encoding').toLowerCase();
-    const location = getHeader('Content-Location');
-    const contentId = getHeader('Content-ID').replace(/^<|>$/g, '');
 
     // Decode body
     if (encoding === 'quoted-printable') {

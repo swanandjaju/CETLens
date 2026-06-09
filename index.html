@@ -12,8 +12,9 @@
   <meta property="og:image" content="https://swanandjaju.github.io/CETLens/favicon.png" />
   <meta property="og:url" content="https://swanandjaju.github.io/CETLens/" />
   <meta property="og:type" content="website" />
+  <link rel="canonical" href="https://cet-lens.vercel.app/" />
   <!-- Favicon -->
-  <link rel="icon" type="image/png" href="favicon.png">
+  <link rel="icon" type="image/png" href="assets/favicon.png">
   <!-- Google Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -21,7 +22,7 @@
     href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500&display=swap"
     rel="stylesheet">
   <!-- App stylesheet -->
-  <link rel="stylesheet" href="style.css?v=20260521">
+  <link rel="stylesheet" href="css/style.css?v=20260521">
 
   <style>
     /* Scoped styles for the attempt and shift selectors */
@@ -189,8 +190,9 @@
 
 <body>
   <!-- Theme toggle on upload/landing screen -->
-  <button class="theme-toggle-btn" id="uploadThemeBtn" onclick="toggleTheme()" title="Toggle dark mode">
+  <button type="button" class="theme-toggle-btn" id="uploadThemeBtn" onclick="toggleTheme()" title="Toggle dark mode">
     <svg class="theme-icon-sun" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+  <title>Icon</title>
       <circle cx="12" cy="12" r="5"/>
       <line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/>
       <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/>
@@ -198,6 +200,7 @@
       <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
     </svg>
     <svg class="theme-icon-moon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+  <title>Icon</title>
       <path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/>
     </svg>
   </button>
@@ -217,11 +220,11 @@
         <div class="mode-selector">
           <div class="mode-selector-label">Select Your Exam Stream</div>
           <div class="mode-btns">
-            <button class="mode-btn active" id="btnPCM" onclick="setMode('PCM')">
+            <button type="button" class="mode-btn active" id="btnPCM" onclick="setMode('PCM')">
               <span class="mode-btn-title">PCM</span>
               <span class="mode-btn-sub">Phy &middot; Chem &middot; Math</span>
             </button>
-            <button class="mode-btn" id="btnPCB" onclick="setMode('PCB')">
+            <button type="button" class="mode-btn" id="btnPCB" onclick="setMode('PCB')">
               <span class="mode-btn-title">PCB</span>
               <span class="mode-btn-sub">Phy &middot; Chem &middot; Bio</span>
             </button>
@@ -229,7 +232,7 @@
         </div>
 
         <div class="attempt-selector">
-          <div class="attempt-selector-label">Select Attempt</div>
+          <label class="attempt-selector-label" for="attemptSelect" style="display:block">Select Attempt</label>
           <select id="attemptSelect" class="select-dropdown" onchange="onAttemptChange()">
             <option value="" disabled selected>Select attempt...</option>
             <option value="Attempt 1">Attempt 1</option>
@@ -237,7 +240,7 @@
           </select>
 
           <div id="shiftContainer" style="display: none;">
-            <div class="attempt-selector-label">Select Shift</div>
+            <label class="attempt-selector-label" for="shiftSelect" style="display:block">Select Shift</label>
             <select id="shiftSelect" class="select-dropdown" onchange="onShiftChange()">
               <option value="" disabled selected>Select shift...</option>
             </select>
@@ -247,6 +250,7 @@
 
         <div class="upload-zone" id="dropZone" onclick="document.getElementById('fileInput').click()">
           <svg class="upload-icon" viewBox="0 0 52 52" fill="none">
+  <title>Icon</title>
             <rect x="9" y="4" width="34" height="44" stroke="currentColor" stroke-width="2" />
             <path d="M17 18h18M17 25h18M17 32h11" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
             <path d="M33 4v11h9" stroke="currentColor" stroke-width="2" stroke-linecap="round"
@@ -255,7 +259,7 @@
           <div class="upload-title" id="dropTitle">Drop your response sheet here</div>
           <div class="upload-sub">Supports the MHT-CET Objection Tracker Portal HTML/MHTML/PDF response sheet.<br>All
             processing is local &mdash; your data never leaves your device.</div>
-          <button class="btn-primary"
+          <button type="button" class="btn-primary"
             onclick="event.stopPropagation();document.getElementById('fileInput').click()">Browse File</button>
           <div class="drag-preview" id="dragPreview"></div>
           <input type="file" id="fileInput" accept=".pdf,.html,.htm,.mhtml,.mht" style="display:none"
@@ -281,6 +285,7 @@
         <a href="CETLens_Combined_Analysis_Report.pdf" target="_blank" class="community-cta-banner" style="text-decoration:none; margin-top:12px; background: rgba(59, 130, 246, 0.05); border: 1px solid rgba(59, 130, 246, 0.2); display: flex;">
           <div class="community-cta__pulse">
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+  <title>Icon</title>
               <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
               <polyline points="14 2 14 8 20 8"></polyline>
               <line x1="16" y1="13" x2="8" y2="13"></line>
@@ -303,6 +308,7 @@
           onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openPredictorDisclaimer();}">
           <div class="predictor-cta__icon" aria-hidden="true" style="overflow:hidden;">
             <svg width="26" height="26" viewBox="0 0 24 24" fill="none">
+  <title>Icon</title>
               <path d="M12 3 22 20H2L12 3Z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
               <path d="M12 9v5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
               <path d="M12 17h.01" stroke="currentColor" stroke-width="3" stroke-linecap="round"/>
@@ -333,6 +339,7 @@
         <div class="about-links">
           <a href="https://github.com/swanandjaju" target="_blank" class="about-link">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+  <title>Icon</title>
               <path
                 d="M12 .297c-6.63 0-12 5.373-12 12 0 5.303 3.438 9.8 8.205 11.385.6.113.82-.258.82-.577 0-.285-.01-1.04-.015-2.04-3.338.724-4.042-1.61-4.042-1.61C4.422 18.07 3.633 17.7 3.633 17.7c-1.087-.744.084-.729.084-.729 1.205.084 1.838 1.236 1.838 1.236 1.07 1.835 2.809 1.305 3.495.998.108-.776.417-1.305.76-1.605-2.665-.3-5.466-1.332-5.466-5.93 0-1.31.465-2.38 1.235-3.22-.135-.303-.54-1.523.105-3.176 0 0 1.005-.322 3.3 1.23.96-.267 1.98-.399 3-.405 1.02.006 2.04.138 3 .405 2.28-1.552 3.285-1.23 3.285-1.23.645 1.653.24 2.873.12 3.176.765.84 1.23 1.91 1.23 3.22 0 4.61-2.805 5.625-5.475 5.92.42.36.81 1.096.81 2.22 0 1.606-.015 2.896-.015 3.286 0 .315.21.69.825.57C20.565 22.092 24 17.592 24 12.297c0-6.627-5.373-12-12-12" />
             </svg>
@@ -340,6 +347,7 @@
           </a>
           <a href="https://www.linkedin.com/in/swanand-jaju/" target="_blank" class="about-link">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+  <title>Icon</title>
               <path
                 d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433c-1.144 0-2.063-.926-2.063-2.065 0-1.138.92-2.063 2.063-2.063 1.14 0 2.064.925 2.064 2.063 0 1.139-.925 2.065-2.064 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z" />
             </svg>
@@ -355,7 +363,7 @@
           <div style="font-size: 12px; color: var(--pewter); line-height: 1.6; text-align: center;">
             CETLens is free and always will be. If it helped you, a small coffee goes a long way in keeping it running. ☕
           </div>
-          <button class="about-link" style="width:100%; cursor:pointer;" onclick="document.getElementById('donateOverlay').classList.add('open')">Buy me a coffee ☕</button>
+          <button type="button" class="about-link" style="width:100%; cursor:pointer;" onclick="document.getElementById('donateOverlay').classList.add('open')">Buy me a coffee ☕</button>
         </div>
       </div>
 
@@ -367,11 +375,11 @@
     <div class="restore-box" style="padding: 2rem;">
       <div class="restore-title">Support CETLens</div>
       <div style="margin: 1.5rem auto; background: #fff; padding: 10px; border-radius: 12px; display: inline-block;">
-        <img src="donate-qr.png" alt="Donate QR Code" style="width: 180px; height: 180px; display: block; border-radius: 8px;">
+        <img src="assets/donate-qr.png" alt="Donate QR Code" width="180" height="180" style="width: 180px; height: 180px; display: block; border-radius: 8px;">
       </div>
       <div class="restore-meta">Scan with any UPI app — GPay, PhonePe, Paytm</div>
       <div class="restore-btns">
-        <button class="btn-ghost" onclick="document.getElementById('donateOverlay').classList.remove('open')">Close</button>
+        <button type="button" class="btn-ghost" onclick="document.getElementById('donateOverlay').classList.remove('open')">Close</button>
       </div>
     </div>
   </div>
@@ -383,7 +391,7 @@
       <p class="mismatch-msg" id="mismatchMsg"></p>
       <div class="mismatch-badge" id="mismatchBadge"></div>
       <div class="mismatch-btns">
-        <button class="btn-primary" onclick="mismatchReupload()">Re-upload with correct stream</button>
+        <button type="button" class="btn-primary" onclick="mismatchReupload()">Re-upload with correct stream</button>
       </div>
     </div>
   </div>
@@ -395,8 +403,8 @@
       <p class="mismatch-msg">This response sheet does not match the shift you selected, or it hasn't been verified by our system yet. Your data will <strong>not</strong> be stored in our database or counted in community analytics.</p>
       <div class="mismatch-badge" style="color: #f59e0b; border-color: rgba(245, 158, 11, .35); background: rgba(245, 158, 11, .05);">Data will not be saved · Local analysis only</div>
       <div class="mismatch-btns">
-        <button class="btn-primary" id="oldSheetContinueBtn" style="background: linear-gradient(135deg, #f59e0b, #d97706);">View my score anyway →</button>
-        <button class="btn-ghost" id="oldSheetReuploadBtn" onclick="oldSheetReupload()">Re-upload Response Sheet</button>
+        <button type="button" class="btn-primary" id="oldSheetContinueBtn" style="background: linear-gradient(135deg, #f59e0b, #d97706);">View my score anyway →</button>
+        <button type="button" class="btn-ghost" id="oldSheetReuploadBtn" onclick="oldSheetReupload()">Re-upload Response Sheet</button>
       </div>
     </div>
   </div>
@@ -409,7 +417,7 @@
       <p class="mismatch-msg" id="incompleteMsg"></p>
       <div class="mismatch-badge" id="incompleteBadge" style="color: #f59e0b; border-color: rgba(245, 158, 11, .35); background: rgba(245, 158, 11, .05);"></div>
       <div class="mismatch-btns">
-        <button class="btn-primary" onclick="incompleteReupload()">Re-upload Response Sheet</button>
+        <button type="button" class="btn-primary" onclick="incompleteReupload()">Re-upload Response Sheet</button>
       </div>
     </div>
   </div>
@@ -422,7 +430,7 @@
       <p class="mismatch-msg" id="wrongShiftMsg"></p>
       <div class="mismatch-badge" id="wrongShiftBadge" style="color: #10b981; border-color: rgba(16, 185, 129, .35); background: rgba(16, 185, 129, .05);"></div>
       <div class="mismatch-btns">
-        <button class="btn-primary" id="wrongShiftSwitchBtn" style="background: linear-gradient(135deg, #10b981, #059669); border-color: #059669;">Move to correct shift &amp; View Dashboard →</button>
+        <button type="button" class="btn-primary" id="wrongShiftSwitchBtn" style="background: linear-gradient(135deg, #10b981, #059669); border-color: #059669;">Move to correct shift &amp; View Dashboard →</button>
       </div>
     </div>
   </div>
@@ -434,8 +442,8 @@
       <div class="restore-title">Restore Previous Session?</div>
       <div class="restore-meta" id="restoreMeta"></div>
       <div class="restore-btns">
-        <button class="btn-primary" onclick="restoreSession()">Restore Session</button>
-        <button class="btn-ghost" onclick="dismissRestore()">Start Fresh</button>
+        <button type="button" class="btn-primary" onclick="restoreSession()">Restore Session</button>
+        <button type="button" class="btn-ghost" onclick="dismissRestore()">Start Fresh</button>
       </div>
     </div>
   </div>
@@ -445,6 +453,7 @@
     <div class="predictor-warning-modal" role="dialog" aria-modal="true" aria-labelledby="predictorDisclaimerTitle">
       <div class="predictor-warning-modal__icon" aria-hidden="true" style="overflow:hidden; width: 44px; height: 44px; margin-bottom: 0.6rem; border-radius: 12px;">
         <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+  <title>Icon</title>
           <path d="M12 3 22 20H2L12 3Z" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round"/>
           <path d="M12 8.5v5.5" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/>
           <path d="M12 17.5h.01" stroke="currentColor" stroke-width="3.2" stroke-linecap="round"/>
@@ -474,10 +483,10 @@
         <span style="font-size: 15px;">केवळ या अंदाजाच्या आधारावर प्रवेशाचे (Admission) निर्णय घेऊ नका.</span>
       </div>
       <div class="predictor-warning-modal__actions">
-        <button class="btn-primary predictor-accept-btn" onclick="acceptPredictorDisclaimer()" style="display: flex; align-items: center; justify-content: center; gap: 6px;">
+        <button type="button" class="btn-primary predictor-accept-btn" onclick="acceptPredictorDisclaimer()" style="display: flex; align-items: center; justify-content: center; gap: 6px;">
           ACCEPT <span style="opacity: 0.5;">/</span> <span style="font-size: 15px;">स्वीकारा</span>
         </button>
-        <button class="btn-ghost predictor-cancel-btn" onclick="closePredictorDisclaimer()">Cancel</button>
+        <button type="button" class="btn-ghost predictor-cancel-btn" onclick="closePredictorDisclaimer()">Cancel</button>
       </div>
     </div>
   </div>
@@ -495,7 +504,7 @@
     <!-- Topbar -->
     <div class="topbar">
       <div class="topbar-left">
-        <button class="hamburger-btn" id="hamburgerBtn" onclick="toggleSidebar()" aria-label="Toggle sidebar" style="display:none">
+        <button type="button" class="hamburger-btn" id="hamburgerBtn" onclick="toggleSidebar()" aria-label="Toggle sidebar" style="display:none">
           <span></span><span></span><span></span>
         </button>
         <div class="topbar-brand">CETLens</div>
@@ -503,8 +512,9 @@
         <span class="topbar-mode" id="topbarMode"></span>
       </div>
       <div class="topbar-actions">
-        <button class="theme-toggle-btn" id="dashThemeBtn" onclick="toggleTheme()" title="Toggle dark mode">
+        <button type="button" class="theme-toggle-btn" id="dashThemeBtn" onclick="toggleTheme()" title="Toggle dark mode">
           <svg class="theme-icon-sun" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+  <title>Icon</title>
             <circle cx="12" cy="12" r="5"/>
             <line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/>
             <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/>
@@ -512,17 +522,20 @@
             <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
           </svg>
           <svg class="theme-icon-moon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+  <title>Icon</title>
             <path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/>
           </svg>
         </button>
-        <button class="btn-icon export-btn" onclick="exportCSV()" title="Export CSV" id="csvBtn">
+        <button type="button" class="btn-icon export-btn" onclick="exportCSV()" title="Export CSV" id="csvBtn">
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+  <title>Icon</title>
             <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3" />
           </svg>
           CSV
         </button>
-        <button class="btn-icon export-btn" onclick="exportPDF()" title="Export PDF" id="pdfBtn">
+        <button type="button" class="btn-icon export-btn" onclick="exportPDF()" title="Export PDF" id="pdfBtn">
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+  <title>Icon</title>
             <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" />
             <polyline points="14,2 14,8 20,8" />
             <line x1="16" y1="13" x2="8" y2="13" />
@@ -530,8 +543,9 @@
           </svg>
           PDF
         </button>
-        <button class="btn-icon export-btn" onclick="generateShareCard()" title="Share score card" id="shareBtn">
+        <button type="button" class="btn-icon export-btn" onclick="generateShareCard()" title="Share score card" id="shareBtn">
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+  <title>Icon</title>
             <circle cx="18" cy="5" r="3" />
             <circle cx="6" cy="12" r="3" />
             <circle cx="18" cy="19" r="3" />
@@ -540,13 +554,14 @@
           </svg>
           Share
         </button>
-        <button class="btn-icon export-btn" onclick="openAnalysisScreen()" title="Detailed Analysis" id="analysisBtn">
+        <button type="button" class="btn-icon export-btn" onclick="openAnalysisScreen()" title="Detailed Analysis" id="analysisBtn">
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+  <title>Icon</title>
             <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
           </svg>
           Analysis
         </button>
-        <button class="btn-ghost" onclick="resetApp()">↑ Upload New</button>
+        <button type="button" class="btn-ghost" onclick="resetApp()">↑ Upload New</button>
       </div>
     </div>
 
@@ -564,13 +579,14 @@
           <div class="score-tabs-card" id="scoreTabsCard">
             <!-- Tab header -->
             <div class="score-tabs-header">
-              <button class="score-tab active" data-tab="overall" onclick="switchScoreTab('overall',this)">Overall Score</button>
-              <button class="score-tab" data-tab="subjects" onclick="switchScoreTab('subjects',this)">Subject-wise Score</button>
+              <button type="button" class="score-tab active" data-tab="overall" onclick="switchScoreTab('overall',this)">Overall Score</button>
+              <button type="button" class="score-tab" data-tab="subjects" onclick="switchScoreTab('subjects',this)">Subject-wise Score</button>
             </div>
             <!-- Tab 1: Overall Score with arc gauge -->
             <div class="score-tab-panel active" id="panelOverall">
               <div class="arc-gauge-wrap">
                 <svg class="arc-gauge" viewBox="0 8 200 112">
+  <title>Icon</title>
                   <path class="arc-track" d="" />
                   <path class="arc-fill" d="" />
                   <text class="arc-tick" x="18" y="112">0</text>
@@ -604,10 +620,10 @@
 
           <!-- Filter bar -->
           <div class="filter-bar" id="filterBar">
-            <button class="filter-chip active" data-filter="all" onclick="setFilter('all',this)">All (0)</button>
-            <button class="filter-chip" data-filter="correct" onclick="setFilter('correct',this)">Correct</button>
-            <button class="filter-chip" data-filter="incorrect" onclick="setFilter('incorrect',this)">Incorrect</button>
-            <button class="filter-chip" data-filter="unattempted"
+            <button type="button" class="filter-chip active" data-filter="all" onclick="setFilter('all',this)">All (0)</button>
+            <button type="button" class="filter-chip" data-filter="correct" onclick="setFilter('correct',this)">Correct</button>
+            <button type="button" class="filter-chip" data-filter="incorrect" onclick="setFilter('incorrect',this)">Incorrect</button>
+            <button type="button" class="filter-chip" data-filter="unattempted"
               onclick="setFilter('unattempted',this)">Unattempted</button>
           </div>
 
@@ -655,8 +671,8 @@
             </div>
             <div class="q-footer">
               <div class="nav-btns">
-                <button class="btn-ghost" onclick="prevQ()">← Prev</button>
-                <button class="btn-ghost" onclick="nextQ()">Next →</button>
+                <button type="button" class="btn-ghost" onclick="prevQ()">← Prev</button>
+                <button type="button" class="btn-ghost" onclick="nextQ()">Next →</button>
               </div>
               <span style="font-size:11px;color:var(--pewter);font-weight:600;letter-spacing:.1em" id="qOf"></span>
             </div>
@@ -669,11 +685,13 @@
 
   <div class="q-detail-overlay" id="qDetailOverlay" onclick="if(event.target===this)closeQDetail()">
     <div class="q-detail-wrapper" onclick="if(event.target===this)closeQDetail()">
-      <button class="modal-side-btn modal-side-prev" onclick="prevQDetail()" aria-label="Previous">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+      <button type="button" class="modal-side-btn modal-side-prev" onclick="prevQDetail()" aria-label="Previous">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+  <title>Icon</title><polyline points="15 18 9 12 15 6"/></svg>
       </button>
-      <button class="modal-side-btn modal-side-next" onclick="nextQDetail()" aria-label="Next">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+      <button type="button" class="modal-side-btn modal-side-next" onclick="nextQDetail()" aria-label="Next">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+  <title>Icon</title><polyline points="9 18 15 12 9 6"/></svg>
       </button>
       <div class="q-detail-modal">
       <div class="q-detail-header">
@@ -682,7 +700,7 @@
           <span class="q-badge badge-unattempted" id="qdBadge"></span>
           <span class="marks-pill marks-zero" id="qdMarks"></span>
         </div>
-        <button class="q-detail-close" onclick="closeQDetail()" aria-label="Close">✕</button>
+        <button type="button" class="q-detail-close" onclick="closeQDetail()" aria-label="Close">✕</button>
       </div>
       <div class="q-detail-body">
         <div class="q-detail-img" id="qdImgArea">
@@ -706,9 +724,9 @@
         </div>
       </div>
       <div class="q-detail-footer">
-        <button class="btn-ghost q-detail-nav-btn" onclick="prevQDetail()" aria-label="Previous">← Prev</button>
+        <button type="button" class="btn-ghost q-detail-nav-btn" onclick="prevQDetail()" aria-label="Previous">← Prev</button>
         <span class="q-detail-counter" id="qdCounter"></span>
-        <button class="btn-ghost q-detail-nav-btn" onclick="nextQDetail()" aria-label="Next">Next →</button>
+        <button type="button" class="btn-ghost q-detail-nav-btn" onclick="nextQDetail()" aria-label="Next">Next →</button>
       </div>
     </div>
   </div>
@@ -717,7 +735,7 @@
 <div id="sidebarOverlay" onclick="closeSidebar()"></div>
 
 <div id="lightbox" onclick="if(event.target===this)closeLightbox()">
-    <button class="lightbox-close" onclick="closeLightbox()" aria-label="Close lightbox">✕</button>
+    <button type="button" class="lightbox-close" onclick="closeLightbox()" aria-label="Close lightbox">✕</button>
     <img id="lightboxImg" src="" alt="Question preview">
     <div class="lightbox-hint">Click anywhere or press Esc to close</div>
   </div>
@@ -935,19 +953,21 @@
 <div id="predictorScreen" style="display:none">
   <div class="topbar">
     <div class="topbar-left">
-      <button class="btn-ghost" onclick="closePredictorScreen()" style="min-height:36px;padding:.3rem .75rem;font-size:11px;border-radius:8px;">Back</button>
+      <button type="button" class="btn-ghost" onclick="closePredictorScreen()" style="min-height:36px;padding:.3rem .75rem;font-size:11px;border-radius:8px;">Back</button>
       <div class="topbar-brand">CETLens</div>
       <span class="topbar-mode">Percentile Predictor</span>
     </div>
     <div class="topbar-actions">
-      <button class="theme-toggle-btn" onclick="toggleTheme()" title="Toggle dark mode">
+      <button type="button" class="theme-toggle-btn" onclick="toggleTheme()" title="Toggle dark mode">
         <svg class="theme-icon-sun" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+  <title>Icon</title>
           <circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/>
           <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/>
           <line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/>
           <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
         </svg>
         <svg class="theme-icon-moon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+  <title>Icon</title>
           <path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/>
         </svg>
       </button>
@@ -1021,19 +1041,21 @@
   <!-- Topbar -->
   <div class="topbar">
     <div class="topbar-left">
-      <button class="btn-ghost" onclick="closeAnalysisScreen()" style="min-height:36px;padding:.3rem .75rem;font-size:11px;border-radius:8px;">← Back</button>
+      <button type="button" class="btn-ghost" onclick="closeAnalysisScreen()" style="min-height:36px;padding:.3rem .75rem;font-size:11px;border-radius:8px;">← Back</button>
       <div class="topbar-brand">CETLens</div>
       <span class="topbar-mode" id="analysisModeTag"></span>
     </div>
     <div class="topbar-actions">
-      <button class="theme-toggle-btn" onclick="toggleTheme()" title="Toggle dark mode">
+      <button type="button" class="theme-toggle-btn" onclick="toggleTheme()" title="Toggle dark mode">
         <svg class="theme-icon-sun" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+  <title>Icon</title>
           <circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/>
           <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/>
           <line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/>
           <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
         </svg>
         <svg class="theme-icon-moon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+  <title>Icon</title>
           <path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/>
         </svg>
       </button>
@@ -1222,7 +1244,7 @@
 
         <!-- Per-shift detail selector -->
         <div class="analysis-card analysis-card--full">
-          <div class="analysis-card-label" style="margin-bottom:1rem">Drill Down — Select Any Shift</div>
+          <label class="analysis-card-label" for="analysisShiftSelect" style="display:block; margin-bottom:1rem">Drill Down — Select Any Shift</label>
           <select id="analysisShiftSelect" class="select-dropdown" style="max-width:320px;margin-bottom:1.25rem" onchange="renderShiftDrillDown(this.value)"></select>
           <div id="shiftDrillDown"></div>
         </div>
@@ -1293,7 +1315,7 @@
 <div id="communityScreen" style="display:none">
   <div class="topbar">
     <div class="topbar-left">
-      <button class="btn-ghost" onclick="closeCommunityScreen()" style="min-height:36px;padding:.3rem .75rem;font-size:11px;border-radius:8px;">← Back</button>
+      <button type="button" class="btn-ghost" onclick="closeCommunityScreen()" style="min-height:36px;padding:.3rem .75rem;font-size:11px;border-radius:8px;">← Back</button>
       <div class="topbar-brand">CETLens</div>
     </div>
     <div class="topbar-actions">
@@ -1301,14 +1323,16 @@
         <span class="led led--green led--sm"><span class="led__dot"></span><span class="led__label">Live Data</span></span>
         <span id="commTotalBadge" class="analysis-total-badge"></span>
       </div>
-      <button class="theme-toggle-btn" onclick="toggleTheme()" title="Toggle dark mode">
+      <button type="button" class="theme-toggle-btn" onclick="toggleTheme()" title="Toggle dark mode">
         <svg class="theme-icon-sun" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+  <title>Icon</title>
           <circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/>
           <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/>
           <line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/>
           <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
         </svg>
         <svg class="theme-icon-moon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+  <title>Icon</title>
           <path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/>
         </svg>
       </button>
@@ -1329,12 +1353,12 @@
       <div class="comm-stream-selector">
         <label class="comm-stream-label" for="commStreamSelect">Select Stream</label>
         <div class="comm-stream-toggle">
-          <button class="comm-stream-btn active" id="commStreamBtnPCM" onclick="switchCommunityStream('PCM')">
+          <button type="button" class="comm-stream-btn active" id="commStreamBtnPCM" onclick="switchCommunityStream('PCM')">
             <span class="comm-stream-btn__icon">📐</span>
             <span class="comm-stream-btn__text">PCM</span>
             <span class="comm-stream-btn__sub">Physics · Chemistry · Mathematics</span>
           </button>
-          <button class="comm-stream-btn" id="commStreamBtnPCB" onclick="switchCommunityStream('PCB')">
+          <button type="button" class="comm-stream-btn" id="commStreamBtnPCB" onclick="switchCommunityStream('PCB')">
             <span class="comm-stream-btn__icon">🧬</span>
             <span class="comm-stream-btn__text">PCB</span>
             <span class="comm-stream-btn__sub">Physics · Chemistry · Biology</span>
@@ -1345,8 +1369,8 @@
       <!-- Attempt Selector -->
       <div id="commAttemptSelector" style="display:block; padding: 0 1.5rem 1.5rem; margin-top: -1rem;">
         <div style="display: flex; gap: 0.5rem;">
-          <button class="comm-attempt-btn active" id="commAttemptBtn1" onclick="switchCommunityAttempt('Attempt 1')">Attempt 1</button>
-          <button class="comm-attempt-btn" id="commAttemptBtn2" onclick="switchCommunityAttempt('Attempt 2')">Attempt 2</button>
+          <button type="button" class="comm-attempt-btn active" id="commAttemptBtn1" onclick="switchCommunityAttempt('Attempt 1')">Attempt 1</button>
+          <button type="button" class="comm-attempt-btn" id="commAttemptBtn2" onclick="switchCommunityAttempt('Attempt 2')">Attempt 2</button>
         </div>
       </div>
 
@@ -1487,20 +1511,20 @@
   </div><!-- /analysis-body -->
 </div><!-- /communityScreen -->
 
-<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.3/dist/confetti.browser.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<script defer src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+  <script defer src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.3/dist/confetti.browser.min.js"></script>
+  <script defer src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script defer src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <!-- Load core modules -->
   <!-- Load Offline Database Snapshots -->
-  <script src="static_data.js?v=4"></script>
+  <script defer src="data/static_data.js?v=4"></script>
   
-  <script src="script.js?v=4"></script>
-  <script src="analytics.js?v=4"></script>
-  <script src="predictor.js?v=4"></script>
-  <script src="router.js?v=4"></script>
+  <script defer src="js/script.js?v=4"></script>
+  <script defer src="js/analytics.js?v=4"></script>
+  <script defer src="js/predictor.js?v=4"></script>
+  <script defer src="js/router.js?v=4"></script>
 
 </body>
 </html>

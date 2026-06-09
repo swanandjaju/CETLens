@@ -16,6 +16,11 @@ function _escHtml(str) {
 // Prevents repeat Supabase reads when analysis / community screens are reopened.
 // Keys are invalidated automatically after TTL, or explicitly after a new write.
 
+const SUPABASE_URL = '';
+const SUPABASE_ANON_KEY = '';
+
+'use strict';
+
 const _fbCache = {};
 const _CACHE_TTL_MS = 15 * 60 * 1000; // 15 minutes
 
@@ -758,7 +763,14 @@ function fetchFullAnalysis() {
     // 7. Populate shift drill-down selector
     const sel = document.getElementById('analysisShiftSelect');
     if (sel) {
-      sel.innerHTML = shiftNames.map(s => `<option value="${_escHtml(s)}" ${s === shift ? 'selected' : ''}>${_escHtml(s)}</option>`).join('');
+      sel.innerHTML = '';
+      shiftNames.forEach(s => {
+        const opt = document.createElement('option');
+        opt.value = s;
+        opt.textContent = s;
+        if (s === shift) opt.selected = true;
+        sel.appendChild(opt);
+      });
       window._shiftMapData = shiftMap;
       renderDrillDown('shiftDrillDown', window._shiftMapData, shift || shiftNames[0]);
     }
@@ -1051,7 +1063,13 @@ function _renderCommunityData({ pcmStats, pcbStats, summary }) {
   // --- Drill Down Selector 
   const sel = document.getElementById('commShiftSelect');
   if (sel) {
-    sel.innerHTML = shiftNames.map(s => `<option value="${_escHtml(s)}">${_escHtml(s)}</option>`).join('');
+    sel.innerHTML = '';
+    shiftNames.forEach(s => {
+      const opt = document.createElement('option');
+      opt.value = s;
+      opt.textContent = s;
+      sel.appendChild(opt);
+    });
     window._commShiftMapData = activeShiftMap;
     renderDrillDown('commDrillDown', window._commShiftMapData, shiftNames[0]);
   }
@@ -1235,10 +1253,8 @@ function renderDifficultyRanking(containerId, shiftMap, minSubmissions) {
   const maxDiffScore = Math.max(...shiftDiffData.map(s => s.difficultyScore));
   const minDiffScore = Math.min(...shiftDiffData.map(s => s.difficultyScore));
   const diffRange = (maxDiffScore - minDiffScore) || 1;
-
   // Build HTML
   let html = '';
-
   // Header with toggle
   const scoreActive = mode === 'score' ? 'active' : '';
   const balancedActive = mode === 'balanced' ? 'active' : '';
