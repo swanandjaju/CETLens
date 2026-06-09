@@ -1,0 +1,1408 @@
+'use strict';
+
+// --- CETLens offline analytics
+
+const _escHtml = window.sanitizeHTML;
+
+// --- In-memory read cache 
+// Prevents repeat Supabase reads when analysis / community screens are reopened.
+// Keys are invalidated automatically after TTL, or explicitly after a new write.
+
+const _fbCache = {};
+const _CACHE_TTL_MS = 15 * 60 * 1000; // 15 minutes
+
+function _cacheGet(key) {
+  const entry = _fbCache[key];
+  if (!entry) return null;
+  if (Date.now() - entry.ts > _CACHE_TTL_MS) { delete _fbCache[key]; return null; }
+  return entry.val;
+}
+
+function _cacheSet(key, val) {
+  _fbCache[key] = { val, ts: Date.now() };
+}
+
+function _cacheInvalidate(prefix) {
+  Object.keys(_fbCache).forEach(k => { if (k.startsWith(prefix)) delete _fbCache[k]; });
+}
+
+// --- helpers 
+
+function getChartColors() {
+  const style = getComputedStyle(document.documentElement);
+  return {
+    text:   style.getPropertyValue('--text').trim()        || '#2d3436',
+    muted:  style.getPropertyValue('--pewter').trim()      || '#4a5568',
+    border: style.getPropertyValue('--border').trim()      || 'rgba(0,0,0,.08)',
+    bg:     style.getPropertyValue('--charcoal').trim()    || '#f0f2f5',
+    accent: style.getPropertyValue('--accent').trim()      || '#ff4757',
+  };
+}
+
+function baseChartOptions(colors) {
+  return {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+      legend: { labels: { color: colors.muted, font: { size: 11 } } },
+      tooltip: { backgroundColor: colors.bg, titleColor: colors.text, bodyColor: colors.muted, borderColor: colors.border, borderWidth: 1 }
+    },
+    scales: {
+      x: { ticks: { color: colors.muted, font: { size: 10 } }, grid: { color: colors.border } },
+      y: { ticks: { color: colors.muted, font: { size: 10 } }, grid: { color: colors.border } }
+    }
+  };
+}
+function normalizeScore(score, stream) {
+  const max = 200;
+  const n = Number(score);
+  if (!Number.isFinite(n)) return 0;
+  return Math.min(Math.max(Math.round(n), 0), max);
+}
+function countScores(scoreCounts, predicate) {
+  return Object.entries(scoreCounts || {}).reduce((total, [score, count]) => {
+    const s = Number(score);
+    return predicate(s) ? total + (Number(count) || 0) : total;
+  }, 0);
+}
+
+function getMode(arr) {
+  if (!arr || !arr.length) return 0;
+  const counts = {};
+  let maxCount = 0;
+  let mode = arr[0];
+  for (let i = 0; i < arr.length; i++) {
+    const v = arr[i];
+    counts[v] = (counts[v] || 0) + 1;
+    if (counts[v] > maxCount) {
+      maxCount = counts[v];
+      mode = v;
+    }
+  }
+  return mode;
+}
+
+function expandScoreCounts(scoreCounts) {
+  const scores = [];
+  Object.entries(scoreCounts || {}).forEach(([score, count]) => {
+    const n = Number(count) || 0;
+    for (let i = 0; i < n; i++) scores.push(Number(score));
+  });
+  return scores;
+}
+
+function buildShiftMapFromStats(statsByShift) {
+  const shiftMap = {};
+  Object.entries(statsByShift || {}).forEach(([shiftName, stat]) => {
+    const expandedScores = expandScoreCounts(stat.scoreCounts);
+    shiftMap[shiftName] = {
+      scores: expandedScores,
+      scoreCounts: stat.scoreCounts || {},
+      subjectSums: stat.subjectSums || {},
+      count: expandedScores.length,
+      sum: expandedScores.reduce((a, b) => a + b, 0),
+      highest: stat.highest === undefined ? -Infinity : stat.highest,
+      min: stat.min === undefined ? null : stat.min
+    };
+  });
+  return shiftMap;
+}
+
+function rawEntriesFromStats(statsByShift, stream, attempt, summary) {
+  const raw = {};
+  let id = 0;
+  Object.entries(statsByShift || {}).forEach(([shift, stat]) => {
+    let attachedSubjectSums = false;
+    Object.entries(stat.scoreCounts || {}).forEach(([score, count]) => {
+      const n = Number(count) || 0;
+      for (let i = 0; i < n; i++) {
+        raw[`stat_${id++}`] = {
+          stream,
+          attempt,
+          shift,
+          score: Number(score),
+          subjects: attachedSubjectSums ? undefined : (stat.subjectSums || {})
+        };
+        attachedSubjectSums = true;
+      }
+    });
+  });
+  window._analysisSummary = summary || null;
+  return raw;
+}
+
+// Fetches aggregated stats for one stream/attempt from Supabase.
+// Returns reconstructed raw entries for compatibility with the analysis renderer.
+// Results are cached for _CACHE_TTL_MS to avoid redundant reads on re-open.
+function fetchAnalysisSupabase(stream, attempt) {
+  const cacheKey = `analysisRaw:${stream}:${attempt}`;
+  const cached = _cacheGet(cacheKey);
+  if (cached !== null) {
+    if (cached.statsByShift) {
+      return Promise.resolve(rawEntriesFromStats(cached.statsByShift, stream, attempt, cached.summary));
+    }
+    return Promise.resolve(null);
+  }
+
+  return loadStaticData().then(({ shiftStats, submissionSummary }) => {
+    const statsData = shiftStats;
+    const summaryData = submissionSummary;
+
+    // Filter statsData manually for stream and attempt since we fetched the whole file
+    const filteredStats = statsData.filter(row => row.stream === stream && row.attempt === attempt);
+    
+    // Reshape rows into { shiftName: { count, sum, highest, min, scoreCounts, subjectSums } }
+    const statsByShift = {};
+    (filteredStats || []).forEach(row => {
+      statsByShift[row.shift] = {
+        count: row.count,
+        sum: Number(row.total_score),
+        highest: row.highest,
+        min: row.lowest,
+        scoreCounts: row.score_counts || {},
+        subjectSums: row.subject_sums || {}
+      };
+    });
+
+    // Reshape summary rows into { total, streams: { PCM, PCB } }
+    const summary = { total: 0, streams: {} };
+    (summaryData || []).forEach(row => {
+      if (row.key === 'total') summary.total = Number(row.value);
+      else summary.streams[row.key] = Number(row.value);
+    });
+
+    _cacheSet(cacheKey, { statsByShift, summary });
+    return Object.keys(statsByShift).length > 0
+      ? rawEntriesFromStats(statsByShift, stream, attempt, summary)
+      : null;
+  }).catch(err => {
+    console.error('[fetchAnalysisSupabase] failed:', err);
+    throw err;
+  });
+}
+
+// --- hash helper for duplicate prevention 
+
+async function generateAnswerHash(qs) {
+  // Concatenate all questionId + candidateOptId pairs in order
+  const raw = qs.map(q => (q.qid || q.id) + ':' + (q.candidateOptId || '0')).join('|');
+  const encoder = new TextEncoder();
+  const data = encoder.encode(raw);
+  const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+// --- save submission 
+// Optimized write path (3 Supabase ops instead of 5):
+//   1. Read   hash check (duplicate prevention)
+//   2. Write  stats aggregate transaction (concurrent-safe)
+//   3. Write  multi-path update: summary counters + hash record (1 round-trip)
+//
+// The `submissions` collection write has been removed. All analytics rely on
+// the aggregated `stats` node, so raw submissions were redundant storage.
+
+
+async function saveSubmissionToSupabase(qs, st, filename, signature) {
+  // Offline mode intentionally performs no network write.
+  return undefined;
+}
+
+// Retained as a migration reference for a future authenticated backend.
+async function saveSubmissionToSupabaseLegacy(qs, st, filename, signature) {
+  const p_stream  = typeof examMode        !== 'undefined' ? examMode        : 'PCM';
+  const p_attempt = typeof selectedAttempt !== 'undefined' ? selectedAttempt : '';
+  const p_shift   = typeof selectedShift   !== 'undefined' ? selectedShift   : '';
+  const p_score   = st.earned;
+  const p_subjects = st.subStats
+    ? st.subStats.reduce((acc, sub) => { acc[sub.s] = sub.e; return acc; }, {})
+    : {};
+
+  try {
+    const p_hash = await generateAnswerHash(qs);
+
+    // NOTE: identify_sheet is already called in _finishInner (script.js) before
+    // loadDash is invoked. No need to call it again here  saves a DB round-trip.
+
+    if (p_attempt === 'Attempt 1') {
+      console.log('Attempt 1 submissions are paused. Skipped recording hash and score.');
+    } else {
+      const { data, error } = await sb.rpc('record_submission', {
+        p_stream,
+        p_attempt,
+        p_shift,
+        p_score,
+        p_subjects,
+        p_hash,
+        p_signature: signature || null
+      });
+
+      if (error) { console.error('Supabase RPC error:', error); return; }
+
+      // Check for application-level errors returned by the RPC
+      if (data && data.error) {
+        if (data.error === 'wrong_shift_detected') {
+          if (data.correct_shift) {
+            _showWrongShiftPopup(data.correct_shift, qs, st, filename, signature, data.correct_stream || null, data.correct_attempt || null);
+          } else {
+            console.warn('Silent rejection: Shift signature mismatch.');
+            document.getElementById('loadingScreen').style.display = 'none';
+            document.getElementById('dashboard').style.display = 'none';
+            document.getElementById('uploadScreen').style.display = 'flex';
+            document.body.classList.add('upload-active');
+            const overlay = document.getElementById('oldSheetOverlay');
+            if (overlay) {
+              document.getElementById('oldSheetContinueBtn').onclick = function() {
+                overlay.classList.remove('open');
+                document.getElementById('uploadScreen').style.display = 'none';
+                document.body.classList.remove('upload-active');
+                if (typeof renderDashboard === 'function') renderDashboard(qs);
+                document.getElementById('dashboard').style.display = 'flex';
+                const analysisBtn = document.getElementById('analysisBtn');
+                if (analysisBtn) analysisBtn.style.display = 'none';
+              };
+              overlay.classList.add('open');
+            }
+          }
+          return false;
+        }
+        console.error('Submission rejected by server:', data.error);
+
+        // Show the "Unrecognized" overlay so the user isn't stuck on a blank screen
+        document.getElementById('loadingScreen').style.display = 'none';
+        document.getElementById('dashboard').style.display = 'none';
+        document.getElementById('uploadScreen').style.display = 'flex';
+        document.body.classList.add('upload-active');
+
+        const rejOverlay = document.getElementById('oldSheetOverlay');
+        if (rejOverlay) {
+          document.getElementById('oldSheetContinueBtn').onclick = function() {
+            rejOverlay.classList.remove('open');
+            document.getElementById('uploadScreen').style.display = 'none';
+            document.body.classList.remove('upload-active');
+            if (typeof renderDashboard === 'function') renderDashboard(qs);
+            document.getElementById('dashboard').style.display = 'flex';
+            const analysisBtn = document.getElementById('analysisBtn');
+            if (analysisBtn) analysisBtn.style.display = 'none';
+          };
+          rejOverlay.classList.add('open');
+        }
+        return false;
+      }
+
+      if (data.duplicate) {
+        console.log('Score already recorded (duplicate detected).');
+        return;
+      } else {
+        console.log('Score saved!');
+      }
+
+      // Invalidate stale caches
+      _cacheInvalidate(`analysisRaw:${p_stream}:${p_attempt}`);
+      _cacheInvalidate('community');
+    }
+
+    // Render brief strip directly from RPC result  no second network fetch
+    const clamped = normalizeScore(p_score, p_stream);
+    const same = 0; // RPC doesn't return this; brief strip doesn't critically need it
+    // Re-fetch the shift stats for accurate rendering (sum, highest needed)
+    const { data: rows } = await sb.from('shift_stats').select('*')
+      .eq('stream', p_stream).eq('attempt', p_attempt).eq('shift', p_shift);
+    const row = rows && rows[0];
+    if (row && row.count) {
+      const above = countScores(row.score_counts, s => s > clamped);
+      const sameCount = countScores(row.score_counts, s => s === clamped);
+      renderBriefStrip(p_stream, p_attempt, p_shift, p_score, st.subStats || [],
+        row.count, Number(row.total_score), row.highest, above, sameCount);
+    }
+  } catch (err) {
+    console.error('Supabase save error:', err);
+  }
+}
+
+// --- Auto-Detect Shift Popup 
+// Shows a popup when the system detects the student selected the wrong
+// stream/attempt/shift. Offers a one-click button to auto-correct everything
+// and re-submit to the correct location.
+function _showWrongShiftPopup(correctShift, qs, st, filename, signature, correctStream, correctAttempt) {
+  const overlay = document.getElementById('wrongShiftOverlay');
+  if (!overlay) return;
+
+  // Fall back to current values if not provided
+  const targetStream  = correctStream  || (typeof examMode !== 'undefined' ? examMode : 'PCM');
+  const targetAttempt = correctAttempt || (typeof selectedAttempt !== 'undefined' ? selectedAttempt : '');
+  const targetShift   = correctShift;
+
+  const currentStream  = typeof examMode !== 'undefined' ? examMode : 'PCM';
+  const currentAttempt = typeof selectedAttempt !== 'undefined' ? selectedAttempt : '';
+  const currentShift   = typeof selectedShift !== 'undefined' ? selectedShift : '';
+
+  // Build a human-readable label for what was detected
+  const detectedLabel = `${targetStream} ${targetAttempt} — ${targetShift}`;
+  const selectedLabel = `${currentStream} ${currentAttempt} — ${currentShift || '(no shift)'}`;
+
+  const msgEl     = document.getElementById('wrongShiftMsg');
+  const badgeEl   = document.getElementById('wrongShiftBadge');
+  const switchBtn = document.getElementById('wrongShiftSwitchBtn');
+
+  msgEl.textContent =
+    `We mathematically analyzed your response sheet and detected that it belongs to "${detectedLabel}". ` +
+    `Don't worry — click below and we'll route your data to the correct place automatically!`;
+  badgeEl.textContent = `Auto-Detected: ${detectedLabel}  ·  You selected: ${selectedLabel}`;
+  switchBtn.textContent = `Move to ${detectedLabel} →`;
+
+  switchBtn.onclick = function () {
+    overlay.classList.remove('open');
+
+    // --- Auto-correct stream if needed 
+    if (targetStream !== currentStream) {
+      examMode = targetStream;
+      const oldSubject = targetStream === 'PCM' ? 'Biology' : 'Mathematics';
+      const newSubject = targetStream === 'PCM' ? 'Mathematics' : 'Biology';
+      let newSubjectNum = 0;
+      qs.forEach(q => {
+        if (q.section === oldSubject) {
+          q.section = newSubject;
+          newSubjectNum++;
+          q.sectionNum = newSubjectNum;
+        }
+        q.marks = q.status === 'correct'
+          ? (targetStream === 'PCM' && q.section === 'Mathematics' ? 2 : 1)
+          : 0;
+      });
+    }
+    
+    // --- Auto-correct attempt and shift 
+    selectedAttempt = targetAttempt;
+    selectedShift = targetShift;
+
+    // Update the shift dropdown if visible
+    const shiftSelect = document.getElementById('shiftSelect');
+    if (shiftSelect) {
+      let found = false;
+      for (const opt of shiftSelect.options) {
+        if (opt.value === targetShift) { found = true; break; }
+      }
+      if (!found) {
+        const newOpt = document.createElement('option');
+        newOpt.value = targetShift;
+        newOpt.textContent = targetShift;
+        shiftSelect.appendChild(newOpt);
+      }
+      shiftSelect.value = targetShift;
+    }
+
+    // Call loadDash with the corrected variables
+    if (typeof loadDash === 'function') {
+      loadDash(filename, qs);
+    }
+  };
+
+  overlay.classList.add('open');
+}
+
+// Backward-compatible alias  script.js calls saveSubmissionToSupabase()
+window.saveSubmissionToSupabase = saveSubmissionToSupabase;
+
+// --- BRIEF STRIP (dashboard) 
+// Reads only the single shift's aggregated stat node  no fallback to the full
+// submissions collection (which could be thousands of records at scale).
+
+async function fetchAndRenderBriefStrip(stream, attempt, shift, userScore, userSubStats) {
+  if (window._isOldSheet) return;
+  try {
+    const { shiftStats: data } = await loadStaticData();
+    const filtered = data.filter(r => r.stream === stream && r.attempt === attempt && r.shift === shift);
+    if (!filtered.length) return;
+    const stat = filtered[0];
+    if (!stat?.count) return;
+    const above = countScores(stat.score_counts, score => score > userScore);
+    const same = countScores(stat.score_counts, score => score === userScore);
+    renderBriefStrip(stream, attempt, shift, userScore, userSubStats,
+      stat.count, Number(stat.total_score), stat.highest, above, same);
+  } catch (err) {
+    console.error('[fetchAndRenderBriefStrip] failed:', err);
+  }
+}
+
+function renderBriefStrip(stream, attempt, shift, userScore, userSubStats, total, sum, highest, above, same) {
+  if (total === 0) return;
+  const avg = (sum / total).toFixed(1);
+  const pct = total > 1 ? (((total - above) / total) * 100).toFixed(1) : 100;
+
+  const strip = document.getElementById('liveStatsBrief');
+  if (!strip) return;
+  strip.style.display = '';
+  // Safe static template: interpolated values are normalized numeric aggregates.
+  strip.innerHTML = `
+    <div class="live-brief-strip">
+      <div class="live-brief-strip__led">
+        <span class="led led--green led--sm"><span class="led__dot"></span><span class="led__label">Live</span></span>
+      </div>
+      <div class="live-brief-strip__stats">
+        <div class="live-brief-stat">
+          <span class="live-brief-stat__val accent">#${above + 1}</span>
+          <span class="live-brief-stat__lbl">Shift Rank</span>
+        </div>
+        <div class="live-brief-stat">
+          <span class="live-brief-stat__val">${avg}</span>
+          <span class="live-brief-stat__lbl">Shift Average</span>
+        </div>
+        <div class="live-brief-stat">
+          <span class="live-brief-stat__val purple">${highest === -Infinity ? '—' : highest}</span>
+          <span class="live-brief-stat__lbl">Shift Highest</span>
+        </div>
+        <div class="live-brief-stat">
+          <span class="live-brief-stat__val green">${above}</span>
+          <span class="live-brief-stat__lbl">Ahead of You</span>
+        </div>
+        <div class="live-brief-stat">
+          <span class="live-brief-stat__val">${total}</span>
+          <span class="live-brief-stat__lbl">Total in Shift</span>
+        </div>
+      </div>
+      <div class="live-brief-strip__action">
+        <button class="btn-ghost" onclick="openAnalysisScreen()">View Full Analysis →</button>
+      </div>
+    </div>`;
+
+  window._lastSupabaseData = { stream, attempt, shift, userScore, userSubStats };
+}
+
+// --- FULL ANALYSIS SCREEN
+
+function prepareAnalysisRequest() {
+  const ctx = window._lastSupabaseData || {};
+  return {
+    stream: ctx.stream || (typeof examMode !== 'undefined' ? examMode : 'PCM'),
+    attempt: ctx.attempt || (typeof selectedAttempt !== 'undefined' ? selectedAttempt : ''),
+    shift: ctx.shift || (typeof selectedShift !== 'undefined' ? selectedShift : ''),
+    userScore: ctx.userScore !== undefined ? ctx.userScore : 0,
+    userSubStats: ctx.userSubStats || []
+  };
+}
+
+function renderAnalysisResult(raw, request) {
+  const { stream, attempt, shift, userScore, userSubStats } = request;
+    if (!raw) {
+      document.getElementById('analysisLoading').style.display = 'none';
+      const content = document.getElementById('analysisContent');
+      content.replaceChildren();
+      const message = document.createElement('p');
+      message.style.cssText = 'padding:3rem;text-align:center;color:var(--pewter)';
+      message.textContent = 'No data yet - be the first to submit!';
+      content.appendChild(message);
+      content.style.display = 'block';
+      return;
+    }
+
+    // --- aggregate 
+    // per-shift data (same stream & attempt)
+    const shiftMap = {}; // { shiftName: { scores:[], subjectSums:{}, count, highest } }
+    // global
+    let totalAllStreams = 0, pcmCount = 0, pcbCount = 0;
+
+    for (const key in raw) {
+      const e = raw[key];
+      totalAllStreams++;
+      if (e.stream === 'PCM') pcmCount++; else pcbCount++;
+
+      if (e.stream !== stream || e.attempt !== attempt) continue;
+
+      if (!shiftMap[e.shift]) shiftMap[e.shift] = { scores: [], subjectSums: {}, count: 0, highest: -Infinity, scoreCounts: {} };
+      const sd = shiftMap[e.shift];
+      sd.scores.push(e.score);
+      sd.count++;
+      
+      const sStr = String(e.score);
+      if (!sd.scoreCounts[sStr]) sd.scoreCounts[sStr] = 0;
+      sd.scoreCounts[sStr]++;
+
+      if (e.score > sd.highest) sd.highest = e.score;
+      if (e.subjects) {
+        for (const subj in e.subjects) {
+          if (!sd.subjectSums[subj]) sd.subjectSums[subj] = 0;
+          sd.subjectSums[subj] += e.subjects[subj];
+        }
+      }
+    }
+
+    if (window._analysisSummary) {
+      totalAllStreams = window._analysisSummary.total || totalAllStreams;
+      pcmCount = (window._analysisSummary.streams && window._analysisSummary.streams.PCM) || pcmCount;
+      pcbCount = (window._analysisSummary.streams && window._analysisSummary.streams.PCB) || pcbCount;
+    }
+
+    // user's shift data
+    const myShift = shiftMap[shift] || { scores: [], subjectSums: {}, count: 0, highest: 0 };
+    const myScores = myShift.scores;
+    const myCount  = myShift.count;
+    const myAvg    = myCount > 0 ? (myShift.scores.reduce((a, b) => a + b, 0) / myCount) : 0;
+    const myHighest = myShift.highest === -Infinity ? 0 : myShift.highest;
+
+    const above = myScores.filter(s => s > userScore).length;
+    const same  = myScores.filter(s => s === userScore).length;
+    const below = myScores.filter(s => s < userScore).length;
+    const pct   = myCount > 1 ? (((myCount - above) / myCount) * 100).toFixed(1) : 100;
+
+    // median
+    const sorted = [...myScores].sort((a, b) => a - b);
+    const median = sorted.length > 0
+      ? (sorted.length % 2 === 0
+          ? ((sorted[sorted.length / 2 - 1] + sorted[sorted.length / 2]) / 2).toFixed(1)
+          : sorted[Math.floor(sorted.length / 2)])
+      : '—';
+
+    // subject avgs for user's shift
+    const shiftSubjectAvgs = {};
+    for (const subj in myShift.subjectSums) {
+      shiftSubjectAvgs[subj] = myCount > 0 ? (myShift.subjectSums[subj] / myCount).toFixed(1) : 0;
+    }
+
+    // score distribution (buckets of 20)
+    const buckets = {};
+    const maxScore = 200;
+    for (let i = 0; i <= maxScore; i += 20) buckets[i] = 0;
+    myScores.forEach(s => {
+      const b = Math.floor(s / 20) * 20;
+      if (buckets[b] !== undefined) buckets[b]++;
+    });
+
+    // --- render stat elements 
+    document.getElementById('analysisTotalBadge').textContent = `${totalAllStreams} total submissions`;
+    document.getElementById('analysisTotalAll').textContent   = totalAllStreams;
+    
+    document.getElementById('analysisShiftRankVal').textContent = `#${above + 1}`;
+    document.getElementById('analysisShiftRankTotal').textContent = `OUT OF ${myCount} STUDENTS`;
+    const topPct = myCount > 0 ? Math.max(1, Math.ceil(((above + 1) / myCount) * 100)) : 100;
+    document.getElementById('analysisShiftRankSub').textContent = `You scored higher than ${below} students (Top ${topPct}%).`;
+    
+    document.getElementById('analysisAhead').textContent    = above;
+    document.getElementById('analysisSame').textContent     = same;
+    document.getElementById('analysisBelow').textContent    = below;
+    document.getElementById('analysisShiftAvg').textContent = myAvg.toFixed(1);
+    document.getElementById('analysisShiftHighest').textContent = myHighest;
+    document.getElementById('analysisShiftCount').textContent   = myCount;
+    document.getElementById('analysisMedian').textContent = median;
+    document.getElementById('analysisMean').textContent   = myAvg.toFixed(1);
+
+    // --- Charts 
+    const colors = getChartColors();
+
+    // 1. Score compare (you vs avg vs highest)
+    const compareCtx = document.getElementById('scoreCompareChart');
+    if (compareCtx) {
+      _analysisCharts['scoreCompare'] = new Chart(compareCtx, {
+        type: 'bar',
+        data: {
+          labels: ['Your Score', 'Shift Average', 'Shift Highest'],
+          datasets: [{
+            data: [userScore, parseFloat(myAvg.toFixed(1)), myHighest],
+            backgroundColor: [colors.accent, '#60a5fa', '#c084fc'],
+            borderRadius: 6, borderSkipped: false
+          }]
+        },
+        options: { ...baseChartOptions(colors), plugins: { ...baseChartOptions(colors).plugins, legend: { display: false } } }
+      });
+    }
+
+    // 2. Radar: you vs shift avg (subjects)
+    const subjs = Object.keys(shiftSubjectAvgs);
+    const userSubMap = {};
+    userSubStats.forEach(s => { userSubMap[s.s] = s.e; });
+    if (subjs.length > 0) {
+      const radarCtx = document.getElementById('subjectRadarChart');
+      if (radarCtx) {
+        _analysisCharts['radar'] = new Chart(radarCtx, {
+          type: 'radar',
+          data: {
+            labels: subjs,
+            datasets: [
+              { label: 'You', data: subjs.map(s => userSubMap[s] || 0), backgroundColor: 'rgba(255,71,87,.2)', borderColor: colors.accent, pointBackgroundColor: colors.accent, borderWidth: 2 },
+              { label: 'Shift Avg', data: subjs.map(s => parseFloat(shiftSubjectAvgs[s])), backgroundColor: 'rgba(96,165,250,.15)', borderColor: '#60a5fa', pointBackgroundColor: '#60a5fa', borderWidth: 2 }
+            ]
+          },
+          options: {
+            responsive: true, maintainAspectRatio: false,
+            plugins: { legend: { labels: { color: colors.muted, font: { size: 11 } } }, tooltip: { backgroundColor: colors.bg, titleColor: colors.text, bodyColor: colors.muted } },
+            scales: { r: { ticks: { color: colors.muted, backdropColor: 'transparent', font: { size: 10 } }, grid: { color: colors.border }, pointLabels: { color: colors.text, font: { size: 11 } } } }
+          }
+        });
+      }
+
+      // Subject compare rows
+      const SC = { Physics: '#00d4ff', Chemistry: '#c084fc', Mathematics: colors.accent, Biology: '#00d4ff' };
+      const rowsEl = document.getElementById('subjectCompareRows');
+      if (rowsEl) {
+        const subjMaxMap = { Physics: 50, Chemistry: 50, Mathematics: stream === 'PCM' ? 100 : 50, Biology: stream === 'PCB' ? 100 : 50 };
+        rowsEl.innerHTML = subjs.map(s => {
+          const youVal  = userSubMap[s] || 0;
+          const avgVal  = parseFloat(shiftSubjectAvgs[s]);
+          const maxVal  = subjMaxMap[s] || 50;
+          const youPct  = Math.min(youVal / maxVal * 100, 100).toFixed(0);
+          const avgPct  = Math.min(avgVal / maxVal * 100, 100).toFixed(0);
+          const col = SC[s] || colors.accent;
+          return `
+            <div class="subject-compare-row">
+              <div class="subject-compare-row__header">
+                <span class="subject-compare-row__name">${_escHtml(s)}</span>
+                <span class="subject-compare-row__vals">You: <strong style="color:${col}">${_escHtml(youVal)}</strong> &nbsp;·&nbsp; Avg: <strong>${_escHtml(avgVal)}</strong> &nbsp;·&nbsp; Max: ${_escHtml(maxVal)}</span>
+              </div>
+              <div class="subject-compare-track">
+                <div class="subject-compare-bar subject-compare-bar--avg" style="width:${avgPct}%;background:#60a5fa"></div>
+                <div class="subject-compare-bar subject-compare-bar--you" style="width:${youPct}%;background:${col};opacity:.85"></div>
+              </div>
+            </div>`;
+        }).join('');
+      }
+    }
+
+    // 3. Score histogram
+    const histCtx = document.getElementById('scoreHistogramChart');
+    if (histCtx) {
+      const bucketKeys   = Object.keys(buckets).map(Number).sort((a, b) => a - b);
+      const bucketLabels = bucketKeys.map(k => `${k}–${k + 19}`);
+      const bucketVals   = bucketKeys.map(k => buckets[k]);
+      const userBucket   = Math.floor(userScore / 20) * 20;
+      const bgColors = bucketKeys.map(k => k === userBucket ? colors.accent : 'rgba(96,165,250,.5)');
+
+      _analysisCharts['histogram'] = new Chart(histCtx, {
+        type: 'bar',
+        data: { labels: bucketLabels, datasets: [{ label: 'Students', data: bucketVals, backgroundColor: bgColors, borderRadius: 4 }] },
+        options: { ...baseChartOptions(colors), plugins: { ...baseChartOptions(colors).plugins, legend: { display: false }, tooltip: { callbacks: { afterTitle: items => items[0].dataIndex === bucketKeys.indexOf(userBucket) ? ['← Your score range'] : [] } } } }
+      });
+
+      // distribution stats
+      const distEl = document.getElementById('distributionStats');
+      if (distEl && sorted.length > 0) {
+        const modeScore = getMode(myScores);
+        distEl.innerHTML = [
+          ['Mean', myAvg.toFixed(1)], ['Median', median], ['Mode', modeScore],
+          ['Min', sorted[0]], ['Max', sorted[sorted.length - 1]], ['Participants', myCount]
+        ].map(([l, v]) => `<div class="dist-stat"><div class="dist-stat__val">${v}</div><div class="dist-stat__lbl">${l}</div></div>`).join('');
+      }
+    }
+
+    // 4. Shift avg bar chart (all shifts)
+    const shiftNames = Object.keys(shiftMap).sort();
+    const shiftAvgs  = shiftNames.map(s => parseFloat((shiftMap[s].scores.reduce((a, b) => a + b, 0) / shiftMap[s].count).toFixed(1)));
+    const shiftHighs = shiftNames.map(s => shiftMap[s].highest === -Infinity ? 0 : shiftMap[s].highest);
+    const shiftCounts = shiftNames.map(s => shiftMap[s].count);
+    const shiftBgColors = shiftNames.map(s => s === shift ? colors.accent : 'rgba(96,165,250,.55)');
+
+    const shiftAvgCtx = document.getElementById('shiftAvgChart');
+    if (shiftAvgCtx) {
+      _analysisCharts['shiftAvg'] = new Chart(shiftAvgCtx, {
+        type: 'bar',
+        data: { labels: shiftNames, datasets: [{ label: 'Avg Score', data: shiftAvgs, backgroundColor: shiftBgColors, borderRadius: 6 }] },
+        options: { ...baseChartOptions(colors), indexAxis: 'y', plugins: { ...baseChartOptions(colors).plugins, legend: { display: false } } }
+      });
+    }
+
+    const participantsCtx = document.getElementById('shiftParticipantsChart');
+    if (participantsCtx) {
+      _analysisCharts['participants'] = new Chart(participantsCtx, {
+        type: 'bar',
+        data: { labels: shiftNames, datasets: [{ label: 'Students', data: shiftCounts, backgroundColor: shiftBgColors, borderRadius: 4 }] },
+        options: { ...baseChartOptions(colors), plugins: { ...baseChartOptions(colors).plugins, legend: { display: false } } }
+      });
+    }
+
+    const highestCtx = document.getElementById('shiftHighestChart');
+    if (highestCtx) {
+      _analysisCharts['highest'] = new Chart(highestCtx, {
+        type: 'bar',
+        data: { labels: shiftNames, datasets: [{ label: 'Highest Score', data: shiftHighs, backgroundColor: 'rgba(192,132,252,.6)', borderRadius: 4 }] },
+        options: { ...baseChartOptions(colors), plugins: { ...baseChartOptions(colors).plugins, legend: { display: false } } }
+      });
+    }
+
+    // 5. Subject avg per shift (grouped bar)
+    const allSubjects = [...new Set(Object.values(shiftMap).flatMap(sd => Object.keys(sd.subjectSums)))];
+    const subjectColors = { Physics: '#00d4ff', Chemistry: '#c084fc', Mathematics: colors.accent, Biology: '#22c55e' };
+    const shiftSubjectCtx = document.getElementById('shiftSubjectChart');
+    if (shiftSubjectCtx && allSubjects.length > 0) {
+      _analysisCharts['shiftSubject'] = new Chart(shiftSubjectCtx, {
+        type: 'bar',
+        data: {
+          labels: shiftNames,
+          datasets: allSubjects.map(subj => ({
+            label: subj,
+            data: shiftNames.map(s => {
+              const sd = shiftMap[s];
+              return sd.subjectSums[subj] ? parseFloat((sd.subjectSums[subj] / sd.count).toFixed(1)) : 0;
+            }),
+            backgroundColor: (subjectColors[subj] || '#888') + 'cc',
+            borderRadius: 3
+          }))
+        },
+        options: { ...baseChartOptions(colors), scales: { x: { stacked: false, ticks: { color: colors.muted, font: { size: 9 } }, grid: { color: colors.border } }, y: { ticks: { color: colors.muted, font: { size: 10 } }, grid: { color: colors.border } } } }
+      });
+    }
+
+    // 6. Stream donut (PCM vs PCB all submissions)
+    const streamCtx = document.getElementById('streamDonutChart');
+    if (streamCtx) {
+      _analysisCharts['stream'] = new Chart(streamCtx, {
+        type: 'doughnut',
+        data: {
+          labels: ['PCM', 'PCB'],
+          datasets: [{ data: [pcmCount, pcbCount], backgroundColor: [colors.accent, '#60a5fa'], borderWidth: 0, hoverOffset: 6 }]
+        },
+        options: { responsive: true, maintainAspectRatio: false, cutout: '68%', plugins: { legend: { labels: { color: colors.muted } }, tooltip: { backgroundColor: colors.bg, titleColor: colors.text, bodyColor: colors.muted } } }
+      });
+    }
+
+    // 7. Populate shift drill-down selector
+    const sel = document.getElementById('analysisShiftSelect');
+    if (sel) {
+      sel.innerHTML = '';
+      shiftNames.forEach(s => {
+        const opt = document.createElement('option');
+        opt.value = s;
+        opt.textContent = s;
+        if (s === shift) opt.selected = true;
+        sel.appendChild(opt);
+      });
+      window._shiftMapData = shiftMap;
+      renderDrillDown('shiftDrillDown', window._shiftMapData, shift || shiftNames[0]);
+    }
+
+    // Show content
+    document.getElementById('analysisLoading').style.display = 'none';
+    document.getElementById('analysisContent').style.display  = 'block';
+
+    // --- Shift Difficulty Analysis 
+    renderDifficultyRanking('analysisDifficultySection', shiftMap);
+
+}
+
+function handleAnalysisError(err) {
+  console.error('[fetchFullAnalysis] failed:', err);
+  document.getElementById('analysisLoading').style.display = 'none';
+  const content = document.getElementById('analysisContent');
+  content.replaceChildren();
+  const message = document.createElement('p');
+  message.style.cssText = 'padding:3rem;text-align:center;color:var(--incorrect)';
+  message.textContent = 'Analysis data could not be loaded. Please try again.';
+  content.appendChild(message);
+  content.style.display = 'block';
+}
+
+function fetchFullAnalysis() {
+  const request = prepareAnalysisRequest();
+  fetchAnalysisSupabase(request.stream, request.attempt)
+    .then(raw => renderAnalysisResult(raw, request))
+    .catch(handleAnalysisError);
+}
+
+
+// --- COMMUNITY FULL-SCREEN ANALYSIS 
+// Results are cached for _CACHE_TTL_MS. Reopening the screen within the TTL
+// window costs zero Supabase reads.
+
+let _communityCharts = {};
+let _selectedCommunityStream = 'PCM';  // default stream filter
+let _selectedCommunityAttempt = 'Attempt 1'; // default attempt
+let _communityPayloadCache = null;     // stores fetched payload for re-render on stream switch
+let _memoizedPcmStatsMap = null;
+let _memoizedPcbStatsMap = null;
+let _lastMemoizedAttempt = null;
+
+function switchCommunityAttempt(attempt) {
+  if (attempt !== 'Attempt 1' && attempt !== 'Attempt 2') return;
+  if (_selectedCommunityAttempt === attempt) return;
+  _selectedCommunityAttempt = attempt;
+
+  const btn1 = document.getElementById('commAttemptBtn1');
+  const btn2 = document.getElementById('commAttemptBtn2');
+  if (btn1) btn1.classList.toggle('active', attempt === 'Attempt 1');
+  if (btn2) btn2.classList.toggle('active', attempt === 'Attempt 2');
+
+  // Need to re-fetch because the attempt changed
+  _communityPayloadCache = null;
+  document.getElementById('commLoading').style.display = 'flex';
+  document.getElementById('commContent').style.display = 'none';
+  fetchCommunityFullAnalysis();
+}
+
+function switchCommunityStream(stream) {
+  if (stream !== 'PCM' && stream !== 'PCB') return;
+  _selectedCommunityStream = stream;
+
+  // Update button states
+  const btnPCM = document.getElementById('commStreamBtnPCM');
+  const btnPCB = document.getElementById('commStreamBtnPCB');
+  if (btnPCM) btnPCM.classList.toggle('active', stream === 'PCM');
+  if (btnPCB) btnPCB.classList.toggle('active', stream === 'PCB');
+
+  const attemptSelector = document.getElementById('commAttemptSelector');
+  if (attemptSelector) attemptSelector.style.display = 'block';
+
+  // Re-render with cached data if available
+  if (_communityPayloadCache) {
+    _renderCommunityData(_communityPayloadCache);
+  }
+}
+
+async function fetchCommunityFullAnalysis() {
+  let shiftStats;
+  let submissionSummary;
+  try {
+    ({ shiftStats, submissionSummary } = await loadStaticData());
+  } catch (err) {
+    console.error('[fetchCommunityFullAnalysis] failed:', err);
+    document.getElementById('commLoading').style.display = 'none';
+    const noDataMsg = document.getElementById('commNoDataMsg');
+    if (noDataMsg) noDataMsg.textContent = 'Community analytics could not be loaded.';
+    const noData = document.getElementById('commNoData');
+    if (noData) noData.style.display = 'block';
+    document.getElementById('commContent').style.display = 'block';
+    return;
+  }
+
+  const pcmStats = {};
+  shiftStats.filter(r => r.stream === 'PCM' && r.attempt === _selectedCommunityAttempt).forEach(row => {
+    pcmStats[row.shift] = {
+      count: row.count,
+      sum: Number(row.total_score),
+      highest: row.highest,
+      min: row.lowest,
+      scoreCounts: row.score_counts || {},
+      subjectSums: row.subject_sums || {}
+    };
+  });
+
+  const pcbStats = {};
+  shiftStats.filter(r => r.stream === 'PCB' && r.attempt === _selectedCommunityAttempt).forEach(row => {
+    pcbStats[row.shift] = {
+      count: row.count,
+      sum: Number(row.total_score),
+      highest: row.highest,
+      min: row.lowest,
+      scoreCounts: row.score_counts || {},
+      subjectSums: row.subject_sums || {}
+    };
+  });
+
+  const summary = { total: 0, streams: {} };
+  submissionSummary.forEach(row => {
+    if (row.key === 'total') summary.total = Number(row.value);
+    else summary.streams[row.key] = Number(row.value);
+  });
+
+  const payload = { pcmStats, pcbStats, summary };
+  _communityPayloadCache = payload;
+  _renderCommunityData(payload);
+}
+
+// Internal renderer  filters by _selectedCommunityStream
+function _renderCommunityData({ pcmStats, pcbStats, summary }) {
+  const noDataEl = document.getElementById('commNoData');
+  const noDataMsg = document.getElementById('commNoDataMsg');
+  const contentEl = document.getElementById('commContent');
+  const chartSections = document.getElementById('commChartSections');
+
+  // Always destroy old charts first to prevent stale renders
+  Object.values(_communityCharts).forEach(c => { if (c) c.destroy(); });
+  _communityCharts = {};
+
+  if (Object.keys(pcmStats || {}).length === 0 && Object.keys(pcbStats || {}).length === 0) {
+    document.getElementById('commLoading').style.display = 'none';
+    document.getElementById('commTotalBadge').textContent = '0 submissions';
+    if (noDataMsg) noDataMsg.textContent = 'No data yet — be the first to submit!';
+    if (noDataEl) noDataEl.style.display = 'block';
+    if (chartSections) chartSections.style.display = 'none';
+    contentEl.style.display = 'block';
+    return;
+  }
+
+  // Memoize the computationally heavy map building per attempt
+  if (_lastMemoizedAttempt !== _selectedCommunityAttempt) {
+    _memoizedPcmStatsMap = buildShiftMapFromStats(pcmStats);
+    _memoizedPcbStatsMap = buildShiftMapFromStats(pcbStats);
+    _lastMemoizedAttempt = _selectedCommunityAttempt;
+  }
+  
+  const pcmStatsMap = _memoizedPcmStatsMap;
+  const pcbStatsMap = _memoizedPcbStatsMap;
+
+  const stream = _selectedCommunityStream;
+  const activeShiftMap = stream === 'PCM' ? pcmStatsMap : pcbStatsMap;
+
+  // Totals for the selected stream
+  let pcmTotal = 0, pcbTotal = 0;
+  Object.values(pcmStatsMap).forEach(s => { pcmTotal += s.count; });
+  Object.values(pcbStatsMap).forEach(s => { pcbTotal += s.count; });
+  const streamTotal = stream === 'PCM' ? pcmTotal : pcbTotal;
+
+  // Scores for the selected stream only
+  let allScores = [];
+  Object.values(activeShiftMap).forEach(s => { allScores = allScores.concat(s.scores); });
+
+  // Shift names for the selected stream
+  const shiftNames = Object.keys(activeShiftMap).sort();
+
+  if (shiftNames.length === 0) {
+    document.getElementById('commLoading').style.display = 'none';
+    document.getElementById('commTotalBadge').textContent = `0 ${stream} submissions`;
+    if (noDataMsg) noDataMsg.textContent = 'No ' + stream + ' data yet — be the first to submit!';
+    if (noDataEl) noDataEl.style.display = 'block';
+    if (chartSections) chartSections.style.display = 'none';
+    document.getElementById('commContent').style.display = 'block';
+    return;
+  }
+
+  // Data exists  show chart sections, hide no-data overlay
+  if (noDataEl) noDataEl.style.display = 'none';
+  if (chartSections) chartSections.style.display = '';
+
+
+  // Stats
+  const sorted = [...allScores].sort((a, b) => a - b);
+  const median = sorted.length > 0
+    ? (sorted.length % 2 === 0
+        ? ((sorted[sorted.length / 2 - 1] + sorted[sorted.length / 2]) / 2).toFixed(1)
+        : sorted[Math.floor(sorted.length / 2)])
+    : '—';
+  const mean = allScores.length > 0 ? (allScores.reduce((a, b) => a + b, 0) / allScores.length).toFixed(1) : '—';
+
+  // Badge
+  document.getElementById('commTotalBadge').textContent = `${streamTotal} ${stream} submissions`;
+
+  const colors = getChartColors();
+
+
+  // --- Score Distribution Histogram 
+  const maxBucket = 200;
+  const buckets = {};
+  for (let i = 0; i <= maxBucket; i += 20) buckets[i] = 0;
+  allScores.forEach(s => {
+    const b = Math.min(Math.floor(s / 20) * 20, maxBucket - 20);
+    if (buckets[b] !== undefined) buckets[b]++;
+  });
+  const bucketKeys = Object.keys(buckets).map(Number).sort((a, b) => a - b);
+  const bucketLabels = bucketKeys.map(k => `${k}\u2013${k + 19}`);
+  const bucketVals = bucketKeys.map(k => buckets[k]);
+
+  const histCtx = document.getElementById('comm-histogramChart');
+  if (histCtx) {
+    _communityCharts.histogram = new Chart(histCtx, {
+      type: 'bar',
+      data: { labels: bucketLabels, datasets: [{ label: 'Students', data: bucketVals, backgroundColor: stream === 'PCM' ? 'rgba(255,71,87,.5)' : 'rgba(96,165,250,.5)', borderRadius: 4 }] },
+      options: { ...baseChartOptions(colors), plugins: { ...baseChartOptions(colors).plugins, legend: { display: false } } }
+    });
+  }
+
+  // Distribution stats
+  const distEl = document.getElementById('commDistributionStats');
+  if (distEl && sorted.length > 0) {
+    const modeScore = getMode(allScores);
+    distEl.innerHTML = [
+      ['Mean', mean], ['Median', median], ['Mode', modeScore],
+      ['Min', sorted[0]], ['Max', sorted[sorted.length - 1]], ['Participants', streamTotal]
+    ].map(([l, v]) => `<div class="dist-stat"><div class="dist-stat__val">${v}</div><div class="dist-stat__lbl">${l}</div></div>`).join('');
+  }
+
+  // --- Shift Avg Chart 
+  const streamColor = stream === 'PCM' ? 'rgba(255,71,87,.55)' : 'rgba(96,165,250,.55)';
+  const shiftAvgs = shiftNames.map(s => {
+    const d = activeShiftMap[s];
+    return d.count > 0 ? parseFloat((d.scores.reduce((a, b) => a + b, 0) / d.count).toFixed(1)) : 0;
+  });
+  const shiftAvgCtx = document.getElementById('comm-shiftAvgChart');
+  if (shiftAvgCtx) {
+    _communityCharts.shiftAvg = new Chart(shiftAvgCtx, {
+      type: 'bar',
+      data: { labels: shiftNames, datasets: [{ label: 'Avg Score', data: shiftAvgs, backgroundColor: streamColor, borderRadius: 6 }] },
+      options: { ...baseChartOptions(colors), indexAxis: 'y', plugins: { ...baseChartOptions(colors).plugins, legend: { display: false } } }
+    });
+  }
+
+  // --- Participants per Shift 
+  const shiftCounts = shiftNames.map(s => activeShiftMap[s].count);
+  const partCtx = document.getElementById('comm-participantsChart');
+  if (partCtx) {
+    _communityCharts.participants = new Chart(partCtx, {
+      type: 'bar',
+      data: { labels: shiftNames, datasets: [{ label: 'Students', data: shiftCounts, backgroundColor: 'rgba(192,132,252,.55)', borderRadius: 4 }] },
+      options: { ...baseChartOptions(colors), plugins: { ...baseChartOptions(colors).plugins, legend: { display: false } } }
+    });
+  }
+
+  // --- Highest per Shift 
+  const shiftHighs = shiftNames.map(s => activeShiftMap[s].highest === -Infinity ? 0 : activeShiftMap[s].highest);
+  const highCtx = document.getElementById('comm-highestChart');
+  if (highCtx) {
+    _communityCharts.highest = new Chart(highCtx, {
+      type: 'bar',
+      data: { labels: shiftNames, datasets: [{ label: 'Highest Score', data: shiftHighs, backgroundColor: 'rgba(192,132,252,.6)', borderRadius: 4 }] },
+      options: { ...baseChartOptions(colors), plugins: { ...baseChartOptions(colors).plugins, legend: { display: false } } }
+    });
+  }
+
+  // --- Subject Avg per Shift 
+  const allSubjects = [...new Set(Object.values(activeShiftMap).flatMap(sd => Object.keys(sd.subjectSums)))];
+  const subjectColors = { Physics: '#00d4ff', Chemistry: '#c084fc', Mathematics: colors.accent, Biology: '#22c55e' };
+  const shiftSubjCtx = document.getElementById('comm-shiftSubjectChart');
+  if (shiftSubjCtx && allSubjects.length > 0) {
+    _communityCharts.shiftSubject = new Chart(shiftSubjCtx, {
+      type: 'bar',
+      data: {
+        labels: shiftNames,
+        datasets: allSubjects.map(subj => ({
+          label: subj,
+          data: shiftNames.map(s => {
+            const sd = activeShiftMap[s];
+            return sd.subjectSums[subj] ? parseFloat((sd.subjectSums[subj] / sd.count).toFixed(1)) : 0;
+          }),
+          backgroundColor: (subjectColors[subj] || '#888') + 'cc',
+          borderRadius: 3
+        }))
+      },
+      options: { ...baseChartOptions(colors), scales: { x: { stacked: false, ticks: { color: colors.muted, font: { size: 9 } }, grid: { color: colors.border } }, y: { ticks: { color: colors.muted, font: { size: 10 } }, grid: { color: colors.border } } } }
+    });
+  }
+
+  // --- Stream Donut 
+  const donutCtx = document.getElementById('comm-streamDonutChart');
+  if (donutCtx) {
+    _communityCharts.stream = new Chart(donutCtx, {
+      type: 'doughnut',
+      data: {
+        labels: ['PCM', 'PCB'],
+        datasets: [{ data: [pcmTotal, pcbTotal], backgroundColor: [colors.accent, '#60a5fa'], borderWidth: 0, hoverOffset: 6 }]
+      },
+      options: { responsive: true, maintainAspectRatio: false, cutout: '68%', plugins: { legend: { labels: { color: colors.muted } }, tooltip: { backgroundColor: colors.bg, titleColor: colors.text, bodyColor: colors.muted } } }
+    });
+  }
+
+  // --- Stream Overview Stats 
+  document.getElementById('commTotalAll').textContent = streamTotal;
+  document.getElementById('commMedian').textContent = median;
+  document.getElementById('commMean').textContent = mean;
+
+  // --- Drill Down Selector 
+  const sel = document.getElementById('commShiftSelect');
+  if (sel) {
+    sel.innerHTML = '';
+    shiftNames.forEach(s => {
+      const opt = document.createElement('option');
+      opt.value = s;
+      opt.textContent = s;
+      sel.appendChild(opt);
+    });
+    window._commShiftMapData = activeShiftMap;
+    renderDrillDown('commDrillDown', window._commShiftMapData, shiftNames[0]);
+  }
+
+  // Show content
+  document.getElementById('commLoading').style.display = 'none';
+  document.getElementById('commContent').style.display = 'block';
+
+  // --- Shift Difficulty Analysis 
+  renderDifficultyRanking('commDifficultySection', activeShiftMap);
+}
+
+
+function renderDrillDown(containerId, shiftMapData, shiftName) {
+  const container = document.getElementById(containerId);
+  if (!container || !shiftMapData) return;
+  const sd = shiftMapData[shiftName];
+  if (!sd) { container.innerHTML = '<p style="color:var(--pewter);font-size:13px">No data for this shift yet.</p>'; return; }
+
+  const scores = sd.scores || [];
+  const count  = sd.count;
+  const avg    = count > 0 ? (scores.reduce((a, b) => a + b, 0) / count).toFixed(1) : '—';
+  const sorted = [...scores].sort((a, b) => a - b);
+  const median = sorted.length > 0
+    ? (sorted.length % 2 === 0
+        ? ((sorted[sorted.length / 2 - 1] + sorted[sorted.length / 2]) / 2).toFixed(1)
+        : sorted[Math.floor(sorted.length / 2)]) : '—';
+
+  const subjectRows = Object.entries(sd.subjectSums).map(([subj, sum]) => {
+    const sAvg = count > 0 ? (sum / count).toFixed(1) : '—';
+    return `<div class="drill-subject-row">
+        <span class="drill-subject-name">${_escHtml(subj)}</span>
+        <span class="drill-subject-val" style="color:var(--text2)">Avg: ${sAvg}</span>
+        <span class="drill-subject-val" style="color:var(--pewter)">Total entries: ${count}</span>
+      </div>`;
+  }).join('');
+
+  container.innerHTML = `
+    <div class="drill-down-grid">
+      <div class="drill-cell"><div class="drill-cell__val">${count}</div><div class="drill-cell__lbl">Participants</div></div>
+      <div class="drill-cell"><div class="drill-cell__val">${avg}</div><div class="drill-cell__lbl">Average Score</div></div>
+      <div class="drill-cell"><div class="drill-cell__val">${sd.highest === -Infinity ? '—' : sd.highest}</div><div class="drill-cell__lbl">Highest Score</div></div>
+      <div class="drill-cell"><div class="drill-cell__val">${median}</div><div class="drill-cell__lbl">Median Score</div></div>
+      <div class="drill-cell"><div class="drill-cell__val">${sorted[0] !== undefined ? sorted[0] : '—'}</div><div class="drill-cell__lbl">Lowest Score</div></div>
+      <div class="drill-cell"><div class="drill-cell__val">${sorted.length > 0 ? (sorted[sorted.length-1] - sorted[0]) : '—'}</div><div class="drill-cell__lbl">Score Range</div></div>
+    </div>
+    ${subjectRows.length > 0 ? `
+      <div style="margin-top:1.25rem">
+        <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.12em;color:var(--text2);margin-bottom:.75rem">Subject-wise Averages</div>
+        <div class="drill-subject-row" style="font-size:10px;color:var(--pewter);font-weight:700;border-bottom:2px solid var(--border2)">
+          <span>Subject</span><span style="text-align:right">Average</span><span style="text-align:right">Participants</span>
+        </div>
+        ${subjectRows}
+      </div>` : ''}`;
+}
+
+// --- Shift Difficulty Analysis (shared renderer) 
+
+function _computeMedianFromScoreCounts(scoreCounts) {
+  // scoreCounts = { "94": 1, "120": 3, "150": 2 }
+  const entries = Object.entries(scoreCounts)
+    .map(([score, count]) => [parseInt(score), count])
+    .sort((a, b) => a[0] - b[0]);
+  const total = entries.reduce((s, e) => s + e[1], 0);
+  if (total === 0) return null;
+  const mid = Math.floor(total / 2);
+  let cumulative = 0;
+  for (const [score, count] of entries) {
+    cumulative += count;
+    if (total % 2 === 1) {
+      if (cumulative > mid) return score;
+    } else {
+      if (cumulative > mid) return score;
+      if (cumulative === mid) {
+        const nextEntry = entries.find(e => e[0] > score);
+        return nextEntry ? (score + nextEntry[0]) / 2 : score;
+      }
+    }
+  }
+  return null;
+}
+
+// Store state per container so each screen has its own toggle
+const _difficultyModeState = {};
+
+function _switchDifficultyMode(containerId, mode, shiftMap) {
+  _difficultyModeState[containerId] = mode;
+  renderDifficultyRanking(containerId, shiftMap);
+}
+
+function renderDifficultyRanking(containerId, shiftMap, minSubmissions) {
+  const container = document.getElementById(containerId);
+  if (!container) return;
+
+  minSubmissions = minSubmissions || 3;
+
+  // Store shiftMap reference for toggle re-renders
+  container._shiftMapRef = shiftMap;
+
+  // Current mode
+  const mode = _difficultyModeState[containerId] || 'balanced';
+
+  // Build difficulty data for each shift
+  const shiftDiffData = [];
+  let globalTotalScore = 0, globalTotalCount = 0;
+  for (const [shiftName, sd] of Object.entries(shiftMap)) {
+    if (!sd || sd.count < minSubmissions) continue;
+    const avg = sd.count > 0 ? sd.scores.reduce((a, b) => a + b, 0) / sd.count : 0;
+    const median = _computeMedianFromScoreCounts(sd.scoreCounts || {});
+    globalTotalScore += sd.scores.reduce((a, b) => a + b, 0);
+    globalTotalCount += sd.count;
+
+    let above120Count = 0;
+    let below80Count = 0;
+    for (const [scoreStr, cStr] of Object.entries(sd.scoreCounts || {})) {
+      const score = Number(scoreStr);
+      const c = Number(cStr);
+      if (Number.isFinite(score) && Number.isFinite(c)) {
+        if (score >= 120) above120Count += c;
+        if (score < 80) below80Count += c;
+      }
+    }
+    const pctAbove120 = sd.count > 0 ? (above120Count / sd.count) * 100 : 0;
+    const pctBelow80 = sd.count > 0 ? (below80Count / sd.count) * 100 : 0;
+
+    shiftDiffData.push({
+      name: shiftName,
+      avg: parseFloat(avg.toFixed(1)),
+      median: median !== null ? parseFloat(median.toFixed(1)) : null,
+      pctAbove120: parseFloat(pctAbove120.toFixed(1)),
+      pctBelow80: parseFloat(pctBelow80.toFixed(1)),
+      count: sd.count,
+      rawScore: median !== null ? (avg * 0.6 + median * 0.4) : avg
+    });
+  }
+
+  // Not enough data
+  if (shiftDiffData.length < 2) {
+    container.innerHTML = '<div class="difficulty-no-data">Not enough submissions yet to rank shift difficulty.</div>';
+    return;
+  }
+
+  // Calculate difficulty scores based on mode
+  if (mode === 'balanced') {
+    const minAvg = Math.min(...shiftDiffData.map(r => r.avg));
+    const maxAvg = Math.max(...shiftDiffData.map(r => r.avg));
+    const minMedian = Math.min(...shiftDiffData.map(r => r.median !== null ? r.median : r.avg));
+    const maxMedian = Math.max(...shiftDiffData.map(r => r.median !== null ? r.median : r.avg));
+    const minAbove120 = Math.min(...shiftDiffData.map(r => r.pctAbove120));
+    const maxAbove120 = Math.max(...shiftDiffData.map(r => r.pctAbove120));
+    const minBelow80 = Math.min(...shiftDiffData.map(r => r.pctBelow80));
+    const maxBelow80 = Math.max(...shiftDiffData.map(r => r.pctBelow80));
+
+    shiftDiffData.forEach(shift => {
+      const m = shift.median !== null ? shift.median : shift.avg;
+      const normalizedAvg = maxAvg > minAvg ? (shift.avg - minAvg) / (maxAvg - minAvg) : 0.5;
+      const normalizedMedian = maxMedian > minMedian ? (m - minMedian) / (maxMedian - minMedian) : 0.5;
+      const normalizedAbove120 = maxAbove120 > minAbove120 ? (shift.pctAbove120 - minAbove120) / (maxAbove120 - minAbove120) : 0.5;
+      const normalizedBelow80 = maxBelow80 > minBelow80 ? (shift.pctBelow80 - minBelow80) / (maxBelow80 - minBelow80) : 0.5;
+
+      shift.difficultyScore = (
+        (1 - normalizedAvg) * 0.25 +
+        (1 - normalizedMedian) * 0.25 +
+        (1 - normalizedAbove120) * 0.30 +
+        normalizedBelow80 * 0.20
+      );
+    });
+
+    // Hardest first: higher difficultyScore first
+    shiftDiffData.sort((a, b) => b.difficultyScore - a.difficultyScore);
+  } else {
+    shiftDiffData.forEach(shift => {
+      shift.difficultyScore = shift.rawScore;
+    });
+    // Hardest first: lower raw score first
+    shiftDiffData.sort((a, b) => a.difficultyScore - b.difficultyScore);
+  }
+
+  const hardest = shiftDiffData[0];
+  const easiest = shiftDiffData[shiftDiffData.length - 1];
+  const maxDiffScore = Math.max(...shiftDiffData.map(s => s.difficultyScore));
+  const minDiffScore = Math.min(...shiftDiffData.map(s => s.difficultyScore));
+  const diffRange = (maxDiffScore - minDiffScore) || 1;
+  // Build HTML
+  let html = '';
+  // Header with toggle
+  const scoreActive = mode === 'score' ? 'active' : '';
+  const balancedActive = mode === 'balanced' ? 'active' : '';
+
+  html += `<div class="difficulty-header">
+    <div class="difficulty-header__icon">📊</div>
+    <div class="difficulty-header__text">
+      <h3>Shift Difficulty Ranking</h3>
+      <p>${mode === 'score'
+        ? 'Ranked by average & median scores only'
+        : 'Ranked by balanced difficulty scoring'}</p>
+    </div>
+  </div>`;
+
+  const enDisclaimer = "This ranking depends entirely on how many students have checked their response sheets on CETLens, and specifically *who* is checking. If a shift has more high scorers checking their marks and fewer low scorers, the average will appear artificially high. If more low scorers check, the average will drop. Basically, it depends heavily on the ratio of high scorers vs. low scorers who actually used the site. This is not the full picture—it is a sample, and the sample may be biased. The number of students sampled is listed next to every shift. Look at the data, think critically, and draw your own conclusions. <br><br><b>This is just an analysis, not a 'prediction'.</b>";
+  const mrDisclaimer = "हे रँकिंग पूर्णपणे किती विद्यार्थ्यांनी CETLens वर त्यांच्या रिस्पॉन्स शीट तपासल्या आहेत आणि विशेषतः *कोण* तपासत आहे यावर अवलंबून आहे. जर एखाद्या शिफ्टमध्ये जास्त हाय स्कोअरर्सनी मार्क्स तपासले असतील आणि कमी स्कोअरर्सनी तपासले नसतील, तर सरासरी जास्त दिसेल. जर जास्त कमी स्कोअरर्सनी तपासले आणि टॉपर्सनी नाही, तर सरासरी कमी दिसेल. थोडक्यात, हे प्लॅटफॉर्म वापरणाऱ्या हाय स्कोअरर्स विरुद्ध कमी स्कोअरर्सच्या प्रमाणावर अवलंबून आहे. हे संपूर्ण चित्र नाही—हे एक सॅम्पल आहे, आणि सॅम्पल बायस्ड असू शकते. प्रत्येक शिफ्टसमोर विद्यार्थ्यांची संख्या दिलेली आहे. डेटा पहा, विचार करा आणि स्वतःचे निष्कर्ष काढा. <br><br><b>हे केवळ एक विश्लेषण आहे, 'अंदाज (prediction)' नाही.</b>";
+
+  html += `<div style="margin: 1rem 0; padding: 1.15rem; border-radius: var(--radius); background: rgba(239, 68, 68, 0.08); border: 1px solid rgba(239, 68, 68, 0.2);">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem;">
+      <strong style="color: var(--danger); font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.5px;">⚠️ Important Disclaimer</strong>
+      <div style="display: flex; gap: 0.5rem; background: rgba(0,0,0,0.2); padding: 0.25rem; border-radius: 6px;">
+        <button data-difficulty-language="en" style="background: rgba(255,255,255,0.1); border: none; color: #fff; font-size: 0.75rem; font-weight: 600; padding: 0.25rem 0.6rem; border-radius: 4px; cursor: pointer; transition: 0.2s;">EN</button>
+        <button data-difficulty-language="mr" style="background: none; border: none; color: rgba(255,255,255,0.5); font-size: 0.75rem; font-weight: 600; padding: 0.25rem 0.6rem; border-radius: 4px; cursor: pointer; transition: 0.2s;">मराठी</button>
+      </div>
+    </div>
+    <p data-difficulty-disclaimer style="font-size: 0.85rem; color: var(--text-muted); line-height: 1.6; margin: 0;">${enDisclaimer}</p>
+  </div>`;
+
+  // Toggle buttons
+  html += `<div class="difficulty-toggle">
+    <button class="difficulty-toggle__btn ${balancedActive}" onclick="_switchDifficultyMode('${containerId}', 'balanced', document.getElementById('${containerId}')._shiftMapRef)">
+      Balanced
+    </button>
+    <button class="difficulty-toggle__btn ${scoreActive}" onclick="_switchDifficultyMode('${containerId}', 'score', document.getElementById('${containerId}')._shiftMapRef)">
+      Score Based
+    </button>
+  </div>`;
+
+  // Extreme cards
+  html += `<div class="difficulty-extremes">
+    <div class="difficulty-extreme-card difficulty-extreme-card--hard">
+      <div class="difficulty-extreme-card__emoji">🔴</div>
+      <div class="difficulty-extreme-card__info">
+        <div class="difficulty-extreme-card__label">Hardest Shift</div>
+        <div class="difficulty-extreme-card__shift">${_escHtml(hardest.name)}</div>
+        <div class="difficulty-extreme-card__score">Avg: ${hardest.avg}${hardest.median !== null ? ' · Median: ' + hardest.median : ''} · ${hardest.count} students</div>
+      </div>
+    </div>
+    <div class="difficulty-extreme-card difficulty-extreme-card--easy">
+      <div class="difficulty-extreme-card__emoji">🟢</div>
+      <div class="difficulty-extreme-card__info">
+        <div class="difficulty-extreme-card__label">Easiest Shift</div>
+        <div class="difficulty-extreme-card__shift">${_escHtml(easiest.name)}</div>
+        <div class="difficulty-extreme-card__score">Avg: ${easiest.avg}${easiest.median !== null ? ' · Median: ' + easiest.median : ''} · ${easiest.count} students</div>
+      </div>
+    </div>
+  </div>`;
+
+  // Full ranking list
+  html += '<ul class="difficulty-ranking-list">';
+  shiftDiffData.forEach((shift, idx) => {
+    const isHardest = idx === 0;
+    const isEasiest = idx === shiftDiffData.length - 1;
+    const rowClass = isHardest ? 'difficulty-rank-item--hardest' : (isEasiest ? 'difficulty-rank-item--easiest' : '');
+    
+    let barWidth;
+    if (mode === 'balanced') {
+      barWidth = ((maxDiffScore - shift.difficultyScore) / diffRange * 100).toFixed(1);
+    } else {
+      barWidth = ((shift.difficultyScore - minDiffScore) / diffRange * 100).toFixed(1);
+    }
+    
+    const barColor = isHardest ? '#ef4444' : (isEasiest ? '#22c55e' : 'rgba(96,165,250,.4)');
+
+    let tag = '';
+    if (isHardest) tag = '<span class="difficulty-rank-item__tag difficulty-rank-item__tag--hard">Hardest</span>';
+    else if (isEasiest) tag = '<span class="difficulty-rank-item__tag difficulty-rank-item__tag--easy">Easiest</span>';
+
+    html += `<li class="difficulty-rank-item ${rowClass}">
+      <div class="difficulty-rank-item__pos">${idx + 1}</div>
+      <div class="difficulty-rank-item__name">${_escHtml(shift.name)}</div>
+      ${tag}
+      <div class="difficulty-rank-item__stats">
+        <div class="difficulty-rank-item__stat">
+          <div class="difficulty-rank-item__stat-val">${shift.avg}</div>
+          <div class="difficulty-rank-item__stat-lbl">Avg</div>
+        </div>
+        <div class="difficulty-rank-item__stat">
+          <div class="difficulty-rank-item__stat-val">${shift.median !== null ? shift.median : '—'}</div>
+          <div class="difficulty-rank-item__stat-lbl">Median</div>
+        </div>
+        <div class="difficulty-rank-item__stat">
+          <div class="difficulty-rank-item__stat-val">${shift.count}</div>
+          <div class="difficulty-rank-item__stat-lbl">Students</div>
+        </div>
+      </div>
+      <div class="difficulty-bar" style="width:${barWidth}%;background:${barColor}"></div>
+    </li>`;
+  });
+  html += '</ul>';
+
+  // Footnote
+  html += `<div class="difficulty-footnote">📈 ${mode === 'score'
+    ? 'Ranked using average & median scores only.'
+    : 'Ranked using a balanced calculation to determine shift difficulty.'}</div>`;
+
+  container.innerHTML = html;
+  const disclaimerTitle = container.querySelector('.difficulty-header + div strong');
+  const disclaimerText = container.querySelector('[data-difficulty-disclaimer]');
+  const disclaimerButtons = container.querySelectorAll('[data-difficulty-language]');
+  const plainDisclaimer = value => value
+    .replace(/<br\s*\/?>/gi, '\n')
+    .replace(/<\/?b>/gi, '');
+
+  disclaimerButtons.forEach(button => {
+    button.addEventListener('click', () => {
+      const useMarathi = button.dataset.difficultyLanguage === 'mr';
+      disclaimerText.textContent = plainDisclaimer(useMarathi ? mrDisclaimer : enDisclaimer);
+      disclaimerTitle.textContent = useMarathi
+        ? '⚠️ महत्त्वाची सूचना'
+        : '⚠️ Important Disclaimer';
+      disclaimerButtons.forEach(option => {
+        const active = option === button;
+        option.style.background = active ? 'rgba(255,255,255,0.1)' : 'none';
+        option.style.color = active ? '#fff' : 'rgba(255,255,255,0.5)';
+      });
+    });
+  });
+}
