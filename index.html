@@ -4,6 +4,11 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <!-- GitHub Pages cannot set custom response headers, so CSP is enforced here. -->
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://pagead2.googlesyndication.com https://googleads.g.doubleclick.net https://*.adtrafficquality.google; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob: https://*.google.com https://*.googlesyndication.com https://*.doubleclick.net https://*.adtrafficquality.google; connect-src 'self' https://*.supabase.co wss://*.supabase.co https://*.google.com https://*.googlesyndication.com https://*.doubleclick.net https://*.adtrafficquality.google; frame-src https://*.google.com https://*.googlesyndication.com https://*.doubleclick.net https://*.adtrafficquality.google; worker-src 'self' blob: https://cdnjs.cloudflare.com; object-src 'none'; base-uri 'self'; form-action 'self'; upgrade-insecure-requests">
+  <meta name="referrer" content="strict-origin-when-cross-origin">
+  <!-- X-Frame-Options, X-Content-Type-Options, Permissions-Policy, and HSTS must be response headers; Vercel sets them in vercel.json. -->
+  <!-- CORS: Access-Control-Allow-Origin is controlled by the hosting CDN and cannot be overridden from application HTML. -->
   <title>CETLens</title>
   <meta name="description" content="Upload your MHT-CET response sheet PDF to instantly analyze your performance.">
   <!-- Open Graph -->
@@ -375,7 +380,7 @@
     <div class="restore-box" style="padding: 2rem;">
       <div class="restore-title">Support CETLens</div>
       <div style="margin: 1.5rem auto; background: #fff; padding: 10px; border-radius: 12px; display: inline-block;">
-        <img src="assets/donate-qr.png" alt="Donate QR Code" width="180" height="180" style="width: 180px; height: 180px; display: block; border-radius: 8px;">
+        <img src="assets/donate-qr.png" alt="Donate QR Code" width="180" height="192" style="width: 180px; height: auto; display: block; border-radius: 8px;">
       </div>
       <div class="restore-meta">Scan with any UPI app — GPay, PhonePe, Paytm</div>
       <div class="restore-btns">
@@ -449,7 +454,7 @@
   </div>
 
   <!-- Percentile Predictor Disclaimer Modal -->
-  <div class="predictor-warning-overlay" id="predictorDisclaimerOverlay" aria-hidden="true">
+  <div class="predictor-warning-overlay" id="predictorDisclaimerOverlay" aria-hidden="true" inert>
     <div class="predictor-warning-modal" role="dialog" aria-modal="true" aria-labelledby="predictorDisclaimerTitle">
       <div class="predictor-warning-modal__icon" aria-hidden="true" style="overflow:hidden; width: 44px; height: 44px; margin-bottom: 0.6rem; border-radius: 12px;">
         <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
@@ -736,7 +741,7 @@
 
 <div id="lightbox" onclick="if(event.target===this)closeLightbox()">
     <button type="button" class="lightbox-close" onclick="closeLightbox()" aria-label="Close lightbox">✕</button>
-    <img id="lightboxImg" src="" alt="Question preview">
+    <img id="lightboxImg" alt="Question preview">
     <div class="lightbox-hint">Click anywhere or press Esc to close</div>
   </div>
 
@@ -1517,10 +1522,10 @@
   <script defer src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
   <script defer src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
   <script defer src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-  <!-- Load core modules -->
-  <!-- Load Offline Database Snapshots -->
+  <!-- Core modules; analytics snapshots are lazy-loaded by utils.js. -->
+  <script defer src="data/static_signatures.js?v=1"></script>
   <script defer src="data/static_data.js?v=4"></script>
-  
+  <script defer src="js/utils.js?v=1"></script>
   <script defer src="js/script.js?v=4"></script>
   <script defer src="js/analytics.js?v=4"></script>
   <script defer src="js/predictor.js?v=4"></script>
