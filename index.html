@@ -186,9 +186,173 @@
       background: var(--accent); color: #fff;
       transform: translateX(3px);
     }
-  </style>
 
-  <!-- Supabase removed for Offline Static Mode -->
+    /* ── Percentile Banner ── */
+    .percentile-cta-banner {
+      display: flex; align-items: center; gap: 1.25rem;
+      padding: 1.15rem 1.5rem;
+      background: linear-gradient(135deg, rgba(16, 185, 129, 0.08), rgba(59, 130, 246, 0.06));
+      border: 1px solid rgba(16, 185, 129, 0.25);
+      border-radius: 14px;
+      cursor: pointer; transition: all .3s ease;
+      margin-top: 1.25rem;
+      position: relative; overflow: hidden;
+      text-decoration: none; width: 100%;
+    }
+    .percentile-cta-banner::before {
+      content: ''; position: absolute; inset: 0;
+      border-radius: 14px; padding: 1px;
+      background: linear-gradient(135deg, #10b981, #3b82f6, #10b981);
+      -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+      mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+      -webkit-mask-composite: xor;
+      mask-composite: exclude;
+      opacity: 0; transition: opacity .3s ease;
+      pointer-events: none;
+    }
+    .percentile-cta-banner:hover::before { opacity: 1; }
+    .percentile-cta-banner:hover {
+      border-color: transparent;
+      transform: translateY(-2px);
+      box-shadow: 0 8px 30px rgba(16, 185, 129, .12), 0 2px 8px rgba(0,0,0,.15);
+    }
+    .percentile-cta__icon {
+      width: 44px; height: 44px; border-radius: 12px;
+      background: rgba(16, 185, 129, .12);
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0; font-size: 22px;
+    }
+    .percentile-cta__text { flex: 1; min-width: 0; }
+    .percentile-cta__title {
+      font-size: 15px; font-weight: 700; color: var(--text);
+      display: flex; align-items: center; gap: .5rem;
+    }
+    .percentile-cta__title .cta-badge {
+      font-size: 9px; font-weight: 700; text-transform: uppercase;
+      letter-spacing: .08em; padding: 2px 7px; border-radius: 4px;
+      background: rgba(16, 185, 129, .12); color: #10b981;
+      line-height: 1.4;
+    }
+    .percentile-cta__sub {
+      font-size: 12px; color: var(--pewter, #718096);
+      margin-top: 3px; line-height: 1.4;
+    }
+    .percentile-cta__arrow {
+      width: 36px; height: 36px; border-radius: 10px;
+      background: var(--muted, rgba(255,255,255,.06));
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0; transition: all .25s ease;
+      color: var(--pewter, #718096); font-size: 16px; font-weight: 700;
+    }
+    .percentile-cta-banner:hover .percentile-cta__arrow {
+      background: #10b981; color: #fff;
+      transform: translateX(3px);
+    }
+    .percentile-cta-banner.active {
+      border-color: #10b981;
+      box-shadow: 0 0 0 2px rgba(16, 185, 129, .2);
+    }
+
+    /* ── Percentile Modal ── */
+    .percentile-overlay {
+      position: fixed; inset: 0; z-index: 9999;
+      background: rgba(0,0,0,.6); backdrop-filter: blur(8px);
+      display: flex; align-items: center; justify-content: center;
+      opacity: 0; pointer-events: none; transition: opacity .25s ease;
+    }
+    .percentile-overlay.open { opacity: 1; pointer-events: auto; }
+    .percentile-modal {
+      background: var(--charcoal, #1a1d23); border: 1px solid var(--border);
+      border-radius: 20px; padding: 2.5rem 2rem; max-width: 440px; width: 90%;
+      text-align: center; box-shadow: 0 24px 80px rgba(0,0,0,.5);
+      transform: translateY(24px) scale(.95); transition: transform .3s ease;
+    }
+    .percentile-overlay.open .percentile-modal { transform: translateY(0) scale(1); }
+    .percentile-modal__icon { font-size: 44px; margin-bottom: 1rem; }
+    .percentile-modal__title {
+      font-size: 18px; font-weight: 800; color: var(--text); margin-bottom: .35rem;
+    }
+    .percentile-modal__sub {
+      font-size: 12px; color: var(--pewter, #718096); margin-bottom: 1.25rem; line-height: 1.5;
+    }
+    .percentile-modal__marks {
+      font-size: 48px; font-weight: 900; color: #10b981;
+      line-height: 1; margin-bottom: .25rem;
+      font-family: var(--font-mono, 'JetBrains Mono', monospace);
+    }
+    .percentile-modal__marks-label {
+      font-size: 12px; color: var(--pewter, #718096); margin-bottom: 1.5rem;
+      text-transform: uppercase; letter-spacing: .1em; font-weight: 600;
+    }
+    .percentile-modal__input-wrap {
+      position: relative; margin-bottom: 1rem;
+    }
+    .percentile-modal__input {
+      width: 100%; height: 52px; padding: 0 1rem;
+      background: rgba(255,255,255,.04); color: var(--text);
+      border: 1px solid var(--border); border-radius: 12px;
+      font-family: var(--font-mono, 'JetBrains Mono', monospace);
+      font-size: 18px; font-weight: 600; text-align: center;
+      outline: none; transition: border-color .2s ease;
+      box-sizing: border-box;
+    }
+    .percentile-modal__input:focus {
+      border-color: #10b981;
+      box-shadow: 0 0 0 3px rgba(16, 185, 129, .15);
+    }
+    .percentile-modal__input::placeholder {
+      color: rgba(255,255,255,.2); font-weight: 400;
+    }
+    .percentile-modal__error {
+      color: #ef4444; font-size: 12px; font-weight: 500;
+      margin-bottom: .75rem; display: none;
+    }
+    .percentile-modal__actions {
+      display: flex; gap: .75rem; justify-content: center; margin-top: .5rem;
+    }
+    .percentile-modal__submit {
+      flex: 1; height: 46px; border: none; border-radius: 12px;
+      background: linear-gradient(135deg, #10b981, #059669);
+      color: #fff; font-size: 14px; font-weight: 700;
+      cursor: pointer; transition: all .2s ease;
+      font-family: var(--font-body);
+    }
+    .percentile-modal__submit:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 4px 16px rgba(16, 185, 129, .3);
+    }
+    .percentile-modal__submit:disabled {
+      opacity: .5; cursor: not-allowed; transform: none; box-shadow: none;
+    }
+    .percentile-modal__cancel {
+      height: 46px; padding: 0 1.25rem; border: 1px solid var(--border);
+      border-radius: 12px; background: transparent;
+      color: var(--text2); font-size: 13px; font-weight: 600;
+      cursor: pointer; transition: all .2s ease;
+      font-family: var(--font-body);
+    }
+    .percentile-modal__cancel:hover {
+      border-color: var(--text2); color: var(--text);
+    }
+
+    /* ── Percentile Success State ── */
+    .percentile-modal__success {
+      display: none;
+    }
+    .percentile-modal__success .success-check {
+      width: 64px; height: 64px; border-radius: 50%;
+      background: rgba(16, 185, 129, .12);
+      display: flex; align-items: center; justify-content: center;
+      margin: 0 auto 1rem; font-size: 28px;
+    }
+    .percentile-modal__success h3 {
+      font-size: 18px; font-weight: 800; color: #10b981; margin-bottom: .5rem;
+    }
+    .percentile-modal__success p {
+      font-size: 13px; color: var(--pewter, #718096); line-height: 1.5;
+      margin-bottom: 1.25rem;
+    }
+  </style>
   <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-7639603010582751"
      crossorigin="anonymous"></script>
 </head>
@@ -269,6 +433,19 @@
           <div class="drag-preview" id="dragPreview"></div>
           <input type="file" id="fileInput" accept=".pdf,.html,.htm,.mhtml,.mht" style="display:none"
             onchange="handleFile(this)">
+        </div>
+
+        <!-- Percentile Data Collection CTA -->
+        <div class="percentile-cta-banner" id="percentileBanner" onclick="activatePercentileMode()" role="button" tabindex="0">
+          <div class="percentile-cta__icon">📊</div>
+          <div class="percentile-cta__text">
+            <div class="percentile-cta__title">
+              Submit Marks vs Percentile
+              <span class="cta-badge">New</span>
+            </div>
+            <div class="percentile-cta__sub">Help build the most accurate marks vs percentile database — upload your sheet & enter your official percentile</div>
+          </div>
+          <div class="percentile-cta__arrow">→</div>
         </div>
 
         <!-- Community Analysis CTA -->
@@ -436,6 +613,37 @@
       <div class="mismatch-badge" id="wrongShiftBadge" style="color: #10b981; border-color: rgba(16, 185, 129, .35); background: rgba(16, 185, 129, .05);"></div>
       <div class="mismatch-btns">
         <button type="button" class="btn-primary" id="wrongShiftSwitchBtn" style="background: linear-gradient(135deg, #10b981, #059669); border-color: #059669;">Move to correct shift &amp; View Dashboard →</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Percentile Input Modal ── -->
+  <div class="percentile-overlay" id="percentileOverlay">
+    <div class="percentile-modal">
+      <div id="percentileFormState">
+        <div class="percentile-modal__icon">📊</div>
+        <div class="percentile-modal__title">Your Calculated Marks</div>
+        <div class="percentile-modal__sub">Based on your uploaded response sheet</div>
+        <div class="percentile-modal__marks" id="percentileMarksDisplay">—</div>
+        <div class="percentile-modal__marks-label">out of <span id="percentileMaxDisplay">200</span></div>
+        <div style="font-size:12px;color:var(--pewter);margin-bottom:1rem">
+          <span id="percentileShiftInfo"></span>
+        </div>
+        <div class="percentile-modal__input-wrap">
+          <input type="number" class="percentile-modal__input" id="percentileInput"
+            placeholder="Enter your official percentile" min="0" max="100" step="0.0001">
+        </div>
+        <div class="percentile-modal__error" id="percentileError">Please enter a valid percentile (0–100)</div>
+        <div class="percentile-modal__actions">
+          <button type="button" class="percentile-modal__submit" id="percentileSubmitBtn" onclick="submitPercentile()">Submit to Database</button>
+          <button type="button" class="percentile-modal__cancel" onclick="closePercentileModal()">Cancel</button>
+        </div>
+      </div>
+      <div class="percentile-modal__success" id="percentileSuccessState">
+        <div class="success-check">✓</div>
+        <h3>Thank You!</h3>
+        <p>Your data has been submitted successfully. This helps build an accurate marks vs percentile database for all students.</p>
+        <button type="button" class="percentile-modal__submit" onclick="closePercentileModal()" style="max-width:200px;margin:0 auto">Done</button>
       </div>
     </div>
   </div>
@@ -1526,7 +1734,8 @@
   <script defer src="data/static_signatures.js?v=1"></script>
   <script defer src="data/static_data.js?v=4"></script>
   <script defer src="js/utils.js?v=1"></script>
-  <script defer src="js/script.js?v=4"></script>
+  <script defer src="js/script.js?v=5"></script>
+  <script defer src="js/supabase-percentiles.js?v=1"></script>
   <script defer src="js/analytics.js?v=4"></script>
   <script defer src="js/predictor.js?v=4"></script>
   <script defer src="js/router.js?v=4"></script>

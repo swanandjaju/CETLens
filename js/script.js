@@ -27,6 +27,8 @@ let _pendingFile     = '';
 let _isProcessing    = false;
 let selectedAttempt  = '';
 let selectedShift    = '';
+let _isPercentileMode = false;
+let _percentileData  = null;
 
 // --- IndexedDB helpers for question image persistence 
 const IDB_NAME = 'CETLensDB';
@@ -1113,6 +1115,21 @@ async function loadDash(filename, qs) {
     if (success === false) return; // Prevent showDash if server rejects (e.g. wrong shift)
   }
 
+  if (_isPercentileMode) {
+    document.getElementById('loadingScreen').style.display = 'none';
+    document.getElementById('percentileMarksDisplay').textContent = st.earned;
+    document.getElementById('percentileMaxDisplay').textContent = st.maxM;
+    document.getElementById('percentileShiftInfo').textContent = examMode + ' · ' + selectedAttempt + ' · ' + selectedShift;
+    _percentileData = { stream: examMode, attempt: selectedAttempt, shift: selectedShift, marks: st.earned };
+    document.getElementById('percentileFormState').style.display = '';
+    document.getElementById('percentileSuccessState').style.display = 'none';
+    document.getElementById('percentileInput').value = '';
+    document.getElementById('percentileError').style.display = 'none';
+    document.getElementById('percentileSubmitBtn').disabled = false;
+    document.getElementById('percentileOverlay').classList.add('open');
+    return;
+  }
+
   showDash(qs);
 }
 
@@ -1909,4 +1926,59 @@ function closeCommunityScreen() {
   const up = document.getElementById('uploadScreen');
   if (up) up.style.display = '';
   document.body.classList.add('upload-active');
+}
+
+function activatePercentileMode() {
+  _isPercentileMode = true;
+  var banner = document.getElementById('percentileBanner');
+  if (banner) banner.classList.add('active');
+  var zone = document.getElementById('dropZone');
+  if (zone) zone.scrollIntoView({ behavior: 'smooth', block: 'center' });
+}
+
+function closePercentileModal() {
+  document.getElementById('percentileOverlay').classList.remove('open');
+  _isPercentileMode = false;
+  _percentileData = null;
+  var banner = document.getElementById('percentileBanner');
+  if (banner) banner.classList.remove('active');
+  resetApp();
+}
+
+async function submitPercentile() {
+  var input = document.getElementById('percentileInput');
+  var val = parseFloat(input.value);
+  var errEl = document.getElementById('percentileError');
+
+  if (isNaN(val) || val < 0 || val > 100) {
+    errEl.style.display = 'block';
+    input.focus();
+    return;
+  }
+  errEl.style.display = 'none';
+
+  var btn = document.getElementById('percentileSubmitBtn');
+  btn.disabled = true;
+  btn.textContent = 'Submitting...';
+
+  var ok = false;
+  if (typeof window.submitPercentileData === 'function' && _percentileData) {
+    ok = await window.submitPercentileData(
+      _percentileData.stream,
+      _percentileData.attempt,
+      _percentileData.shift,
+      _percentileData.marks,
+      val
+    );
+  }
+
+  if (ok) {
+    document.getElementById('percentileFormState').style.display = 'none';
+    document.getElementById('percentileSuccessState').style.display = '';
+  } else {
+    btn.disabled = false;
+    btn.textContent = 'Submit to Database';
+    errEl.textContent = 'Submission failed. Please check your internet connection and try again.';
+    errEl.style.display = 'block';
+  }
 }
