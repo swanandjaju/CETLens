@@ -2128,7 +2128,7 @@ async function submitPercentile() {
 
   if (ok) {
     document.getElementById('percentileFormState').style.display = 'none';
-    document.getElementById('percentileSuccessState').style.display = '';
+    document.getElementById('percentileSuccessState').style.display = 'block';
   } else {
     btn.disabled = false;
     btn.textContent = 'Submit to Database';
