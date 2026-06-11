@@ -2081,12 +2081,29 @@ async function pctHandleFile(input) {
     var sheetHash = '';
     if (typeof generateAnswerHash === 'function') {
       sheetHash = await generateAnswerHash(qs);
+      
+      // Fast-path local check
       if (localStorage.getItem('pct_hash_' + sheetHash)) {
         alert('You have already uploaded this response sheet and submitted your percentile for it!');
         _pctProcessing = false;
         input.value = '';
         return;
       }
+
+      // Global Supabase check
+      document.getElementById('pctDropTitle').textContent = 'Checking database...';
+      if (typeof window.checkPercentileHash === 'function') {
+        var exists = await window.checkPercentileHash(sheetHash);
+        if (exists) {
+          alert('This response sheet has already been submitted to the database!');
+          localStorage.setItem('pct_hash_' + sheetHash, '1'); // cache locally
+          _pctProcessing = false;
+          input.value = '';
+          document.getElementById('pctDropTitle').textContent = 'Drop your response sheet here';
+          return;
+        }
+      }
+      document.getElementById('pctDropTitle').textContent = 'Processing...';
     }
 
     _pctData = { stream: mode, attempt: attempt, shift: shift, marks: earned, hash: sheetHash };
