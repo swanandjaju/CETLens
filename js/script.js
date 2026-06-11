@@ -1949,6 +1949,7 @@ function pctSetMode(mode) {
   pcb.classList.toggle('active', mode === 'PCB');
   pcm.dataset.mode = 'PCM';
   pcb.dataset.mode = 'PCB';
+  pctOnAttemptChange();
 }
 
 function pctOnAttemptChange() {
@@ -1958,14 +1959,39 @@ function pctOnAttemptChange() {
   shiftContainer.style.display = '';
   var sel = document.getElementById('pctShiftSelect');
   sel.innerHTML = '<option value="" disabled selected>Select shift...</option>';
-  var shifts = typeof window.getShiftsForAttempt === 'function'
-    ? window.getShiftsForAttempt(attempt)
-    : [];
-  if (!shifts.length) {
-    shifts = ['19 April - Morning','19 April - Evening','20 May - Morning','20 May - Evening',
-              '15 May - Morning','15 May - Evening','18 May - Morning','18 May - Evening',
-              '19 May - Morning','19 May - Evening'];
+
+  var pcmBtn = document.getElementById('pctBtnPCM');
+  var mode = pcmBtn.classList.contains('active') ? 'PCM' : 'PCB';
+  var shifts = [];
+
+  if (attempt === 'Attempt 1') {
+    if (mode === 'PCM') {
+      shifts = [
+        "11 April - Morning", "11 April - Evening", "13 April - Morning", "13 April - Evening",
+        "15 April - Morning", "15 April - Evening", "16 April - Morning", "16 April - Evening",
+        "17 April - Morning", "17 April - Evening", "18 April - Morning", "18 April - Evening",
+        "19 April - Morning", "19 April - Evening", "20 April - Morning", "20 April - Evening"
+      ];
+    } else {
+      shifts = [
+        "21 April - Morning", "21 April - Evening", "22 April - Morning", "22 April - Evening",
+        "23 April - Morning", "23 April - Evening", "24 April - Morning", "24 April - Evening",
+        "25 April - Morning", "25 April - Evening", "26 April - Morning", "26 April - Evening"
+      ];
+    }
+  } else if (attempt === 'Attempt 2') {
+    if (mode === 'PCB') {
+      shifts = ["10 May - Morning", "10 May - Evening", "11 May - Morning", "11 May - Evening"];
+    } else {
+      shifts = [
+        "12 May - Morning", "12 May - Evening", "13 May - Morning", "13 May - Evening",
+        "14 May - Morning", "14 May - Evening", "15 May - Morning", "15 May - Evening",
+        "18 May - Morning", "18 May - Evening", "19 May - Morning", "19 May - Evening",
+        "20 May - Morning"
+      ];
+    }
   }
+
   shifts.forEach(function(s) {
     var opt = document.createElement('option');
     opt.value = s; opt.textContent = s;
