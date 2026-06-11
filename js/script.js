@@ -2077,7 +2077,19 @@ async function pctHandleFile(input) {
     var earned = qs.reduce(function(s, q) { return s + q.marks; }, 0);
     var maxM = qs.reduce(function(s, q) { return s + (q.section === 'Mathematics' && mode === 'PCM' ? 2 : 1); }, 0) || 200;
 
-    _pctData = { stream: mode, attempt: attempt, shift: shift, marks: earned };
+    // --- Duplicate Check ---
+    var sheetHash = '';
+    if (typeof generateAnswerHash === 'function') {
+      sheetHash = await generateAnswerHash(qs);
+      if (localStorage.getItem('pct_hash_' + sheetHash)) {
+        alert('You have already uploaded this response sheet and submitted your percentile for it!');
+        _pctProcessing = false;
+        input.value = '';
+        return;
+      }
+    }
+
+    _pctData = { stream: mode, attempt: attempt, shift: shift, marks: earned, hash: sheetHash };
     document.getElementById('percentileMarksDisplay').textContent = earned;
     document.getElementById('percentileMaxDisplay').textContent = maxM;
     document.getElementById('percentileShiftInfo').textContent = mode + ' \u00b7 ' + attempt + ' \u00b7 ' + shift;
@@ -2127,6 +2139,9 @@ async function submitPercentile() {
   }
 
   if (ok) {
+    if (_pctData && _pctData.hash) {
+      try { localStorage.setItem('pct_hash_' + _pctData.hash, '1'); } catch(e) {}
+    }
     document.getElementById('percentileFormState').style.display = 'none';
     document.getElementById('percentileSuccessState').style.display = 'block';
   } else {
