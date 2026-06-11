@@ -566,6 +566,63 @@
     </div>
   </div>
 
+<!-- ── Percentile Data Collection Screen (completely separate) ── -->
+<div id="percentileScreen" style="display:none; min-height:100vh; align-items:center; justify-content:center; padding:2rem;">
+  <div style="max-width:480px; width:100%; margin:0 auto;">
+    <button type="button" onclick="closePercentileScreen()" style="background:none; border:none; color:var(--text2); font-size:13px; font-weight:600; cursor:pointer; margin-bottom:1.5rem; display:flex; align-items:center; gap:6px; font-family:var(--font-body);">
+      ← Back to Home
+    </button>
+
+    <div style="margin-bottom:2rem;">
+      <div class="brand-title" style="font-size:24px;">📊 Marks vs Percentile</div>
+      <div class="brand-sub" style="margin-top:.5rem;">Upload your response sheet to calculate your marks, then enter your official percentile to contribute to the database.</div>
+    </div>
+
+    <div class="mode-selector">
+      <div class="mode-selector-label">Select Your Exam Stream</div>
+      <div class="mode-btns">
+        <button type="button" class="mode-btn active" id="pctBtnPCM" onclick="pctSetMode('PCM')">
+          <span class="mode-btn-title">PCM</span>
+          <span class="mode-btn-sub">Phy &middot; Chem &middot; Math</span>
+        </button>
+        <button type="button" class="mode-btn" id="pctBtnPCB" onclick="pctSetMode('PCB')">
+          <span class="mode-btn-title">PCB</span>
+          <span class="mode-btn-sub">Phy &middot; Chem &middot; Bio</span>
+        </button>
+      </div>
+    </div>
+
+    <div class="attempt-selector">
+      <label class="attempt-selector-label" for="pctAttemptSelect" style="display:block">Select Attempt</label>
+      <select id="pctAttemptSelect" class="select-dropdown" onchange="pctOnAttemptChange()">
+        <option value="" disabled selected>Select attempt...</option>
+        <option value="Attempt 1">Attempt 1</option>
+        <option value="Attempt 2">Attempt 2</option>
+      </select>
+      <div id="pctShiftContainer" style="display:none;">
+        <label class="attempt-selector-label" for="pctShiftSelect" style="display:block">Select Shift</label>
+        <select id="pctShiftSelect" class="select-dropdown">
+          <option value="" disabled selected>Select shift...</option>
+        </select>
+      </div>
+      <div id="pctSelectorError" class="error-msg">Please select an attempt and shift before uploading.</div>
+    </div>
+
+    <div class="upload-zone" onclick="document.getElementById('pctFileInput').click()">
+      <svg class="upload-icon" viewBox="0 0 52 52" fill="none">
+        <title>Icon</title>
+        <rect x="9" y="4" width="34" height="44" stroke="currentColor" stroke-width="2" />
+        <path d="M17 18h18M17 25h18M17 32h11" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+        <path d="M33 4v11h9" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+      </svg>
+      <div class="upload-title" id="pctDropTitle">Drop your response sheet here</div>
+      <div class="upload-sub">Supports HTML/MHTML/PDF from the MHT-CET Objection Tracker Portal.</div>
+      <button type="button" class="btn-primary" onclick="event.stopPropagation();document.getElementById('pctFileInput').click()">Browse File</button>
+      <input type="file" id="pctFileInput" accept=".pdf,.html,.htm,.mhtml,.mht" style="display:none" onchange="pctHandleFile(this)">
+    </div>
+  </div>
+</div>
+
 <div class="mismatch-overlay" id="mismatchOverlay">
     <div class="mismatch-box">
       <span class="mismatch-icon">⚠</span>

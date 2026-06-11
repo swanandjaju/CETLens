@@ -27,8 +27,6 @@ let _pendingFile     = '';
 let _isProcessing    = false;
 let selectedAttempt  = '';
 let selectedShift    = '';
-let _isPercentileMode = false;
-let _percentileData  = null;
 
 // --- IndexedDB helpers for question image persistence 
 const IDB_NAME = 'CETLensDB';
@@ -1115,21 +1113,6 @@ async function loadDash(filename, qs) {
     if (success === false) return; // Prevent showDash if server rejects (e.g. wrong shift)
   }
 
-  if (_isPercentileMode) {
-    document.getElementById('loadingScreen').style.display = 'none';
-    document.getElementById('percentileMarksDisplay').textContent = st.earned;
-    document.getElementById('percentileMaxDisplay').textContent = st.maxM;
-    document.getElementById('percentileShiftInfo').textContent = examMode + ' · ' + selectedAttempt + ' · ' + selectedShift;
-    _percentileData = { stream: examMode, attempt: selectedAttempt, shift: selectedShift, marks: st.earned };
-    document.getElementById('percentileFormState').style.display = '';
-    document.getElementById('percentileSuccessState').style.display = 'none';
-    document.getElementById('percentileInput').value = '';
-    document.getElementById('percentileError').style.display = 'none';
-    document.getElementById('percentileSubmitBtn').disabled = false;
-    document.getElementById('percentileOverlay').classList.add('open');
-    return;
-  }
-
   showDash(qs);
 }
 
@@ -1928,21 +1911,169 @@ function closeCommunityScreen() {
   document.body.classList.add('upload-active');
 }
 
+/* ── Percentile Data Collection (completely separate from main upload) ── */
+var _pctData = null;
+var _pctProcessing = false;
+
 function activatePercentileMode() {
-  _isPercentileMode = true;
-  var banner = document.getElementById('percentileBanner');
-  if (banner) banner.classList.add('active');
-  var zone = document.getElementById('dropZone');
-  if (zone) zone.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  document.getElementById('uploadScreen').style.display = 'none';
+  var lp = document.getElementById('landingPage');
+  if (lp) lp.style.display = 'none';
+  document.getElementById('percentileScreen').style.display = 'flex';
+}
+
+function closePercentileScreen() {
+  document.getElementById('percentileScreen').style.display = 'none';
+  document.getElementById('uploadScreen').style.display = '';
+  var lp = document.getElementById('landingPage');
+  if (lp) lp.style.display = '';
+  document.body.classList.add('upload-active');
+  _pctResetForm();
+}
+
+function _pctResetForm() {
+  _pctData = null;
+  _pctProcessing = false;
+  var fi = document.getElementById('pctFileInput');
+  if (fi) fi.value = '';
+  var dt = document.getElementById('pctDropTitle');
+  if (dt) dt.textContent = 'Drop your response sheet here';
+  var err = document.getElementById('pctSelectorError');
+  if (err) err.style.display = 'none';
+}
+
+function pctSetMode(mode) {
+  var pcm = document.getElementById('pctBtnPCM');
+  var pcb = document.getElementById('pctBtnPCB');
+  pcm.classList.toggle('active', mode === 'PCM');
+  pcb.classList.toggle('active', mode === 'PCB');
+  pcm.dataset.mode = 'PCM';
+  pcb.dataset.mode = 'PCB';
+}
+
+function pctOnAttemptChange() {
+  var attempt = document.getElementById('pctAttemptSelect').value;
+  var shiftContainer = document.getElementById('pctShiftContainer');
+  if (!attempt) { shiftContainer.style.display = 'none'; return; }
+  shiftContainer.style.display = '';
+  var sel = document.getElementById('pctShiftSelect');
+  sel.innerHTML = '<option value="" disabled selected>Select shift...</option>';
+  var shifts = typeof window.getShiftsForAttempt === 'function'
+    ? window.getShiftsForAttempt(attempt)
+    : [];
+  if (!shifts.length) {
+    shifts = ['19 April - Morning','19 April - Evening','20 May - Morning','20 May - Evening',
+              '15 May - Morning','15 May - Evening','18 May - Morning','18 May - Evening',
+              '19 May - Morning','19 May - Evening'];
+  }
+  shifts.forEach(function(s) {
+    var opt = document.createElement('option');
+    opt.value = s; opt.textContent = s;
+    sel.appendChild(opt);
+  });
+}
+
+async function pctHandleFile(input) {
+  if (_pctProcessing) return;
+  var file = input.files[0];
+  if (!file) return;
+
+  var pcmBtn = document.getElementById('pctBtnPCM');
+  var mode = pcmBtn.classList.contains('active') ? 'PCM' : 'PCB';
+  var attempt = document.getElementById('pctAttemptSelect').value;
+  var shift = document.getElementById('pctShiftSelect').value;
+  var errEl = document.getElementById('pctSelectorError');
+
+  if (!attempt || !shift) {
+    errEl.style.display = 'block';
+    input.value = '';
+    return;
+  }
+  errEl.style.display = 'none';
+  _pctProcessing = true;
+
+  try {
+    var name = file.name.toLowerCase();
+    var text = '';
+
+    if (file.type === 'application/pdf' || name.endsWith('.pdf')) {
+      var buf = await file.arrayBuffer();
+      var pdf = await pdfjsLib.getDocument({ data: buf }).promise;
+      for (var p = 1; p <= pdf.numPages; p++) {
+        var page = await pdf.getPage(p);
+        var tc = await page.getTextContent();
+        var items = tc.items.filter(function(i) { return i.str.trim(); });
+        items.sort(function(a, b) {
+          var dy = Math.round(b.transform[5]) - Math.round(a.transform[5]);
+          return dy !== 0 ? dy : a.transform[4] - b.transform[4];
+        });
+        text += items.map(function(i) { return i.str; }).join(' ') + '\n';
+      }
+    } else if (name.endsWith('.mhtml') || name.endsWith('.mht')) {
+      var raw = await file.text();
+      var parsed = parseMHTML(raw);
+      var doc = new DOMParser().parseFromString(parsed.html, 'text/html');
+      text = doc.body.textContent || '';
+    } else {
+      var html = await file.text();
+      var doc2 = new DOMParser().parseFromString(html, 'text/html');
+      text = doc2.body.textContent || '';
+    }
+
+    var savedMode = examMode;
+    examMode = mode;
+    var qs = parsePortalText(text);
+    examMode = savedMode;
+
+    if (!qs.length) {
+      alert('No questions found. Make sure you uploaded the MHT-CET Objection Tracker Portal response sheet.');
+      _pctProcessing = false;
+      input.value = '';
+      return;
+    }
+
+    var physicsQids = qs.filter(function(q) { return q.section === 'Physics'; })
+      .map(function(q) { return q.qid.trim(); }).sort();
+    var signature = physicsQids.length > 0 ? physicsQids.join(',') : '';
+
+    if (window.STATIC_SHIFT_SIGNATURES && signature) {
+      var match = window.STATIC_SHIFT_SIGNATURES[signature];
+      if (match) {
+        if (match.stream !== mode || match.attempt !== attempt || match.shift !== shift) {
+          alert('Wrong shift detected! This sheet belongs to ' + match.shift + ' (' + match.stream + ' - ' + match.attempt + '). Please select the correct shift and try again.');
+          _pctProcessing = false;
+          input.value = '';
+          return;
+        }
+      }
+    }
+
+    var earned = qs.reduce(function(s, q) { return s + q.marks; }, 0);
+    var maxM = qs.reduce(function(s, q) { return s + (q.section === 'Mathematics' && mode === 'PCM' ? 2 : 1); }, 0) || 200;
+
+    _pctData = { stream: mode, attempt: attempt, shift: shift, marks: earned };
+    document.getElementById('percentileMarksDisplay').textContent = earned;
+    document.getElementById('percentileMaxDisplay').textContent = maxM;
+    document.getElementById('percentileShiftInfo').textContent = mode + ' \u00b7 ' + attempt + ' \u00b7 ' + shift;
+    document.getElementById('percentileFormState').style.display = '';
+    document.getElementById('percentileSuccessState').style.display = 'none';
+    document.getElementById('percentileInput').value = '';
+    document.getElementById('percentileError').style.display = 'none';
+    document.getElementById('percentileSubmitBtn').disabled = false;
+    document.getElementById('percentileSubmitBtn').textContent = 'Submit to Database';
+    document.getElementById('percentileOverlay').classList.add('open');
+
+  } catch (e) {
+    console.error(e);
+    alert('Error processing file: ' + (e.message || 'Unknown error'));
+  }
+  _pctProcessing = false;
+  input.value = '';
 }
 
 function closePercentileModal() {
   document.getElementById('percentileOverlay').classList.remove('open');
-  _isPercentileMode = false;
-  _percentileData = null;
-  var banner = document.getElementById('percentileBanner');
-  if (banner) banner.classList.remove('active');
-  resetApp();
+  _pctData = null;
 }
 
 async function submitPercentile() {
@@ -1951,6 +2082,7 @@ async function submitPercentile() {
   var errEl = document.getElementById('percentileError');
 
   if (isNaN(val) || val < 0 || val > 100) {
+    errEl.textContent = 'Please enter a valid percentile (0\u2013100)';
     errEl.style.display = 'block';
     input.focus();
     return;
@@ -1962,13 +2094,9 @@ async function submitPercentile() {
   btn.textContent = 'Submitting...';
 
   var ok = false;
-  if (typeof window.submitPercentileData === 'function' && _percentileData) {
+  if (typeof window.submitPercentileData === 'function' && _pctData) {
     ok = await window.submitPercentileData(
-      _percentileData.stream,
-      _percentileData.attempt,
-      _percentileData.shift,
-      _percentileData.marks,
-      val
+      _pctData.stream, _pctData.attempt, _pctData.shift, _pctData.marks, val
     );
   }
 
@@ -1978,7 +2106,7 @@ async function submitPercentile() {
   } else {
     btn.disabled = false;
     btn.textContent = 'Submit to Database';
-    errEl.textContent = 'Submission failed. Please check your internet connection and try again.';
+    errEl.textContent = 'Submission failed. Check your connection and try again.';
     errEl.style.display = 'block';
   }
 }
