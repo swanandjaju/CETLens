@@ -1915,6 +1915,21 @@ function closeCommunityScreen() {
 var _pctData = null;
 var _pctProcessing = false;
 
+// Hardcoded known question IDs for silent shift validation (temporary until voting kicks in)
+// Maps question ID → shift name. These IDs are from bonus marks / answer key updates.
+var _PCT_KNOWN_QIDS = {
+  '203941': '11 April - Morning', '203957': '11 April - Morning', '204004': '11 April - Morning',
+  '204081': '11 April - Evening',
+  '204382': '13 April - Evening', '204417': '13 April - Evening',
+  '204533': '15 April - Morning', '204557': '15 April - Morning', '204611': '15 April - Morning', '204676': '15 April - Morning',
+  '204725': '15 April - Evening',
+  '204996': '16 April - Evening', '205008': '16 April - Evening', '205080': '16 April - Evening',
+  '205270': '17 April - Morning',
+  '205318': '17 April - Evening',
+  '206018': '19 April - Evening', '206061': '19 April - Evening',
+  '206313': '20 April - Evening', '206328': '20 April - Evening'
+};
+
 function activatePercentileMode() {
   document.getElementById('uploadScreen').style.display = 'none';
   var lp = document.getElementById('landingPage');
@@ -2051,8 +2066,31 @@ async function pctHandleFile(input) {
     var qs = parsePortalText(text);
     examMode = savedMode;
 
+    if (window._isOldSheet) {
+      alert('This appears to be an old (e.g. 2024 or 2025) response sheet. You can only submit 2026 response sheets to the database.');
+      _pctProcessing = false;
+      input.value = '';
+      return;
+    }
+
     if (!qs.length) {
       alert('No questions found. Make sure you uploaded the MHT-CET Objection Tracker Portal response sheet.');
+      _pctProcessing = false;
+      input.value = '';
+      return;
+    }
+
+    // --- Silent hardcoded QID validation (scans ALL question IDs, not just physics) ---
+    var allQids = qs.map(function(q) { return q.qid.trim(); });
+    var detectedShiftByQid = null;
+    for (var qi = 0; qi < allQids.length; qi++) {
+      if (_PCT_KNOWN_QIDS[allQids[qi]]) {
+        detectedShiftByQid = _PCT_KNOWN_QIDS[allQids[qi]];
+        break;
+      }
+    }
+    if (detectedShiftByQid && detectedShiftByQid !== shift) {
+      // Silent rejection — no popup, just quietly stop
       _pctProcessing = false;
       input.value = '';
       return;
@@ -2074,6 +2112,17 @@ async function pctHandleFile(input) {
       }
     }
 
+    // Signature collection + live validation (5-vote threshold)
+    if (typeof window.submitPctSignature === 'function' && signature) {
+      var sigResult = await window.submitPctSignature(mode, attempt, shift, signature);
+      if (sigResult && sigResult.ok === false && sigResult.reason === 'wrong_shift') {
+        alert('Wrong shift detected! Community votes confirm this sheet belongs to "' + sigResult.correct_shift + '". Please select the correct shift and try again.');
+        _pctProcessing = false;
+        input.value = '';
+        return;
+      }
+    }
+
     var earned = qs.reduce(function(s, q) { return s + q.marks; }, 0);
     var maxM = qs.reduce(function(s, q) { return s + (q.section === 'Mathematics' && mode === 'PCM' ? 2 : 1); }, 0) || 200;
 
@@ -2081,14 +2130,6 @@ async function pctHandleFile(input) {
     var sheetHash = '';
     if (typeof generateAnswerHash === 'function') {
       sheetHash = await generateAnswerHash(qs);
-      
-      // Fast-path local check
-      if (localStorage.getItem('pct_hash_' + sheetHash)) {
-        alert('You have already uploaded this response sheet and submitted your percentile for it!');
-        _pctProcessing = false;
-        input.value = '';
-        return;
-      }
 
       // Global Supabase check
       document.getElementById('pctDropTitle').textContent = 'Checking database...';
@@ -2096,7 +2137,6 @@ async function pctHandleFile(input) {
         var exists = await window.checkPercentileHash(sheetHash);
         if (exists) {
           alert('This response sheet has already been submitted to the database!');
-          localStorage.setItem('pct_hash_' + sheetHash, '1'); // cache locally
           _pctProcessing = false;
           input.value = '';
           document.getElementById('pctDropTitle').textContent = 'Drop your response sheet here';
@@ -2151,14 +2191,11 @@ async function submitPercentile() {
   var ok = false;
   if (typeof window.submitPercentileData === 'function' && _pctData) {
     ok = await window.submitPercentileData(
-      _pctData.stream, _pctData.attempt, _pctData.shift, _pctData.marks, val
+      _pctData.stream, _pctData.attempt, _pctData.shift, _pctData.marks, val, _pctData.hash
     );
   }
 
   if (ok) {
-    if (_pctData && _pctData.hash) {
-      try { localStorage.setItem('pct_hash_' + _pctData.hash, '1'); } catch(e) {}
-    }
     document.getElementById('percentileFormState').style.display = 'none';
     document.getElementById('percentileSuccessState').style.display = 'block';
   } else {

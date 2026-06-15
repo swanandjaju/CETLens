@@ -49,4 +49,28 @@
       return false;
     }
   };
+  // Shift signature collection via RPC (deduplicates + validates with 5-vote threshold)
+  window.submitPctSignature = async function(stream, attempt, shift, signature) {
+    if (!signature) return null;
+    try {
+      var res = await fetch(SUPABASE_URL + '/rest/v1/rpc/submit_pct_signature', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'apikey': SUPABASE_ANON_KEY,
+          'Authorization': 'Bearer ' + SUPABASE_ANON_KEY
+        },
+        body: JSON.stringify({
+          p_stream: stream,
+          p_attempt: attempt,
+          p_shift: shift,
+          p_signature: signature
+        })
+      });
+      if (!res.ok) return null;
+      return await res.json();
+    } catch (e) {
+      return null;
+    }
+  };
 })();

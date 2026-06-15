@@ -405,7 +405,6 @@
           <select id="attemptSelect" class="select-dropdown" onchange="onAttemptChange()">
             <option value="" disabled selected>Select attempt...</option>
             <option value="Attempt 1">Attempt 1</option>
-            <option value="Attempt 2">Attempt 2</option>
           </select>
 
           <div id="shiftContainer" style="display: none;">
@@ -440,13 +439,26 @@
           <div class="percentile-cta__icon">📊</div>
           <div class="percentile-cta__text">
             <div class="percentile-cta__title">
-              Submit Marks vs Percentile
+              Submit Provisional Marks vs Percentile
               <span class="cta-badge">New</span>
             </div>
-            <div class="percentile-cta__sub">Help build the most accurate marks vs percentile database — upload your sheet & enter your official percentile</div>
+            <div class="percentile-cta__sub">Help build the provisional marks database - upload your sheet & enter your percentile</div>
           </div>
           <div class="percentile-cta__arrow">→</div>
         </div>
+
+        <!-- Final Marks Google Form CTA -->
+        <a href="https://forms.gle/TFJCmgY7TzE5P6nJ7" target="_blank" class="percentile-cta-banner" style="background: rgba(255, 152, 0, 0.08); border-color: rgba(255, 152, 0, 0.2); text-decoration: none; margin-top: 10px; display: flex;">
+          <div class="percentile-cta__icon">⭐</div>
+          <div class="percentile-cta__text">
+            <div class="percentile-cta__title" style="color: #ff9800;">
+              Submit Final Marks (With Bonus)
+              <span class="cta-badge" style="background: rgba(255, 152, 0, 0.2); color: #ff9800;">Collab</span>
+            </div>
+            <div class="percentile-cta__sub">Submit your final marks & percentile to the CETEdge x CETLens Google Form!</div>
+          </div>
+          <div class="percentile-cta__arrow" style="color: #ff9800;">↗</div>
+        </a>
 
         <!-- Community Analysis CTA -->
         <div class="community-cta-banner" onclick="openCommunityScreen()" role="button" tabindex="0">
@@ -597,7 +609,6 @@
       <select id="pctAttemptSelect" class="select-dropdown" onchange="pctOnAttemptChange()">
         <option value="" disabled selected>Select attempt...</option>
         <option value="Attempt 1">Attempt 1</option>
-        <option value="Attempt 2">Attempt 2</option>
       </select>
       <div id="pctShiftContainer" style="display:none;">
         <label class="attempt-selector-label" for="pctShiftSelect" style="display:block">Select Shift</label>
@@ -699,8 +710,15 @@
       <div class="percentile-modal__success" id="percentileSuccessState">
         <div class="success-check">✓</div>
         <h3>Thank You!</h3>
-        <p>Your data has been submitted successfully. This helps build an accurate marks vs percentile database for all students.</p>
-        <button type="button" class="percentile-modal__submit" onclick="closePercentileModal()" style="max-width:200px;margin:0 auto">Done</button>
+        <p>Your provisional marks data has been submitted successfully.</p>
+        
+        <div style="background: rgba(255, 152, 0, 0.08); border: 1px solid rgba(255, 152, 0, 0.2); border-radius: 8px; padding: 16px; margin: 20px 0; text-align: left;">
+          <h4 style="margin: 0 0 8px 0; color: #ff9800;">One last step! ⭐</h4>
+          <p style="margin: 0 0 16px 0; font-size: 14px; color: var(--text2);">Please submit your <strong>FINAL MARKS (with bonus)</strong> via the CETEdge x CETLens collaboration form.</p>
+          <a href="https://forms.gle/TFJCmgY7TzE5P6nJ7" target="_blank" style="display: block; width: 100%; background: #ff9800; color: #000; text-align: center; padding: 12px; border-radius: 6px; text-decoration: none; font-weight: 600;">Go to Google Form ↗</a>
+        </div>
+
+        <button type="button" class="percentile-modal__cancel" onclick="closePercentileModal()" style="width: 100%;">Close</button>
       </div>
     </div>
   </div>
@@ -1640,7 +1658,6 @@
       <div id="commAttemptSelector" style="display:block; padding: 0 1.5rem 1.5rem; margin-top: -1rem;">
         <div style="display: flex; gap: 0.5rem;">
           <button type="button" class="comm-attempt-btn active" id="commAttemptBtn1" onclick="switchCommunityAttempt('Attempt 1')">Attempt 1</button>
-          <button type="button" class="comm-attempt-btn" id="commAttemptBtn2" onclick="switchCommunityAttempt('Attempt 2')">Attempt 2</button>
         </div>
       </div>
 
@@ -1788,11 +1805,11 @@
   <script defer src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
   <script defer src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <!-- Core modules; analytics snapshots are lazy-loaded by utils.js. -->
-  <script defer src="data/static_signatures.js?v=1"></script>
+  <script defer src="data/static_signatures.js?v=2"></script>
   <script defer src="data/static_data.js?v=4"></script>
   <script defer src="js/utils.js?v=1"></script>
-  <script defer src="js/script.js?v=5"></script>
-  <script defer src="js/supabase-percentiles.js?v=1"></script>
+  <script defer src="js/script.js?v=8"></script>
+  <script defer src="js/supabase-percentiles.js?v=4"></script>
   <script defer src="js/analytics.js?v=4"></script>
   <script defer src="js/predictor.js?v=4"></script>
   <script defer src="js/router.js?v=4"></script>
