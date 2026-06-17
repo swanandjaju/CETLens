@@ -3977,3 +3977,290 @@ textarea.neu-input {
     font-size: 12px;
   }
 }
+
+/* ═══════════════════════════════════════════════════════════════
+   COMPREHENSIVE MOBILE OPTIMIZATIONS (≤480px)
+   ═══════════════════════════════════════════════════════════════ */
+
+@media (max-width: 480px) {
+  /* 1. Global typography and touch targets fixes */
+  /* Fix iOS input zoom (requires 16px font-size) */
+  .cmd-input,
+  .percentile-modal__input,
+  .predictor-file-input,
+  .predictor-marks-input,
+  .select-dropdown {
+    font-size: 16px !important;
+  }
+
+  /* Fix extremely small text */
+  .device__readout,
+  .device__status,
+  .live-brief-stat__lbl,
+  .dist-stat__lbl,
+  .drill-cell__lbl,
+  .difficulty-rank-item__stat-lbl,
+  .difficulty-rank-item__tag,
+  .predictor-cta__badge,
+  .mode-btn-sub,
+  .subject-label,
+  .metric-lbl,
+  .q-table th,
+  .restore-tag,
+  .about-built,
+  .deco-rule span,
+  .analysis-section-eyebrow,
+  .analysis-card-label,
+  .analysis-stat-lbl {
+    font-size: 11px !important;
+  }
+
+  .chart-title {
+    font-size: 13px !important;
+  }
+
+  /* Enlarge touch targets */
+  .filter-chip {
+    min-height: 44px !important;
+    padding: 0.5rem 1rem !important;
+    font-size: 12px !important;
+  }
+
+  .q-btn {
+    min-height: 44px !important;
+    min-width: 44px !important;
+  }
+
+  .theme-toggle-btn {
+    height: 44px !important;
+    padding: 0 16px !important;
+  }
+
+  .q-detail-close {
+    width: 44px !important;
+    height: 44px !important;
+    top: 10px !important;
+    right: 10px !important;
+  }
+
+  .credit-link {
+    width: 44px !important;
+    height: 44px !important;
+  }
+
+  .btn-sm,
+  .topbar-actions .btn-ghost,
+  .topbar-actions .btn-icon,
+  .topbar-actions .export-btn {
+    min-height: 44px !important;
+    padding: 0.5rem 0.8rem !important;
+    font-size: 12px !important;
+  }
+  
+  .export-btn span {
+    display: none !important; /* Hide text, just show icon on small mobile */
+  }
+
+  .difficulty-toggle__btn {
+    min-height: 44px !important;
+    padding: 0 1rem !important;
+  }
+
+  .hamburger-btn {
+    padding: 10px !important;
+  }
+
+  .q-detail-nav-btn {
+    min-height: 44px !important;
+    padding: 0 1.25rem !important;
+  }
+
+  .predictor-cta__arrow {
+    width: 44px !important;
+    height: 44px !important;
+  }
+
+  .restore-close-btn {
+    padding: 12px !important;
+    top: 6px !important;
+    right: 6px !important;
+  }
+
+  /* 2. Upload / Landing Screen */
+  .upload-left, .upload-right {
+    padding: 1.5rem 1.25rem !important;
+  }
+  .brand-title {
+    font-size: 22px !important;
+  }
+  .tools-launcher {
+    padding: 1.25rem 1.25rem !important;
+    gap: 1rem !important;
+  }
+  .tools-launcher__title {
+    font-size: 18px !important;
+  }
+  .tools-launcher__sub {
+    font-size: 12px !important;
+  }
+  .tools-launcher__icons {
+    padding: 8px 10px !important;
+    font-size: 18px !important;
+  }
+  .tools-launcher__arrow {
+    width: 40px !important;
+    height: 40px !important;
+  }
+  .tools-chip {
+    font-size: 11px !important;
+    padding: 4px 10px !important;
+  }
+
+  /* 3. Topbar Overrides */
+  .topbar {
+    padding: 0.5rem 1rem !important;
+    flex-wrap: wrap !important;
+  }
+  .topbar-left {
+    width: 100%;
+    justify-content: space-between;
+  }
+  .topbar-actions {
+    width: 100%;
+    justify-content: space-between;
+    margin-top: 0.5rem;
+  }
+  .topbar-mode {
+    display: none !important; /* Too much clutter */
+  }
+
+  /* 4. Full Page Overlays (Tools, MVP) */
+  .tools-page {
+    padding: 1rem !important;
+  }
+  .tools-hero__title {
+    font-size: 24px !important;
+  }
+  .bento-card {
+    padding: 1.25rem !important;
+  }
+  .bento-card__icon {
+    width: 44px !important;
+    height: 44px !important;
+    font-size: 20px !important;
+  }
+  .mvp-page {
+    padding: 1rem 0.75rem 3rem !important;
+  }
+  .mvp-viewer__grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  /* 5. Dashboard / Data Tables */
+  .q-table-wrap {
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+    padding-bottom: 0.5rem;
+  }
+  .q-table {
+    min-width: 400px !important;
+  }
+  .score-tab {
+    font-size: 11px !important;
+    padding: 0.5rem !important;
+  }
+  .mode-btns {
+    display: flex !important;
+    flex-direction: column !important;
+  }
+  .mode-btn {
+    border-right: none !important;
+    border-bottom: 1px solid var(--border) !important;
+  }
+  .mode-btn:last-child {
+    border-bottom: none !important;
+  }
+
+  /* 6. Modals & Popups */
+  .mismatch-box {
+    padding: 1.5rem !important;
+  }
+  .restore-box {
+    padding: 1.5rem 1.25rem !important;
+  }
+  .percentile-modal {
+    padding: 1.5rem 1.25rem !important;
+  }
+  .predictor-warning-modal {
+    padding: 1.25rem !important;
+  }
+  
+  /* 7. Predictor / Analysis Overrides */
+  .predictor-result-value {
+    font-size: 42px !important;
+  }
+  .analysis-inner, .community-screen {
+    padding: 1rem 1rem 3rem !important;
+  }
+  .drill-down-grid {
+    grid-template-columns: 1fr !important;
+  }
+  .drill-subject-row {
+    grid-template-columns: 80px 1fr 1fr !important;
+  }
+  .comm-stream-btn {
+    min-height: 56px !important;
+    padding: 0.75rem 1rem !important;
+    flex-direction: column !important;
+    gap: 0.5rem !important;
+  }
+  .comm-stream-btn svg {
+    margin-bottom: 0.25rem !important;
+  }
+  .analysis-title {
+    font-size: 18px !important;
+  }
+  
+  /* Chart Heights override - using !important to override inline styles */
+  div[style*="height: 260px"],
+  div[style*="height: 240px"],
+  div[style*="height: 220px"],
+  div[style*="height: 200px"] {
+    height: 180px !important;
+  }
+  
+  div[style*="font-size: 64px"] {
+    font-size: 42px !important;
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   MICRO SCREENS (≤360px)
+   ═══════════════════════════════════════════════════════════════ */
+@media (max-width: 360px) {
+  .upload-left, .upload-right {
+    padding: 1.25rem 1rem !important;
+  }
+  .brand-title {
+    font-size: 20px !important;
+  }
+  .tools-launcher {
+    padding: 1rem !important;
+  }
+  .tools-launcher__top {
+    flex-wrap: wrap;
+    gap: 0.5rem !important;
+  }
+  .tools-launcher__arrow {
+    display: none !important; /* Hide arrow on tiny screens to save space */
+  }
+  .topbar-brand {
+    font-size: 12px !important;
+  }
+  .metrics-grid {
+    grid-template-columns: 1fr !important;
+  }
+  .stats-strip {
+    grid-template-columns: 1fr !important;
+  }
+}
