@@ -91,12 +91,19 @@
     }
     .restore-overlay.open { opacity: 1; pointer-events: auto; }
     .restore-box {
+      position: relative;
       background: var(--charcoal); border: 1px solid var(--border);
       border-radius: 16px; padding: 2.5rem 2rem; max-width: 420px; width: 90%;
       text-align: center; box-shadow: 0 20px 60px rgba(0,0,0,.4);
       transform: translateY(20px) scale(.96); transition: transform .3s ease;
     }
     .restore-overlay.open .restore-box { transform: translateY(0) scale(1); }
+    .restore-close-btn {
+      position: absolute; top: 14px; right: 14px; background: transparent;
+      border: none; color: var(--pewter); font-size: 16px; cursor: pointer;
+      opacity: 0.6; transition: opacity 0.2s, color 0.2s; padding: 4px; border-radius: 4px;
+    }
+    .restore-close-btn:hover { opacity: 1; color: var(--text); background: rgba(255,255,255,0.05); }
     .restore-icon { font-size: 40px; margin-bottom: 1rem; }
     .restore-title {
       font-size: 18px; font-weight: 700; color: var(--text); margin-bottom: .5rem;
@@ -251,6 +258,338 @@
     .percentile-cta-banner.active {
       border-color: #10b981;
       box-shadow: 0 0 0 2px rgba(16, 185, 129, .2);
+    }
+    /* ── Upload Zone Compact ── */
+    .upload-zone { padding: 1.5rem 1.25rem !important; }
+    .upload-icon { width: 36px !important; height: 36px !important; }
+    .upload-title { font-size: 15px !important; }
+    .upload-sub { font-size: 11px !important; margin-top: 4px !important; }
+
+    /* ── Tools Launcher Button ── */
+    .tools-launcher {
+      display: flex; flex-direction: column; gap: 1.25rem;
+      width: 100%; padding: 1.75rem 2rem;
+      margin-top: 1.75rem;
+      background: linear-gradient(135deg, rgba(139, 92, 246, 0.08), rgba(236, 72, 153, 0.05), rgba(59, 130, 246, 0.06));
+      border: 1px solid rgba(139, 92, 246, 0.25);
+      border-radius: 16px;
+      cursor: pointer; transition: all .3s ease;
+      font-family: var(--font-body);
+      position: relative; overflow: hidden;
+    }
+    .tools-launcher::before {
+      content: ''; position: absolute; inset: -2px;
+      background: linear-gradient(135deg, #8b5cf6, #ec4899, #3b82f6, #8b5cf6);
+      background-size: 300% 300%; border-radius: 17px;
+      opacity: 0.1; animation: mvpGlow 4s ease infinite;
+      pointer-events: none;
+    }
+    .tools-launcher:hover {
+      border-color: rgba(139, 92, 246, 0.45);
+      transform: translateY(-2px);
+      box-shadow: 0 10px 30px rgba(139, 92, 246, .15), 0 2px 8px rgba(0,0,0,.15);
+    }
+    .tools-launcher:hover::before { opacity: 0.2; }
+    .tools-launcher__top {
+      display: flex; align-items: center; gap: 1.25rem; width: 100%;
+    }
+    .tools-launcher__icons {
+      display: flex; gap: 6px;
+      background: rgba(139, 92, 246, .12); border-radius: 12px;
+      padding: 12px 14px; flex-shrink: 0; font-size: 22px;
+      position: relative; z-index: 1;
+    }
+    .tools-launcher__text { flex: 1; text-align: left; min-width: 0; position: relative; z-index: 1; }
+    .tools-launcher__title {
+      font-size: 24px; font-weight: 800; color: var(--text);
+      display: block; letter-spacing: -0.02em;
+    }
+    .tools-launcher__sub {
+      font-size: 13.5px; color: var(--pewter, #718096);
+      display: block; margin-top: 6px; font-weight: 500;
+    }
+    .tools-launcher__arrow {
+      width: 48px; height: 48px; border-radius: 12px;
+      background: rgba(139, 92, 246, .12);
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0; transition: all .25s ease;
+      color: #a78bfa; position: relative; z-index: 1;
+    }
+    .tools-launcher:hover .tools-launcher__arrow {
+      background: #8b5cf6; color: #fff; transform: translateX(3px);
+    }
+    .tools-launcher__chips {
+      display: flex; flex-wrap: wrap; gap: 8px;
+      position: relative; z-index: 1;
+    }
+    .tools-chip {
+      font-size: 12px; font-weight: 600; padding: 5px 14px;
+      border-radius: 8px; border: 1px solid rgba(255,255,255,.08);
+      background: rgba(255,255,255,.04); color: var(--pewter, #718096);
+      transition: all .2s;
+    }
+    .tools-chip--purple { border-color: rgba(139,92,246,.2); color: #a78bfa; }
+    .tools-chip--green { border-color: rgba(16,185,129,.2); color: #10b981; }
+    .tools-chip--orange { border-color: rgba(255,152,0,.2); color: #ff9800; }
+    .tools-chip--blue { border-color: rgba(59,130,246,.2); color: #3b82f6; }
+    .tools-chip--red { border-color: rgba(239,68,68,.2); color: #ef4444; }
+
+    /* ═══════════════════════════════════════════════
+       EXPLORE TOOLS — PREMIUM FULL-PAGE EXPERIENCE
+       ═══════════════════════════════════════════════ */
+    .tools-overlay {
+      position: fixed; inset: 0; z-index: 10001;
+      background: #08090d; overflow-y: auto; overflow-x: hidden;
+    }
+    .tools-bg { position: fixed; inset: 0; z-index: 0; pointer-events: none; }
+    .tools-bg__grid {
+      position: absolute; inset: 0;
+      background-image:
+        linear-gradient(rgba(255,255,255,.025) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255,255,255,.025) 1px, transparent 1px);
+      background-size: 64px 64px;
+      mask-image: radial-gradient(ellipse 80% 60% at 50% 40%, #000 20%, transparent 100%);
+    }
+    .tools-bg__orb { position: absolute; border-radius: 50%; filter: blur(100px); animation: orbFloat 12s ease-in-out infinite; }
+    .tools-bg__orb--1 { width: 600px; height: 600px; top: -15%; left: -10%; background: radial-gradient(circle, rgba(139,92,246,.18), transparent 70%); }
+    .tools-bg__orb--2 { width: 500px; height: 500px; top: 10%; right: -10%; background: radial-gradient(circle, rgba(236,72,153,.12), transparent 70%); animation-delay: -4s; }
+    .tools-bg__orb--3 { width: 400px; height: 400px; bottom: -10%; left: 30%; background: radial-gradient(circle, rgba(59,130,246,.12), transparent 70%); animation-delay: -8s; }
+    @keyframes orbFloat { 0%,100%{transform:translate(0,0) scale(1)} 33%{transform:translate(20px,-30px) scale(1.05)} 66%{transform:translate(-15px,15px) scale(.97)} }
+    .tools-spotlight { position: fixed; pointer-events: none; z-index: 1; width: 600px; height: 600px; border-radius: 50%; background: radial-gradient(circle, rgba(139,92,246,.06), transparent 70%); transform: translate(-50%,-50%); transition: left .15s,top .15s; will-change: left,top; }
+    .tools-page { position: relative; z-index: 2; max-width: 900px; margin: 0 auto; padding: 2rem 2rem 4rem; }
+    .tools-page__back {
+      width: 42px; height: 42px; border-radius: 12px;
+      border: 1px solid rgba(255,255,255,.08); background: rgba(255,255,255,.03);
+      backdrop-filter: blur(12px); color: rgba(255,255,255,.5); cursor: pointer;
+      display: inline-flex; align-items: center; justify-content: center;
+      transition: all .25s; margin-bottom: .5rem;
+    }
+    .tools-page__back:hover { background: rgba(255,255,255,.07); border-color: rgba(255,255,255,.15); color: #fff; transform: translateX(-2px); }
+    .tools-hero { text-align: center; padding: 2.5rem 0 3rem; animation: toolsFadeUp .6s ease both; }
+    .tools-hero__badge {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 5px 14px; border-radius: 100px;
+      background: rgba(139,92,246,.08); border: 1px solid rgba(139,92,246,.15);
+      font-size: 11px; font-weight: 600; color: #a78bfa;
+      text-transform: uppercase; letter-spacing: .08em; margin-bottom: 1.25rem;
+    }
+    .tools-hero__badge-dot { width: 6px; height: 6px; border-radius: 50%; background: #8b5cf6; box-shadow: 0 0 8px rgba(139,92,246,.6); animation: livePulse 2s ease infinite; }
+    .tools-hero__title { font-size: clamp(32px,5vw,48px); font-weight: 900; color: #fff; margin: 0 0 .75rem; letter-spacing: -.02em; line-height: 1.1; }
+    .tools-hero__title-accent { background: linear-gradient(135deg, #a78bfa, #ec4899, #60a5fa); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+    .tools-hero__sub { font-size: 15px; color: rgba(255,255,255,.4); max-width: 420px; margin: 0 auto; line-height: 1.5; }
+    @keyframes toolsFadeUp { from{opacity:0;transform:translateY(24px)} to{opacity:1;transform:translateY(0)} }
+    @keyframes livePulse { 0%,100%{opacity:1} 50%{opacity:.4} }
+    .tools-bento { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+    .bento-card {
+      position: relative; border-radius: 20px; padding: 1.75rem; cursor: pointer;
+      background: rgba(255,255,255,.025); border: 1px solid rgba(255,255,255,.06);
+      backdrop-filter: blur(16px); transition: all .35s cubic-bezier(.4,0,.2,1);
+      overflow: hidden; color: inherit; text-decoration: none;
+      display: flex; flex-direction: column; justify-content: space-between;
+      opacity: 0; transform: translateY(20px); animation: cardReveal .5s ease forwards;
+    }
+    .bento-card:nth-child(1){animation-delay:.1s} .bento-card:nth-child(2){animation-delay:.2s} .bento-card:nth-child(3){animation-delay:.3s} .bento-card:nth-child(4){animation-delay:.4s}
+    @keyframes cardReveal { to{opacity:1;transform:translateY(0)} }
+    .bento-card::before {
+      content:''; position:absolute; inset:-1px; border-radius:21px; padding:1px; z-index:-1;
+      opacity:0; transition:opacity .35s;
+      -webkit-mask:linear-gradient(#fff 0 0) content-box,linear-gradient(#fff 0 0);
+      mask:linear-gradient(#fff 0 0) content-box,linear-gradient(#fff 0 0);
+      -webkit-mask-composite:xor; mask-composite:exclude;
+    }
+    .bento-card::after { content:''; position:absolute; inset:0; border-radius:20px; opacity:0; transition:opacity .35s; pointer-events:none; }
+    .bento-card:hover { transform:translateY(-6px); border-color:transparent; box-shadow:0 20px 50px rgba(0,0,0,.35); }
+    .bento-card:hover::before{opacity:1} .bento-card:hover::after{opacity:1}
+    .bento-card__top { display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:1.25rem; }
+    .bento-card__icon { width:52px; height:52px; border-radius:16px; display:flex; align-items:center; justify-content:center; font-size:24px; transition:transform .3s; }
+    .bento-card:hover .bento-card__icon { transform:scale(1.08) rotate(-2deg); }
+    .bento-card__badge { font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.06em; padding:4px 10px; border-radius:6px; line-height:1.3; }
+    .bento-card__name { font-size:17px; font-weight:750; color:#fff; margin-bottom:6px; letter-spacing:-.01em; }
+    .bento-card__desc { font-size:13px; color:rgba(255,255,255,.4); line-height:1.5; }
+    .bento-card__arrow { display:flex; align-items:center; gap:6px; margin-top:1.25rem; font-size:12px; font-weight:600; color:rgba(255,255,255,.3); transition:all .25s; }
+    .bento-card:hover .bento-card__arrow { color:rgba(255,255,255,.7); transform:translateX(4px); }
+    /* Hero */
+    .bento-card--hero { grid-column:1/-1; flex-direction:row; align-items:center; gap:2rem; padding:2.25rem 2.5rem; background:linear-gradient(135deg,rgba(139,92,246,.06),rgba(236,72,153,.03),rgba(59,130,246,.03)); border-color:rgba(139,92,246,.15); }
+    .bento-card--hero::before { background:linear-gradient(135deg,#8b5cf6,#ec4899,#60a5fa); }
+    .bento-card--hero::after { background:linear-gradient(135deg,rgba(139,92,246,.06),transparent 60%); }
+    .bento-card--hero .bento-card__icon { width:68px; height:68px; border-radius:20px; font-size:30px; background:rgba(139,92,246,.12); box-shadow:0 0 30px rgba(139,92,246,.15); flex-shrink:0; }
+    .bento-card--hero .bento-card__name { font-size:20px; }
+    .bento-card--hero .bento-card__desc { font-size:14px; }
+    .bento-card--hero .bento-card__meta { display:flex; gap:1.25rem; margin-top:.75rem; }
+    .bento-card__meta-item { font-size:11px; color:rgba(255,255,255,.35); display:flex; align-items:center; gap:5px; }
+    .bento-card__meta-dot { width:5px; height:5px; border-radius:50%; background:rgba(139,92,246,.5); }
+    .bento-card__badge--purple { background:rgba(139,92,246,.12); color:#a78bfa; }
+    /* Green */
+    .bento-card--green { border-color:rgba(16,185,129,.12); }
+    .bento-card--green::before { background:linear-gradient(135deg,#10b981,#34d399); }
+    .bento-card--green::after { background:linear-gradient(135deg,rgba(16,185,129,.06),transparent 60%); }
+    .bento-card--green .bento-card__icon { background:rgba(16,185,129,.1); }
+    .bento-card--green .bento-card__badge { background:rgba(16,185,129,.1); color:#34d399; }
+    .bento-card__live-dot { width:12px; height:12px; border-radius:50%; background:#10b981; display:inline-block; box-shadow:0 0 10px rgba(16,185,129,.6),0 0 20px rgba(16,185,129,.2); animation:livePulse 2s ease infinite; }
+    /* Red */
+    .bento-card--red { border-color:rgba(239,68,68,.1); }
+    .bento-card--red::before { background:linear-gradient(135deg,#ef4444,#f97316); }
+    .bento-card--red::after { background:linear-gradient(135deg,rgba(239,68,68,.05),transparent 60%); }
+    .bento-card--red .bento-card__icon { background:rgba(239,68,68,.1); }
+    .bento-card--red .bento-card__badge { background:rgba(239,68,68,.1); color:#f87171; }
+    /* Blue */
+    .bento-card--blue { grid-column:1/-1; flex-direction:row; align-items:center; gap:1.5rem; padding:1.5rem 2rem; border-color:rgba(59,130,246,.1); }
+    .bento-card--blue::before { background:linear-gradient(135deg,#3b82f6,#60a5fa); }
+    .bento-card--blue::after { background:linear-gradient(135deg,rgba(59,130,246,.05),transparent 60%); }
+    .bento-card--blue .bento-card__icon { background:rgba(59,130,246,.1); flex-shrink:0; }
+    .bento-card--blue .bento-card__badge { background:rgba(59,130,246,.1); color:#60a5fa; }
+    .bento-card--blue .bento-card__body { flex:1; }
+    .bento-card--blue .bento-card__arrow { margin-top:0; }
+    @media (max-width:640px) {
+      .tools-page{padding:1.5rem 1rem 3rem} .tools-hero{padding:2rem 0 2.5rem} .tools-hero__title{font-size:28px}
+      .tools-bento{grid-template-columns:1fr}
+      .bento-card--hero{flex-direction:column;gap:1rem;padding:1.5rem} .bento-card--hero .bento-card__icon{width:52px;height:52px;font-size:24px}
+      .bento-card--blue{flex-direction:column;gap:.75rem;padding:1.5rem}
+    }
+
+    /* ── Marks vs Percentile CTA Banner (Highlighted) ── */
+    .mvp-cta-banner {
+      display: flex; align-items: center; gap: 1.25rem;
+      padding: 1.15rem 1.5rem;
+      background: linear-gradient(135deg, rgba(139, 92, 246, 0.1), rgba(236, 72, 153, 0.08), rgba(59, 130, 246, 0.08));
+      border: 1px solid rgba(139, 92, 246, 0.3);
+      border-radius: 14px;
+      cursor: pointer; transition: all .3s ease;
+      margin-top: 1.25rem;
+      position: relative; overflow: hidden;
+    }
+    .mvp-cta__glow {
+      position: absolute; inset: -2px;
+      background: linear-gradient(135deg, #8b5cf6, #ec4899, #3b82f6, #8b5cf6);
+      background-size: 300% 300%;
+      border-radius: 15px; opacity: 0.15;
+      animation: mvpGlow 4s ease infinite;
+      pointer-events: none;
+    }
+    @keyframes mvpGlow {
+      0%, 100% { background-position: 0% 50%; }
+      50% { background-position: 100% 50%; }
+    }
+    .mvp-cta-banner:hover {
+      border-color: rgba(139, 92, 246, 0.5);
+      transform: translateY(-2px);
+      box-shadow: 0 8px 30px rgba(139, 92, 246, .15), 0 2px 8px rgba(0,0,0,.15);
+    }
+    .mvp-cta-banner:hover .mvp-cta__glow { opacity: 0.25; }
+    .mvp-cta__icon {
+      width: 44px; height: 44px; border-radius: 12px;
+      background: rgba(139, 92, 246, .15);
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0; font-size: 22px; position: relative; z-index: 1;
+    }
+    .mvp-cta__text { flex: 1; min-width: 0; position: relative; z-index: 1; }
+    .mvp-cta__title {
+      font-size: 15px; font-weight: 700; color: var(--text);
+      display: flex; align-items: center; gap: .5rem; flex-wrap: wrap;
+    }
+    .mvp-cta__badge {
+      font-size: 9px; font-weight: 700; text-transform: uppercase;
+      letter-spacing: .08em; padding: 2px 7px; border-radius: 4px;
+      background: linear-gradient(135deg, rgba(139, 92, 246, .2), rgba(236, 72, 153, .2));
+      color: #a78bfa; line-height: 1.4;
+    }
+    .mvp-cta__count {
+      font-size: 11px; color: var(--pewter, #718096);
+      font-weight: 500;
+    }
+    .mvp-cta__sub {
+      font-size: 12px; color: var(--pewter, #718096);
+      margin-top: 3px; line-height: 1.4;
+    }
+    .mvp-cta__arrow {
+      width: 36px; height: 36px; border-radius: 10px;
+      background: rgba(139, 92, 246, .1);
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0; transition: all .25s ease;
+      color: #a78bfa; position: relative; z-index: 1;
+    }
+    .mvp-cta-banner:hover .mvp-cta__arrow {
+      background: #8b5cf6; color: #fff;
+      transform: translateX(3px);
+    }
+
+    /* ── MVP Viewer Full Page ── */
+    .mvp-overlay {
+      position: fixed; inset: 0; z-index: 10000;
+      background: #08090d; overflow-y: auto; overflow-x: hidden;
+      animation: mvpFadeIn .3s ease;
+    }
+    @keyframes mvpFadeIn { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+    
+    .mvp-page {
+      position: relative; z-index: 2;
+      max-width: 1400px; margin: 0 auto;
+      padding: 2.5rem 2rem 4rem;
+    }
+
+    .mvp-viewer__info {
+      padding: 1rem 0; font-size: 13px; color: rgba(255,255,255,.5);
+      border-bottom: 1px solid rgba(255,255,255,.06);
+      margin-bottom: 2rem; margin-top: 1rem;
+      display: inline-block;
+    }
+
+    .mvp-viewer__grid {
+      display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+      gap: 1.25rem; align-items: start;
+    }
+    .mvp-shift-card {
+      background: rgba(255,255,255,.025);
+      border: 1px solid rgba(255,255,255,.06);
+      backdrop-filter: blur(12px);
+      border-radius: 16px; overflow: hidden;
+      transition: all .3s cubic-bezier(.4,0,.2,1);
+      animation: cardReveal .5s ease forwards;
+    }
+    .mvp-shift-card:hover {
+      border-color: rgba(139, 92, 246, .25);
+      transform: translateY(-4px);
+      box-shadow: 0 12px 30px rgba(0,0,0,.25);
+    }
+    .mvp-shift-card__header {
+      padding: 1.15rem 1.25rem;
+      background: linear-gradient(135deg, rgba(139, 92, 246, .08), rgba(236, 72, 153, .03));
+      border-bottom: 1px solid rgba(255,255,255,.06);
+      display: flex; justify-content: space-between; align-items: center;
+    }
+    .mvp-shift-card__name {
+      font-size: 14px; font-weight: 750; color: #fff;
+    }
+    .mvp-shift-card__count {
+      font-size: 11px; font-weight: 600; color: #a78bfa; 
+      background: rgba(139, 92, 246, .12);
+      padding: 3px 10px; border-radius: 6px;
+    }
+    .mvp-shift-card__table-wrap {
+      overflow: hidden; /* Removed internal scrolling to prevent multiple scrollbars */
+    }
+    .mvp-shift-table {
+      width: 100%; border-collapse: collapse; font-size: 13px;
+    }
+    .mvp-shift-table th {
+      padding: 10px 12px; font-size: 10px; text-transform: uppercase;
+      letter-spacing: .08em; color: rgba(255,255,255,.4); font-weight: 600;
+      border-bottom: 1px solid rgba(255,255,255,.06);
+      text-align: center;
+    }
+    .mvp-shift-table td {
+      padding: 8px 12px; text-align: center;
+      border-bottom: 1px solid rgba(255,255,255,.03);
+      color: rgba(255,255,255,.8); font-variant-numeric: tabular-nums;
+    }
+    .mvp-shift-table tr:hover td { background: rgba(139, 92, 246, .08); color: #fff; }
+    .mvp-shift-table .pct-high { color: #34d399; font-weight: 600; }
+    .mvp-shift-table .pct-mid { color: #fbbf24; }
+    .mvp-shift-table .pct-low { color: #f87171; }
+
+    @media (max-width: 640px) {
+      .mvp-viewer__grid { grid-template-columns: 1fr; }
+      .mvp-page { padding: 1.5rem 1rem 3rem; }
     }
 
     /* ── Percentile Modal ── */
@@ -435,88 +774,147 @@
             onchange="handleFile(this)">
         </div>
 
-        <!-- Percentile Data Collection CTA -->
-        <div class="percentile-cta-banner" id="percentileBanner" onclick="activatePercentileMode()" role="button" tabindex="0">
-          <div class="percentile-cta__icon">📊</div>
-          <div class="percentile-cta__text">
-            <div class="percentile-cta__title">
-              Submit Provisional Marks vs Percentile
-              <span class="cta-badge">New</span>
+        <!-- Explore Tools Button -->
+        <button class="tools-launcher" id="toolsLauncher" onclick="openToolsModal()">
+          <div class="tools-launcher__top">
+            <div class="tools-launcher__icons">
+              <span>📈</span><span>📊</span><span>⚡</span><span>📄</span>
             </div>
-            <div class="percentile-cta__sub">Help build the provisional marks database - upload your sheet & enter your percentile</div>
+            <div class="tools-launcher__text">
+              <span class="tools-launcher__title">Explore Tools</span>
+              <span class="tools-launcher__sub">All features in one place</span>
+            </div>
+            <div class="tools-launcher__arrow">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg>
+            </div>
           </div>
-          <div class="percentile-cta__arrow">→</div>
+          <div class="tools-launcher__chips">
+            <span class="tools-chip tools-chip--purple">Marks vs Percentile</span>
+            <span class="tools-chip tools-chip--green">Community Analysis</span>
+            <span class="tools-chip tools-chip--red">Predictor</span>
+            <span class="tools-chip tools-chip--blue">Analytics Report</span>
+          </div>
+        </button>
+
+        <!-- Tools Full Page -->
+        <div class="tools-overlay" id="toolsOverlay" style="display:none;">
+          <!-- Layered Background -->
+          <div class="tools-bg">
+            <div class="tools-bg__grid"></div>
+            <div class="tools-bg__orb tools-bg__orb--1"></div>
+            <div class="tools-bg__orb tools-bg__orb--2"></div>
+            <div class="tools-bg__orb tools-bg__orb--3"></div>
+          </div>
+          <div class="tools-spotlight" id="toolsSpotlight"></div>
+
+          <div class="tools-page">
+            <button class="tools-page__back" onclick="closeToolsModal()" aria-label="Back">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
+            </button>
+
+            <div class="tools-hero">
+              <div class="tools-hero__badge">
+                <span class="tools-hero__badge-dot"></span>
+                CETLens Tools
+              </div>
+              <h2 class="tools-hero__title">Explore <span class="tools-hero__title-accent">Tools</span></h2>
+              <p class="tools-hero__sub">Everything you need to analyze your MHT-CET performance — all in one place.</p>
+            </div>
+
+            <div class="tools-bento">
+
+              <!-- Hero Card: Marks vs Percentile -->
+              <div class="bento-card bento-card--hero" onclick="closeToolsModal();openMvpViewer()">
+                <div class="bento-card__icon">📈</div>
+                <div class="bento-card__body">
+                  <div style="display:flex;align-items:center;gap:10px;margin-bottom:4px;">
+                    <div class="bento-card__name" style="margin:0">Marks vs Percentile</div>
+                    <span class="bento-card__badge bento-card__badge--purple">Attempt 1</span>
+                  </div>
+                  <div class="bento-card__desc">View community-collected provisional marks vs percentile data across all 16 shifts — cleaned and verified.</div>
+                  <div class="bento-card__meta">
+                    <span class="bento-card__meta-item"><span class="bento-card__meta-dot"></span> 251 entries</span>
+                    <span class="bento-card__meta-item"><span class="bento-card__meta-dot"></span> 16 shifts</span>
+                    <span class="bento-card__meta-item"><span class="bento-card__meta-dot"></span> PCM</span>
+                  </div>
+                </div>
+                <div class="bento-card__arrow">
+                  View data →
+                </div>
+              </div>
+
+              <!-- Community Analysis -->
+              <div class="bento-card bento-card--green" onclick="closeToolsModal();openCommunityScreen()">
+                <div class="bento-card__top">
+                  <div class="bento-card__icon"><span class="bento-card__live-dot"></span></div>
+                  <span class="bento-card__badge">Live</span>
+                </div>
+                <div class="bento-card__body">
+                  <div class="bento-card__name">Live Community Analysis</div>
+                  <div class="bento-card__desc">See how students are scoring across all shifts and streams — updated in real-time.</div>
+                </div>
+                <div class="bento-card__arrow">Open dashboard →</div>
+              </div>
+
+              <!-- Percentile Predictor -->
+              <div class="bento-card bento-card--red" onclick="closeToolsModal();openPredictorDisclaimer()">
+                <div class="bento-card__top">
+                  <div class="bento-card__icon">⚡</div>
+                  <span class="bento-card__badge">Experimental</span>
+                </div>
+                <div class="bento-card__body">
+                  <div class="bento-card__name">Percentile Predictor</div>
+                  <div class="bento-card__desc">Estimate your percentile using live shift statistics and projection models.</div>
+                </div>
+                <div class="bento-card__arrow">Try predictor →</div>
+              </div>
+
+              <!-- Analytics Report -->
+              <a href="CETLens_Combined_Analysis_Report.pdf" target="_blank" class="bento-card bento-card--blue" style="text-decoration:none;">
+                <div class="bento-card__icon">📄</div>
+                <div class="bento-card__body">
+                  <div style="display:flex;align-items:center;gap:10px;margin-bottom:4px;">
+                    <div class="bento-card__name" style="margin:0">Final Analytics Report</div>
+                    <span class="bento-card__badge">PDF</span>
+                  </div>
+                  <div class="bento-card__desc">Comprehensive statistical breakdown, shift difficulty analysis, and score distributions.</div>
+                </div>
+                <div class="bento-card__arrow">Download report →</div>
+              </a>
+
+            </div>
+          </div>
         </div>
 
-        <!-- Final Marks Google Form CTA -->
-        <a href="https://forms.gle/TFJCmgY7TzE5P6nJ7" target="_blank" class="percentile-cta-banner" style="background: rgba(255, 152, 0, 0.08); border-color: rgba(255, 152, 0, 0.2); text-decoration: none; margin-top: 10px; display: flex;">
-          <div class="percentile-cta__icon">⭐</div>
-          <div class="percentile-cta__text">
-            <div class="percentile-cta__title" style="color: #ff9800;">
-              Submit Final Marks (With Bonus)
-              <span class="cta-badge" style="background: rgba(255, 152, 0, 0.2); color: #ff9800;">Collab</span>
-            </div>
-            <div class="percentile-cta__sub">Submit your final marks & percentile to the CETEdge x CETLens Google Form!</div>
+        <!-- MVP Viewer Full Page -->
+        <div class="mvp-overlay" id="mvpOverlay" style="display:none;">
+          <!-- Layered Background (shared from tools) -->
+          <div class="tools-bg">
+            <div class="tools-bg__grid"></div>
+            <div class="tools-bg__orb tools-bg__orb--1"></div>
+            <div class="tools-bg__orb tools-bg__orb--2"></div>
+            <div class="tools-bg__orb tools-bg__orb--3"></div>
           </div>
-          <div class="percentile-cta__arrow" style="color: #ff9800;">↗</div>
-        </a>
+          
+          <div class="mvp-page">
+            <div class="tools-page__header" style="margin-bottom: 0;">
+              <button class="tools-page__back" onclick="closeMvpViewer()" aria-label="Back">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
+              </button>
+              <div>
+                <div class="tools-hero__badge" style="margin-bottom: 6px;">
+                  <span class="tools-hero__badge-dot"></span> Attempt 1 — PCM
+                </div>
+                <h2 class="tools-hero__title" style="font-size: 32px; margin-bottom: 0;">Marks vs Percentile</h2>
+              </div>
+            </div>
+            
+            <div class="mvp-viewer__info">
+              <span id="mvpTotalEntries">251 entries</span> across <span id="mvpTotalShifts">16 shifts</span> · Community verified · Provisional marks (without bonus)
+            </div>
 
-        <!-- Community Analysis CTA -->
-        <div class="community-cta-banner" onclick="openCommunityScreen()" role="button" tabindex="0">
-          <div class="community-cta__pulse">
-            <span class="led led--green"><span class="led__dot"></span></span>
+            <div class="mvp-viewer__grid" id="mvpGrid"></div>
           </div>
-          <div class="community-cta__text">
-            <div class="community-cta__title">
-              View Live Community Analysis
-              <span class="cta-badge">Live</span>
-            </div>
-            <div class="community-cta__sub">See how students are scoring across all shifts and streams — updated in real-time</div>
-          </div>
-          <div class="community-cta__arrow">→</div>
-        </div>
-
-        <!-- Final Report CTA -->
-        <a href="CETLens_Combined_Analysis_Report.pdf" target="_blank" class="community-cta-banner" style="text-decoration:none; margin-top:12px; background: rgba(59, 130, 246, 0.05); border: 1px solid rgba(59, 130, 246, 0.2); display: flex;">
-          <div class="community-cta__pulse">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-  <title>Icon</title>
-              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
-              <polyline points="14 2 14 8 20 8"></polyline>
-              <line x1="16" y1="13" x2="8" y2="13"></line>
-              <line x1="16" y1="17" x2="8" y2="17"></line>
-              <polyline points="10 9 9 9 8 9"></polyline>
-            </svg>
-          </div>
-          <div class="community-cta__text">
-            <div class="community-cta__title">
-              Read the Final Analytics Report
-              <span class="cta-badge" style="background: rgba(59, 130, 246, 0.1); color: #2563eb; border: 1px solid rgba(59, 130, 246, 0.3);">PDF</span>
-            </div>
-            <div class="community-cta__sub">View the comprehensive statistical breakdown and shift difficulty analysis</div>
-          </div>
-          <div class="community-cta__arrow" style="color: #3b82f6;">→</div>
-        </a>
-
-        <!-- Percentile Predictor CTA -->
-        <div id="predictorCtaBanner" class="predictor-cta-banner" onclick="openPredictorDisclaimer()" role="button" tabindex="0"
-          onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openPredictorDisclaimer();}">
-          <div class="predictor-cta__icon" aria-hidden="true" style="overflow:hidden;">
-            <svg width="26" height="26" viewBox="0 0 24 24" fill="none">
-  <title>Icon</title>
-              <path d="M12 3 22 20H2L12 3Z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
-              <path d="M12 9v5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-              <path d="M12 17h.01" stroke="currentColor" stroke-width="3" stroke-linecap="round"/>
-            </svg>
-          </div>
-          <div class="predictor-cta__text">
-            <div class="predictor-cta__title">
-              Percentile Predictor
-              <span class="predictor-cta__badge">Experimental</span>
-            </div>
-            <div class="predictor-cta__sub">Estimate your percentile using live shift statistics and projection models</div>
-          </div>
-          <div class="predictor-cta__arrow">→</div>
         </div>
 
       </div>
@@ -727,6 +1125,7 @@
   <!-- ── Restore Session Modal ── -->
   <div class="restore-overlay" id="restoreOverlay">
     <div class="restore-box">
+      <button type="button" class="restore-close-btn" onclick="dismissRestore()" aria-label="Close modal">✕</button>
       <div class="restore-icon">📋</div>
       <div class="restore-title">Restore Previous Session?</div>
       <div class="restore-meta" id="restoreMeta"></div>
@@ -775,7 +1174,7 @@
         <button type="button" class="btn-primary predictor-accept-btn" onclick="acceptPredictorDisclaimer()" style="display: flex; align-items: center; justify-content: center; gap: 6px;">
           ACCEPT <span style="opacity: 0.5;">/</span> <span style="font-size: 15px;">स्वीकारा</span>
         </button>
-        <button type="button" class="btn-ghost predictor-cancel-btn" onclick="closePredictorDisclaimer()">Cancel</button>
+        <button type="button" class="btn-ghost predictor-cancel-btn" onclick="closePredictorDisclaimer(); openToolsModal()">Cancel</button>
       </div>
     </div>
   </div>
@@ -1242,7 +1641,7 @@
 <div id="predictorScreen" style="display:none">
   <div class="topbar">
     <div class="topbar-left">
-      <button type="button" class="btn-ghost" onclick="closePredictorScreen()" style="min-height:36px;padding:.3rem .75rem;font-size:11px;border-radius:8px;">Back</button>
+      <button type="button" class="btn-ghost" onclick="closePredictorScreen(); openToolsModal()" style="min-height:36px;padding:.3rem .75rem;font-size:11px;border-radius:8px;">Back</button>
       <div class="topbar-brand">CETLens</div>
       <span class="topbar-mode">Percentile Predictor</span>
     </div>
@@ -1809,8 +2208,9 @@
   <!-- Core modules; analytics snapshots are lazy-loaded by utils.js. -->
   <script defer src="data/static_signatures.js?v=2"></script>
   <script defer src="data/static_data.js?v=4"></script>
+  <script defer src="data/marks_percentile_data.js?v=1"></script>
   <script defer src="js/utils.js?v=1"></script>
-  <script defer src="js/script.js?v=8"></script>
+  <script defer src="js/script.js?v=9"></script>
   <script defer src="js/supabase-percentiles.js?v=4"></script>
   <script defer src="js/analytics.js?v=4"></script>
   <script defer src="js/predictor.js?v=4"></script>

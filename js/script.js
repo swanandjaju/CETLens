@@ -1907,8 +1907,9 @@ function closeCommunityScreen() {
   const lp = document.getElementById('landingPage');
   if (lp) lp.style.display = '';
   const up = document.getElementById('uploadScreen');
-  if (up) up.style.display = '';
+  if (up) up.style.display = 'flex'; // Use flex since the original CSS uses flex for upload-screen
   document.body.classList.add('upload-active');
+  openToolsModal();
 }
 
 /* ── Percentile Data Collection (completely separate from main upload) ── */
@@ -1929,6 +1930,112 @@ var _PCT_KNOWN_QIDS = {
   '206018': '19 April - Evening', '206061': '19 April - Evening',
   '206313': '20 April - Evening', '206328': '20 April - Evening'
 };
+
+/* ── Tools Modal ── */
+function openToolsModal() {
+  var overlay = document.getElementById('toolsOverlay');
+  overlay.style.display = '';
+  document.body.style.overflow = 'hidden';
+  // Reset card animations
+  overlay.querySelectorAll('.bento-card').forEach(function(c) {
+    c.style.animation = 'none';
+    c.offsetHeight; // trigger reflow
+    c.style.animation = '';
+  });
+}
+function closeToolsModal() {
+  document.getElementById('toolsOverlay').style.display = 'none';
+  document.body.style.overflow = '';
+}
+// Cursor spotlight
+document.addEventListener('mousemove', function(e) {
+  var spot = document.getElementById('toolsSpotlight');
+  if (spot && document.getElementById('toolsOverlay').style.display !== 'none') {
+    spot.style.left = e.clientX + 'px';
+    spot.style.top = e.clientY + 'px';
+  }
+});
+
+/* ── Marks vs Percentile Viewer ── */
+function openMvpViewer() {
+  var overlay = document.getElementById('mvpOverlay');
+  overlay.style.display = '';
+  document.body.style.overflow = 'hidden';
+  renderMvpGrid();
+}
+
+function closeMvpViewer() {
+  document.getElementById('mvpOverlay').style.display = 'none';
+  document.body.style.overflow = '';
+  openToolsModal();
+}
+
+function renderMvpGrid() {
+  var grid = document.getElementById('mvpGrid');
+  if (!window.MARKS_VS_PERCENTILE_DATA) { grid.innerHTML = '<p>No data available.</p>'; return; }
+  var data = window.MARKS_VS_PERCENTILE_DATA;
+  var shiftNames = Object.keys(data).sort(function(a, b) {
+    // Sort by date then shift (Morning before Evening)
+    var da = a.match(/(\d+)/); var db = b.match(/(\d+)/);
+    if (da && db && da[1] !== db[1]) return parseInt(da[1]) - parseInt(db[1]);
+    if (a.indexOf('Morning') !== -1 && b.indexOf('Evening') !== -1) return -1;
+    if (a.indexOf('Evening') !== -1 && b.indexOf('Morning') !== -1) return 1;
+    return a.localeCompare(b);
+  });
+
+  var totalEntries = 0;
+  var html = '';
+  shiftNames.forEach(function(name) {
+    var entries = data[name];
+    totalEntries += entries.length;
+    html += '<div class="mvp-shift-card">';
+    html += '<div class="mvp-shift-card__header">';
+    html += '<span class="mvp-shift-card__name">' + name + '</span>';
+    html += '<span class="mvp-shift-card__count">' + entries.length + ' entries</span>';
+    html += '</div>';
+    html += '<div class="mvp-shift-card__table-wrap">';
+    html += '<table class="mvp-shift-table"><thead><tr><th>#</th><th>Marks</th><th>Percentile</th></tr></thead><tbody>';
+    // Sort descending by marks for display
+    var sorted = entries.slice().sort(function(a, b) { return b[0] - a[0]; });
+    sorted.forEach(function(entry, idx) {
+      var marks = entry[0];
+      var pct = entry[1];
+      var pctClass = pct >= 95 ? 'pct-high' : pct >= 75 ? 'pct-mid' : 'pct-low';
+      html += '<tr><td>' + (idx + 1) + '</td><td>' + marks + '</td><td class="' + pctClass + '">' + pct.toFixed(2) + '</td></tr>';
+    });
+    html += '</tbody></table></div></div>';
+  });
+
+  grid.innerHTML = html;
+  document.getElementById('mvpTotalEntries').textContent = totalEntries + ' entries';
+  document.getElementById('mvpTotalShifts').textContent = shiftNames.length + ' shifts';
+}
+
+// Close modals on Escape key
+document.addEventListener('keydown', function(e) {
+  if (e.key === 'Escape') {
+    if (document.getElementById('mvpOverlay').style.display !== 'none') {
+      closeMvpViewer();
+    } else if (document.getElementById('toolsOverlay').style.display !== 'none') {
+      closeToolsModal();
+    }
+  }
+});
+document.addEventListener('click', function(e) {
+  if (e.target && e.target.id === 'mvpOverlay') closeMvpViewer();
+});
+
+// Init MVP count on CTA
+document.addEventListener('DOMContentLoaded', function() {
+  if (window.MARKS_VS_PERCENTILE_DATA) {
+    var total = 0;
+    Object.keys(window.MARKS_VS_PERCENTILE_DATA).forEach(function(k) {
+      total += window.MARKS_VS_PERCENTILE_DATA[k].length;
+    });
+    var countEl = document.getElementById('mvpCount');
+    if (countEl) countEl.textContent = '· ' + total + ' entries';
+  }
+});
 
 function activatePercentileMode() {
   document.getElementById('uploadScreen').style.display = 'none';
