@@ -2270,7 +2270,7 @@ async function pctHandleFile(input) {
     }
 
     // Signature collection + live validation (5-vote threshold)
-    if (typeof window.submitPctSignature === 'function' && signature) {
+    if (attempt !== 'Attempt 2' && typeof window.submitPctSignature === 'function' && signature) {
       var sigResult = await window.submitPctSignature(mode, attempt, shift, signature);
       if (sigResult && sigResult.ok === false && sigResult.reason === 'wrong_shift') {
         alert('Wrong shift detected! Community votes confirm this sheet belongs to "' + sigResult.correct_shift + '". Please select the correct shift and try again.');
