@@ -843,6 +843,19 @@
                 </div>
               </div>
 
+              <!-- Submit Marks vs Percentile -->
+              <div class="bento-card bento-card--hero" onclick="closeToolsModal();activatePercentileMode()">
+                <div class="bento-card__icon">📊</div>
+                <div class="bento-card__body">
+                  <div style="display:flex;align-items:center;gap:10px;margin-bottom:4px;">
+                    <div class="bento-card__name" style="margin:0">Submit Marks vs Percentile</div>
+                    <span class="bento-card__badge" style="background: rgba(37, 99, 235, 0.15); color: #60a5fa; border: 1px solid rgba(59, 130, 246, 0.2);">Attempt 2</span>
+                  </div>
+                  <div class="bento-card__desc">Contribute your marks and percentile to the community database. Help build accurate data for everyone.</div>
+                </div>
+                <div class="bento-card__arrow">Submit data →</div>
+              </div>
+
               <!-- Community Analysis -->
               <div class="bento-card bento-card--green" onclick="closeToolsModal();openCommunityScreen()">
                 <div class="bento-card__top">
@@ -1006,8 +1019,7 @@
     <div class="attempt-selector">
       <label class="attempt-selector-label" for="pctAttemptSelect" style="display:block">Select Attempt</label>
       <select id="pctAttemptSelect" class="select-dropdown" onchange="pctOnAttemptChange()">
-        <option value="" disabled selected>Select attempt...</option>
-        <option value="Attempt 1">Attempt 1</option>
+        <option value="Attempt 2" selected>Attempt 2</option>
       </select>
       <div id="pctShiftContainer" style="display:none;">
         <label class="attempt-selector-label" for="pctShiftSelect" style="display:block">Select Shift</label>

@@ -1105,6 +1105,27 @@ async function loadDash(filename, qs) {
         }
         return; // Prevent showDash
       }
+    } else if (selectedAttempt === 'Attempt 2') {
+      // Unrecognized Attempt 2 sheet -> show the yellow proper popup
+      document.getElementById('loadingScreen').style.display = 'none';
+      const overlay = document.getElementById('oldSheetOverlay');
+      if (overlay) {
+        document.getElementById('oldSheetContinueBtn').onclick = async function () {
+          overlay.classList.remove('open');
+          document.getElementById('loadingScreen').style.display = 'flex';
+          
+          if (typeof saveSubmissionToSupabase === 'function') {
+            const success = await saveSubmissionToSupabase(qs, st, filename, signature);
+            if (success === false) {
+              document.getElementById('loadingScreen').style.display = 'none';
+              return;
+            }
+          }
+          showDash(qs);
+        };
+        overlay.classList.add('open');
+        return; // Wait for user action
+      }
     }
   }
 
@@ -2042,6 +2063,7 @@ function activatePercentileMode() {
   var lp = document.getElementById('landingPage');
   if (lp) lp.style.display = 'none';
   document.getElementById('percentileScreen').style.display = 'flex';
+  pctOnAttemptChange();
 }
 
 function closePercentileScreen() {
@@ -2187,6 +2209,27 @@ async function pctHandleFile(input) {
       return;
     }
 
+    // --- Stream detection & mismatch check (same as main flow) ---
+    var PCM_COUNT = 150;
+    var PCB_COUNT = 200;
+    var detectedStream = qs.length === PCB_COUNT ? 'PCB' : (qs.length === PCM_COUNT ? 'PCM' : null);
+
+    if (!detectedStream) {
+      // Invalid question count — incomplete download
+      var expectedCount = mode === 'PCM' ? PCM_COUNT : PCB_COUNT;
+      alert('Only ' + qs.length + ' questions found, but a ' + mode + ' response sheet should have exactly ' + expectedCount + ' questions.\n\nThis usually means the page was not fully loaded when you saved the file. Please go back to the portal, wait for the page to load completely, and download it again.');
+      _pctProcessing = false;
+      input.value = '';
+      return;
+    }
+
+    if (detectedStream !== mode) {
+      alert('You selected ' + mode + ' but this response sheet belongs to ' + detectedStream + ' (' + qs.length + ' questions detected).\n\nPlease select ' + detectedStream + ' and try again.');
+      _pctProcessing = false;
+      input.value = '';
+      return;
+    }
+
     // --- Silent hardcoded QID validation (scans ALL question IDs, not just physics) ---
     var allQids = qs.map(function(q) { return q.qid.trim(); });
     var detectedShiftByQid = null;
@@ -2197,7 +2240,7 @@ async function pctHandleFile(input) {
       }
     }
     if (detectedShiftByQid && detectedShiftByQid !== shift) {
-      // Silent rejection — no popup, just quietly stop
+      alert('Wrong shift detected! This sheet belongs to ' + detectedShiftByQid + '. Please select the correct shift and try again.');
       _pctProcessing = false;
       input.value = '';
       return;
@@ -2216,6 +2259,13 @@ async function pctHandleFile(input) {
           input.value = '';
           return;
         }
+      } else {
+        // We do not recognize this signature at all.
+        // Since we have all signatures for Attempt 2, if it's not recognized, it's definitely not the selected shift.
+        alert('Unrecognized response sheet! This sheet does not match the signature for ' + shift + '.\n\nPlease make sure you are uploading the correct response sheet for the selected shift.');
+        _pctProcessing = false;
+        input.value = '';
+        return;
       }
     }
 
@@ -2231,7 +2281,7 @@ async function pctHandleFile(input) {
     }
 
     var earned = qs.reduce(function(s, q) { return s + q.marks; }, 0);
-    var maxM = qs.reduce(function(s, q) { return s + (q.section === 'Mathematics' && mode === 'PCM' ? 2 : 1); }, 0) || 200;
+    var maxM = qs.reduce(function(s, q) { return s + (q.section === 'Mathematics' ? 2 : 1); }, 0) || 200;
 
     // --- Duplicate Check ---
     var sheetHash = '';
